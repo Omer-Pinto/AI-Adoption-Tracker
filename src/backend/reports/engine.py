@@ -669,6 +669,10 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
             f"DELETE FROM artifact_history WHERE report_id IN ({placeholders})",
             report_ids,
         )
+        conn.execute(
+            f"DELETE FROM action_item WHERE report_id IN ({placeholders})",
+            report_ids,
+        )
 
     # Reset only the domain fields that at least one report for THAT SPECIFIC
     # domain sets via a ``changes`` block — scoped per domain so that a field
@@ -739,6 +743,16 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
                     entry,
                     seen_artifacts,
                 )
+        for item in doc.action_items:
+            try:
+                item_domain_id = (
+                    _resolve_domain_id(conn, champion_id, item.domain)
+                    if item.domain
+                    else None
+                )
+            except EngineError:
+                continue  # mirror replay loop: skip unresolvable domain sections
+            _insert_action_item(conn, rep["id"], item_domain_id, item)
 
     for task_id in touched_tasks:
         _recompute_task_current_state(conn, task_id)
