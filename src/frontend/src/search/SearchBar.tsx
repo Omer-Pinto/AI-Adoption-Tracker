@@ -52,7 +52,7 @@ type DropdownPhase =
   | { phase: 'closed' }
   | { phase: 'category' }
   | { phase: 'enum-editor'; chipId: string; values: string[]; selected: Set<string>; loading: boolean }
-  | { phase: 'date-editor'; chipId: string };
+  | { phase: 'date-editor'; chipId: string; initDate: string };
 
 // ── SearchBar ─────────────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const catSearchRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
   const enumSearchRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
-  const dateFromRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
+  const dateInputRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
 
   // Sync chips → DSL → onChange (debounced)
   const emitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,7 +126,7 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
       setEnumSearch('');
       requestAnimationFrame(() => enumSearchRef.current?.focus());
     } else if (dropdown.phase === 'date-editor') {
-      requestAnimationFrame(() => dateFromRef.current?.focus());
+      requestAnimationFrame(() => dateInputRef.current?.focus());
     }
   }, [dropdown.phase]);
 
@@ -160,12 +160,12 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
     if (meta.kind === 'date') {
       const existing = chips.find((c): c is DateChip => c.key === 'date' && c.kind === 'date');
       if (existing) {
-        setDropdown({ phase: 'date-editor', chipId: existing.id });
+        setDropdown({ phase: 'date-editor', chipId: existing.id, initDate: existing.value });
         return;
       }
-      const chip: DateChip = { id: nextChipId(), key: 'date', kind: 'date', value: { from: '', to: '' } };
+      const chip: DateChip = { id: nextChipId(), key: 'date', kind: 'date', value: '' };
       setChips((prev) => [...prev, chip]);
-      setDropdown({ phase: 'date-editor', chipId: chip.id });
+      setDropdown({ phase: 'date-editor', chipId: chip.id, initDate: '' });
       return;
     }
 
@@ -203,7 +203,7 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
   }
 
   function openDateEditor(chip: DateChip) {
-    setDropdown({ phase: 'date-editor', chipId: chip.id });
+    setDropdown({ phase: 'date-editor', chipId: chip.id, initDate: chip.value });
   }
 
   // ── Apply enum selection ───────────────────────────────────────────────────
@@ -228,15 +228,15 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
 
   // ── Apply date selection ───────────────────────────────────────────────────
 
-  function applyDateSelection(chipId: string, from: string, to: string) {
-    if (!from && !to) {
+  function applyDateSelection(chipId: string, date: string) {
+    if (!date) {
       removeChip(chipId);
       return;
     }
     setChips((prev) => {
       const next = prev.map((c) => {
         if (c.id !== chipId) return c;
-        return { ...c, kind: 'date' as const, value: { from, to } } as DateChip;
+        return { ...c, kind: 'date' as const, value: date } as DateChip;
       });
       emitDsl(next);
       return next;
@@ -330,24 +330,20 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
         />
       )}
 
-      {dropdown.phase === 'date-editor' && (() => {
-        const chip = chips.find((c): c is DateChip => c.id === dropdown.chipId && c.kind === 'date');
-        return (
-          <DateDropdown
-            fromRef={dateFromRef}
-            initFrom={chip?.value.from ?? ''}
-            initTo={chip?.value.to ?? ''}
-            onApply={(from, to) => applyDateSelection(dropdown.chipId, from, to)}
-            onClose={() => {
-              const c = chips.find((ch) => ch.id === dropdown.chipId);
-              if (c?.kind === 'date' && !c.value.from && !c.value.to) {
-                removeChip(dropdown.chipId);
-              }
-              setDropdown({ phase: 'closed' });
-            }}
-          />
-        );
-      })()}
+      {dropdown.phase === 'date-editor' && (
+        <DateDropdown
+          dateRef={dateInputRef}
+          initDate={dropdown.initDate}
+          onApply={(date) => applyDateSelection(dropdown.chipId, date)}
+          onClose={() => {
+            const c = chips.find((ch) => ch.id === dropdown.chipId);
+            if (c?.kind === 'date' && !c.value) {
+              removeChip(dropdown.chipId);
+            }
+            setDropdown({ phase: 'closed' });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -623,54 +619,37 @@ function EnumDropdown({
 // ── DateDropdown ──────────────────────────────────────────────────────────────
 
 interface DateDropdownProps {
-  fromRef: RefObject<HTMLInputElement>;
-  initFrom: string;
-  initTo: string;
-  onApply: (from: string, to: string) => void;
+  dateRef: RefObject<HTMLInputElement>;
+  initDate: string;
+  onApply: (date: string) => void;
   onClose: () => void;
 }
 
-function DateDropdown({ fromRef, initFrom, initTo, onApply, onClose }: DateDropdownProps) {
-  const [from, setFrom] = useState(initFrom);
-  const [to, setTo] = useState(initTo);
+function DateDropdown({ dateRef, initDate, onApply, onClose }: DateDropdownProps) {
+  const [date, setDate] = useState(initDate);
 
   function apply() {
-    onApply(from, to);
+    onApply(date);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') { e.preventDefault(); apply(); }
     else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
-    else if (e.key === 'Tab' && e.currentTarget === fromRef.current && !e.shiftKey) {
-      // let Tab naturally move to "To" input
-      return;
-    }
   }
 
   return (
-    <div className="sb-dropdown" role="dialog" aria-label="Select date range">
-      <div className="sb-dd-header">Date range</div>
+    <div className="sb-dropdown" role="dialog" aria-label="Select date">
+      <div className="sb-dd-header">Active on date</div>
       <div className="sb-date-editor">
         <div className="sb-date-row">
-          <label className="sb-date-label" htmlFor="sb-date-from">From</label>
+          <label className="sb-date-label" htmlFor="sb-date-input">Date</label>
           <input
-            ref={fromRef}
-            id="sb-date-from"
+            ref={dateRef}
+            id="sb-date-input"
             type="date"
             className="sb-date-input"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-        </div>
-        <div className="sb-date-row">
-          <label className="sb-date-label" htmlFor="sb-date-to">To</label>
-          <input
-            id="sb-date-to"
-            type="date"
-            className="sb-date-input"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             onKeyDown={handleKeyDown}
           />
         </div>

@@ -8,7 +8,7 @@
  *
  * The DSL string format consumed by the backend (routes/search.py):
  *   enum  → key:value1,value2   (OR semantics within key, AND between keys)
- *   date  → date:>=YYYY-MM-DD date:<=YYYY-MM-DD
+ *   date  → date:YYYY-MM-DD     (single date; backend: "task active on that day")
  *
  * Public API exported:
  *   chipsToDsl(chips)         → DSL string
@@ -53,17 +53,23 @@ export interface DateChip {
   id: string;
   key: 'date';
   kind: 'date';
-  value: { from: string; to: string };
+  value: string;
 }
 
 export type Chip = EnumChip | DateChip;
 
 // ── DSL serialiser ───────────────────────────────────────────────────────────
 
+// Keys whose values are stored verbatim (may contain hyphens; must NOT be
+// converted to/from spaces on serialise or parse).
+const VERBATIM_ENUM_KEYS = new Set<SearchKey>(['status', 'type']);
+
 function chipToDsl(chip: Chip): string {
   if (chip.kind === 'enum') {
     if (!chip.value || chip.value.length === 0) return '';
+    const verbatim = VERBATIM_ENUM_KEYS.has(chip.key);
     const encoded = chip.value.map((v) => {
+      if (verbatim) return v; // pass through exactly — no quoting, no conversion
       if (/\s/.test(v)) return `"${v}"`;
       return v.replace(/\s+/g, '-');
     });
@@ -71,11 +77,8 @@ function chipToDsl(chip: Chip): string {
   }
 
   if (chip.kind === 'date') {
-    const { from, to } = chip.value;
-    const parts: string[] = [];
-    if (from) parts.push(`date:>=${from}`);
-    if (to)   parts.push(`date:<=${to}`);
-    return parts.join(' ');
+    if (!chip.value) return '';
+    return `date:${chip.value}`;
   }
 
   return '';
@@ -103,7 +106,7 @@ export function parseDslToChips(dsl: string): Chip[] {
   const re = /([a-zA-Z]+):((?:"[^"]*"|[^\s]+))/g;
   let m: RegExpExecArray | null;
 
-  const dateParts: { from?: string; to?: string } = {};
+  const dateParts: { date?: string } = {};
 
   while ((m = re.exec(remaining)) !== null) {
     const rawKey = m[1];
@@ -118,23 +121,25 @@ export function parseDslToChips(dsl: string): Chip[] {
     if (!meta) continue;
 
     if (key === 'date') {
-      if (rawVal.startsWith('>=')) {
-        dateParts.from = rawVal.slice(2);
-      } else if (rawVal.startsWith('<=')) {
-        dateParts.to = rawVal.slice(2);
-      } else {
-        const d = rawVal.replace(/^"(.*)"$/, '$1');
-        dateParts.from = d;
-        dateParts.to = d;
+      // Backend only supports a single ISO date; range operators are not
+      // understood and silently match nothing. Accept bare date only.
+      if (!rawVal.startsWith('>=') && !rawVal.startsWith('<=')) {
+        dateParts.date = rawVal.replace(/^"(.*)"$/, '$1');
       }
       continue;
     }
 
     if (meta.kind === 'enum') {
+      const verbatim = VERBATIM_ENUM_KEYS.has(key);
       const stripped = rawVal.replace(/^"(.*)"$/, '$1');
       const parts = stripped
         .split(',')
-        .map((t) => t.trim().replace(/^"(.*)"$/, '$1').replace(/-/g, ' '))
+        .map((t) => {
+          const val = t.trim().replace(/^"(.*)"$/, '$1');
+          // For verbatim keys (status, type) preserve hyphens exactly.
+          // For other keys, convert hyphens to spaces (display convention).
+          return verbatim ? val : val.replace(/-/g, ' ');
+        })
         .filter(Boolean);
       if (parts.length === 0) continue;
 
@@ -149,12 +154,12 @@ export function parseDslToChips(dsl: string): Chip[] {
     }
   }
 
-  if (dateParts.from !== undefined || dateParts.to !== undefined) {
+  if (dateParts.date !== undefined) {
     chips.push({
       id: nextId(),
       key: 'date',
       kind: 'date',
-      value: { from: dateParts.from ?? '', to: dateParts.to ?? '' },
+      value: dateParts.date,
     });
   }
 
@@ -169,14 +174,7 @@ export function chipValueLabel(chip: Chip): string {
     return chip.value.join(' OR ');
   }
   if (chip.kind === 'date') {
-    const { from, to } = chip.value;
-    if (!from && !to) return '…';
-    if (from && to) {
-      if (from === to) return from;
-      return `${from} → ${to}`;
-    }
-    if (from) return `>= ${from}`;
-    return `<= ${to}`;
+    return chip.value || '…';
   }
   return '…';
 }
