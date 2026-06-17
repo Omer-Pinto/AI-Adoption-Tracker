@@ -14,9 +14,10 @@ OpenAI-compatible dialect
     ``type="json_schema"`` and ``strict=true``, which instructs the server's
     constrained-decoding layer to guarantee that every token sequence it emits
     is a valid instance of our report schema.  Because OpenAI's strict subset
-    disallows ``oneOf``/``anyOf``/$ref chains and requires ``additionalProperties:
-    false`` on every object, the schema stored in ``report_schema.json`` is
-    transformed at runtime into a strict-compatible form before being sent.
+    disallows ``$ref`` chains and requires ``additionalProperties: false`` on
+    every object node, the schema stored in ``report_schema.json`` is
+    transformed at runtime into a strict-compatible form before being sent
+    (refs inlined, unsupported keywords stripped, additionalProperties enforced).
     The report dict is read from ``response["choices"][0]["message"]["content"]``
     after JSON-parsing.
 
@@ -198,12 +199,9 @@ def _strip_unsupported_keywords(schema: Any) -> Any:
     ``if``/``then``/``else``, ``$schema``, ``$id``, ``format``, ``default``,
     ``description`` (kept — harmless), ``title`` (kept — harmless).
 
-    For ``oneOf`` on ``taskEntry`` and ``artifactEntry`` (which encode mutual
-    exclusivity between ``task``/``new_task`` and ``artifact``/``new_artifact``),
-    the correct transform is to keep all properties and make them individually
-    optional.  The semantic constraint is carried in the system prompt instead;
-    the schema enforces the *shape*, and the model instruction enforces the
-    *mutual-exclusivity* rule.
+    The report schema uses plain object definitions with no ``oneOf``/``anyOf``
+    unions, so this pass is a straightforward keyword-strip plus
+    ``additionalProperties: false`` enforcement on every object node.
     """
     _UNSUPPORTED = frozenset({
         "oneOf", "anyOf", "allOf", "not",
@@ -320,10 +318,12 @@ Rules:
 - champion: copy from context["champion_name"].
 - meeting_date: today's date in YYYY-MM-DD, or extract from the notes if stated.
 - raw_notes: copy the notes verbatim.
-- For tasks: use the "task" field when the task name already exists in context, \
-use "new_task" when it is brand new. Use exactly one of the two, never both.
-- For artifacts: same pattern — "artifact" for existing, "new_artifact" for new. \
-Use exactly one of the two, never both.
+- For tasks: record each task by name in the "task" field, exactly as it appears \
+in the notes. Do not decide or mark whether a task is new or already existing — \
+that is resolved by the backend against the database.
+- For artifacts: record each tool or artifact by name in the "artifact" field, \
+exactly as it appears in the notes. Do not decide or mark whether an artifact is \
+new or already existing — that is resolved by the backend against the database.
 - Only include domain sections that are actually mentioned in the notes.
 - Omit optional fields that have no value rather than emitting null or empty strings.\
 """
