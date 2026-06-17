@@ -110,16 +110,15 @@ export interface ArtifactHistoryEntry {
 // ---- Report JSON (spec §4) ----
 
 export interface ReportTaskLine {
-  task?: string; // existing task name
-  new_task?: string; // newly introduced task name
+  task: string; // task name; backend resolves existing vs new against the DB
   status: TaskStatus;
   owner?: string;
   note?: string;
+  finished_on?: string; // optional per-task finish-date override (YYYY-MM-DD)
 }
 
 export interface ReportArtifactLine {
-  artifact?: string; // existing artifact name
-  new_artifact?: string; // newly introduced artifact name
+  artifact: string; // artifact name; backend resolves existing vs new against the DB
   type?: ArtifactType;
   tags?: ArtifactTag[];
   change_kind?: ArtifactChangeKind;
