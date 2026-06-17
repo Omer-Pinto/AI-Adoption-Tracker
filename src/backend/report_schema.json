@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-adoption-tracker/report_schema.json",
+  "title": "Weekly Report",
+  "description": "The §4 weekly-report document. One report = one meeting with one champion, covering all their domains. This same schema does three jobs: form layout, save-time validation, and the contract the LLM drafts notes against.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["champion", "meeting_date", "raw_notes"],
+  "properties": {
+    "champion": {
+      "type": "string",
+      "description": "Champion name for this meeting."
+    },
+    "meeting_date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO-8601 date (YYYY-MM-DD) of the meeting."
+    },
+    "participants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "raw_notes": {
+      "type": "string",
+      "description": "The raw meeting notes pasted verbatim; kept inside the report."
+    },
+    "domains": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/domainSection" }
+    },
+    "action_items": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/actionItem" }
+    },
+    "discussion": { "type": ["string", "null"] },
+    "issues": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "taskStatus": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "in-progress",
+        "finished_successfully",
+        "finished_with_issues",
+        "blocked",
+        "abandoned"
+      ]
+    },
+    "artifactType": {
+      "type": "string",
+      "enum": ["agent", "skill", "hook", "context"]
+    },
+    "artifactChangeKind": {
+      "type": "string",
+      "enum": ["added", "updated", "retired", "moved"]
+    },
+    "domainSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain"],
+      "properties": {
+        "domain": { "type": "string" },
+        "changes": {
+          "description": "Only the domain fields that changed this meeting; omit if none.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "description": { "type": "string" },
+            "scope": { "type": "string" },
+            "priority": { "type": "integer" },
+            "cross_domain": { "type": "string" }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/taskEntry" }
+        },
+        "artifacts": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/artifactEntry" }
+        }
+      }
+    },
+    "taskEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A task line. Use `task` (name) for an existing task, or `new_task` for a brand-new one; exactly one of the two.",
+      "oneOf": [
+        { "required": ["task", "status"] },
+        { "required": ["new_task", "status"] }
+      ],
+      "properties": {
+        "task": { "type": "string" },
+        "new_task": { "type": "string" },
+        "status": { "$ref": "#/$defs/taskStatus" },
+        "owner": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "artifactEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An artifact change line. Use `artifact` (name) for an existing artifact, or `new_artifact` for a brand-new one; exactly one of the two.",
+      "oneOf": [
+        { "required": ["artifact"] },
+        { "required": ["new_artifact"] }
+      ],
+      "properties": {
+        "artifact": { "type": "string" },
+        "new_artifact": { "type": "string" },
+        "type": { "$ref": "#/$defs/artifactType" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "change_kind": { "$ref": "#/$defs/artifactChangeKind" },
+        "note": { "type": "string" }
+      }
+    },
+    "actionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "owner": { "type": "string" },
+        "domain": { "type": "string" },
+        "due_date": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

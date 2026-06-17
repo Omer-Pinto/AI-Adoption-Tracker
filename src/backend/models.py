@@ -1,0 +1,223 @@
+"""Pydantic models — the validation + form + LLM-draft contract.
+
+Two groups:
+
+1. Entity models — mirror the §5 storage tables (the fanned-out current-state
+   and history rows). Used for API request/response shapes by Wave-1.
+
+2. Report-document models — mirror the §4 weekly-report JSON. This same shape
+   serves three jobs: the form layout, the save-time validation, and the
+   contract the LLM drafts against. `report_schema.json` is the JSON-Schema
+   twin of these models.
+
+Design notes (see uncertainties in the agent report):
+  * ids are int (SQLite INTEGER PK).
+  * dates are kept as ISO strings (`str`) end-to-end — the spec uses plain
+    "YYYY-MM-DD" text and SQLite has no date type; we don't coerce to
+    `datetime.date` to keep the LLM-draft round-trip lossless.
+  * `tags` is a list[str] in the model; persisted as JSON text in `artifact`.
+  * The report sub-models use field aliases (`task`, `new_task`, `domain`,
+    `new_artifact`) to match the spec JSON verbatim while keeping valid Python
+    attribute names.
+"""
+
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+SCHEMA_VERSION = 1
+
+
+# ── enums ─────────────────────────────────────────────────────────────────
+
+class TaskStatus(str, Enum):
+    planned = "planned"
+    in_progress = "in-progress"
+    finished_successfully = "finished_successfully"
+    finished_with_issues = "finished_with_issues"
+    blocked = "blocked"
+    abandoned = "abandoned"
+
+
+class ArtifactType(str, Enum):
+    agent = "agent"
+    skill = "skill"
+    hook = "hook"
+    context = "context"
+
+
+class ArtifactChangeKind(str, Enum):
+    added = "added"
+    updated = "updated"
+    retired = "retired"
+    moved = "moved"
+
+
+# ── entity models (§5 tables) ───────────────────────────────────────────────
+
+class Team(BaseModel):
+    id: int
+    name: str
+    cc_baseline: str | None = None
+    baseline_date: str | None = None
+
+
+class Champion(BaseModel):
+    id: int
+    name: str
+    team_id: int
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class Domain(BaseModel):
+    id: int
+    team_id: int
+    champion_id: int
+    name: str
+    description: str | None = None
+    scope: str | None = None
+    priority: int | None = None
+    cross_domain: str | None = None
+
+
+class Report(BaseModel):
+    id: int
+    champion_id: int
+    meeting_date: str
+    report_json: str
+    schema_version: int
+
+
+class Task(BaseModel):
+    id: int
+    domain_id: int
+    name: str
+    status: TaskStatus
+    owner: str | None = None
+    started_on: str | None = None
+    ended_on: str | None = None
+
+
+class TaskHistory(BaseModel):
+    id: int
+    task_id: int
+    report_id: int
+    meeting_date: str
+    status_at_meeting: TaskStatus
+    change_note: str | None = None
+
+
+class Artifact(BaseModel):
+    id: int
+    team_id: int
+    domain_id: int | None = None
+    name: str
+    type: ArtifactType
+    tags: list[str] = Field(default_factory=list)
+    summary: str | None = None
+
+
+class ArtifactHistory(BaseModel):
+    id: int
+    artifact_id: int
+    report_id: int
+    meeting_date: str
+    change_kind: ArtifactChangeKind
+    change_note: str | None = None
+
+
+class ActionItem(BaseModel):
+    id: int
+    report_id: int
+    domain_id: int | None = None
+    text: str
+    owner: str | None = None
+    due_date: str | None = None
+    resolved: bool = False
+
+
+# ── report-document models (§4 JSON) ─────────────────────────────────────────
+# These match the §4 JSON exactly, including the `task` vs `new_task` and
+# `new_artifact` discriminators. `populate_by_name=True` lets callers build them
+# with either the alias (JSON wire form) or the Python attribute name.
+
+_doc_config = ConfigDict(populate_by_name=True)
+
+
+class ReportTaskEntry(BaseModel):
+    """A task line inside a report domain.
+
+    For an existing task use `task` (the name); for a brand-new task use
+    `new_task`. Exactly one of the two is expected (validated downstream / by
+    the JSON Schema's oneOf). Mirrors §4 verbatim.
+    """
+    model_config = _doc_config
+
+    task: str | None = None
+    new_task: str | None = None
+    status: TaskStatus
+    owner: str | None = None
+    note: str | None = None
+
+
+class ReportArtifactEntry(BaseModel):
+    """An artifact change line inside a report domain.
+
+    For an existing artifact use `artifact`; for a new one use `new_artifact`.
+    `change_kind` defaults conceptually to "added" for new artifacts but is left
+    optional here so the LLM/form can express updated/retired/moved.
+    """
+    model_config = _doc_config
+
+    artifact: str | None = None
+    new_artifact: str | None = None
+    type: ArtifactType | None = None
+    tags: list[str] | None = None
+    change_kind: ArtifactChangeKind | None = None
+    note: str | None = None
+
+
+class ReportDomainChanges(BaseModel):
+    """Only the domain fields that changed this meeting; omit if none (§4)."""
+    model_config = _doc_config
+
+    description: str | None = None
+    scope: str | None = None
+    priority: int | None = None
+    cross_domain: str | None = None
+
+
+class ReportDomainSection(BaseModel):
+    """One domain's slice of a weekly report."""
+    model_config = _doc_config
+
+    domain: str
+    changes: ReportDomainChanges | None = None
+    tasks: list[ReportTaskEntry] = Field(default_factory=list)
+    artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
+
+
+class ReportActionItem(BaseModel):
+    """An action item inside a report (§4: text, owner; optional domain/due)."""
+    model_config = _doc_config
+
+    text: str
+    owner: str | None = None
+    domain: str | None = None
+    due_date: str | None = None
+
+
+class ReportDocument(BaseModel):
+    """The full §4 weekly-report JSON. Drives the form, save validation, and the
+    LLM drafting contract."""
+    model_config = _doc_config
+
+    champion: str
+    meeting_date: str
+    participants: list[str] = Field(default_factory=list)
+    raw_notes: str
+    domains: list[ReportDomainSection] = Field(default_factory=list)
+    action_items: list[ReportActionItem] = Field(default_factory=list)
+    discussion: str | None = None
+    issues: str | None = None
