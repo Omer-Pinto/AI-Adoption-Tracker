@@ -34,11 +34,11 @@ Design decisions (Wave 2 Agent 2B):
   status is terminal).  See ``_ended_on_for_task``.
 
 * **Domain field reset on replay** — before replaying a champion's reports,
-  every domain's mutable report-driven fields (``description``, ``scope``,
-  ``priority``, ``cross_domain``) are reset to NULL so that an edit that
-  removes a ``changes`` key reverts that field rather than leaving a stale
-  value.  Fields that the management CRUD set directly (not via a report) are
-  therefore wiped on the first edit-replay — flagged as an uncertainty.
+  the mutable report-driven fields (``description``, ``scope``, ``priority``,
+  ``cross_domain``) are reset to NULL *per domain*, but only for the fields
+  that at least one report section actually sets for THAT domain.  A field
+  that only a report for domain A ever touches is not NULLed on domain B,
+  so management-CRUD-set values on domain B survive edit-replays.
 """
 
 from __future__ import annotations
@@ -634,11 +634,11 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
     (entities are not deleted on replay — decision, flagged).
 
     Domain field reset: before replaying, ``description / scope / priority /
-    cross_domain`` are reset to NULL on every domain owned by this champion so
-    that an edit that removes a ``changes`` key correctly reverts that field
-    rather than leaving a stale value from the previous save.  Any values that
-    were set by the management CRUD (not via a report) will also be cleared —
-    flagged as an uncertainty."""
+    cross_domain`` are reset to NULL **per domain** — but only for the fields
+    that at least one of THIS domain's report sections actually sets (non-None
+    value in the ``changes`` block, matching ``_apply_domain_changes`` semantics).
+    A field never mentioned in any report for domain X is left untouched on X,
+    preserving any management-CRUD value set outside the report flow."""
     reports = conn.execute(
         "SELECT id, meeting_date, report_json FROM report "
         "WHERE champion_id = ? ORDER BY meeting_date ASC, id ASC",
@@ -668,24 +668,40 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
             report_ids,
         )
 
-    # Reset only the domain fields that at least one report in this champion's
-    # timeline actually sets via a ``changes`` block.  Fields no report has ever
-    # mentioned are left untouched so that management-CRUD values are preserved.
-    report_touched_fields: set[str] = set()
+    # Reset only the domain fields that at least one report for THAT SPECIFIC
+    # domain sets via a ``changes`` block — scoped per domain so that a field
+    # touched only in domain A is not NULLed on domain B (which may have had
+    # that field set directly by management CRUD).
+    #
+    # Build: domain_id -> set of field names whose value is non-None in at least
+    # one report section that resolves to that domain.  "Touched" mirrors
+    # ``_apply_domain_changes``'s ``model_dump(exclude_none=True)`` semantics:
+    # only keys present with a non-None value count.
+    domain_touched_fields: dict[int, set[str]] = {}
     for rep in reports:
         doc = ReportDocument.model_validate_json(rep["report_json"])
         for section in doc.domains:
-            if section.changes is not None:
-                for field, value in section.changes.model_dump(exclude_none=True).items():
-                    if field in _DOMAIN_REPORT_FIELDS:
-                        report_touched_fields.add(field)
-    if domain_ids and report_touched_fields:
-        placeholders = ",".join("?" * len(domain_ids))
-        reset_cols = ", ".join(f"{col} = NULL" for col in _DOMAIN_REPORT_FIELDS if col in report_touched_fields)
-        conn.execute(
-            f"UPDATE domain SET {reset_cols} WHERE id IN ({placeholders})",
-            domain_ids,
+            if section.changes is None:
+                continue
+            changed = {
+                field
+                for field, value in section.changes.model_dump(exclude_none=True).items()
+                if field in _DOMAIN_REPORT_FIELDS
+            }
+            if not changed:
+                continue
+            try:
+                did = _resolve_domain_id(conn, champion_id, section.domain)
+            except EngineError:
+                continue  # mirror replay loop: skip unresolvable domain sections
+            domain_touched_fields.setdefault(did, set()).update(changed)
+
+    # Issue a targeted NULL reset per domain for only its touched fields.
+    for did, touched in domain_touched_fields.items():
+        reset_cols = ", ".join(
+            f"{col} = NULL" for col in _DOMAIN_REPORT_FIELDS if col in touched
         )
+        conn.execute(f"UPDATE domain SET {reset_cols} WHERE id = ?", (did,))
 
     touched_tasks: set[int] = set()
     # Artifact ids that already received a history row in THIS replay pass — the
