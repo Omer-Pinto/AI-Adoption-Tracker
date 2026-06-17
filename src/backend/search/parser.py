@@ -117,8 +117,10 @@ def _parse_value(raw: str, key: str) -> tuple[str, tuple[Any, ...], bool]:
     slug-expand hyphens to spaces.
     """
     # Enum keys (status/type) are fixed hyphen/lower-cased tokens matched
-    # exactly by the compiler — never slug-expand them.
-    expand = _expand_slug if key not in ENUM_KEYS else (lambda t: t)
+    # exactly by the compiler — never slug-expand them; all other keys expand
+    # bare hyphens to spaces.
+    def expand(token: str) -> str:
+        return token if key in ENUM_KEYS else _expand_slug(token)
 
     # Negation prefix: !token
     if raw.startswith("!"):

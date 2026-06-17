@@ -156,6 +156,13 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
         "SELECT id, name FROM team WHERE id = ?", (champ["team_id"],)
     ).fetchone()
 
+    def _artifact_summary(row: sqlite3.Row) -> dict:
+        return {
+            "name": row["name"],
+            "type": row["type"],
+            "tags": json.loads(row["tags"]) if row["tags"] else [],
+        }
+
     domains: list[dict] = []
     for dom in conn.execute(
         "SELECT id, name, description, scope, priority, cross_domain "
@@ -174,11 +181,7 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
             ).fetchall()
         ]
         artifacts = [
-            {
-                "name": a["name"],
-                "type": a["type"],
-                "tags": json.loads(a["tags"]) if a["tags"] else [],
-            }
+            _artifact_summary(a)
             for a in conn.execute(
                 "SELECT name, type, tags FROM artifact WHERE domain_id = ? ORDER BY id",
                 (dom["id"],),
@@ -197,11 +200,7 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
         )
 
     team_wide_artifacts = [
-        {
-            "name": a["name"],
-            "type": a["type"],
-            "tags": json.loads(a["tags"]) if a["tags"] else [],
-        }
+        _artifact_summary(a)
         for a in conn.execute(
             "SELECT name, type, tags FROM artifact "
             "WHERE team_id = ? AND domain_id IS NULL ORDER BY id",

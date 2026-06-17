@@ -122,13 +122,10 @@ def _task_history(row: sqlite3.Row) -> models.TaskHistory:
 def _artifact(row: sqlite3.Row) -> models.Artifact:
     d = dict(row)
     # `tags` is JSON text in the DB ("null" / null / "[...]"); the model wants a
-    # list[str]. Parse it here so the wire shape is a JSON array.
+    # list[str]. Parse it here so the wire shape is a JSON array; "", NULL and a
+    # literal "null" all collapse to [].
     raw = d.get("tags")
-    if raw is None or raw == "":
-        d["tags"] = []
-    else:
-        parsed = json.loads(raw)
-        d["tags"] = parsed if parsed is not None else []
+    d["tags"] = json.loads(raw) or [] if raw else []
     return models.Artifact(**d)
 
 
