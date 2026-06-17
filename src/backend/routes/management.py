@@ -134,6 +134,10 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
         conn.close()
         raise HTTPException(status_code=404, detail="Team not found")
     changes = body.model_dump(exclude_unset=True)
+    for field in ("name",):
+        if field in changes and changes[field] is None:
+            conn.close()
+            raise HTTPException(status_code=422, detail=f"{field} cannot be null")
     if changes:
         _update(conn, "team", team_id, changes)
         conn.commit()
@@ -184,6 +188,10 @@ def update_champion(champion_id: int, body: ChampionUpdate) -> Champion:
         conn.close()
         raise HTTPException(status_code=404, detail="Champion not found")
     changes = body.model_dump(exclude_unset=True)
+    for field in ("name", "team_id"):
+        if field in changes and changes[field] is None:
+            conn.close()
+            raise HTTPException(status_code=422, detail=f"{field} cannot be null")
     if changes:
         _update(conn, "champion", champion_id, changes)
         conn.commit()
@@ -243,6 +251,10 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
         conn.close()
         raise HTTPException(status_code=404, detail="Domain not found")
     changes = body.model_dump(exclude_unset=True)
+    for field in ("name", "team_id", "champion_id"):
+        if field in changes and changes[field] is None:
+            conn.close()
+            raise HTTPException(status_code=422, detail=f"{field} cannot be null")
     if changes:
         _update(conn, "domain", domain_id, changes)
         conn.commit()

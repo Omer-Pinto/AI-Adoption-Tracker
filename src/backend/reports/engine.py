@@ -420,6 +420,13 @@ def _apply_artifact_entry(
     )
 
     if artifact_id is None:
+        # Artifact will be created (explicit new_artifact, or an `artifact:`
+        # reference that didn't resolve). `artifact.type` is NOT NULL, but the
+        # report contract allows entries without a type — reject those here as a
+        # domain error (→ 422) instead of letting raw sqlite3.IntegrityError
+        # escape as an unhandled 500.
+        if entry.type is None:
+            raise EngineError(f"artifact {name!r} is new but has no type")
         artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
         change_kind = entry.change_kind.value if entry.change_kind else "added"
     else:
@@ -660,6 +667,9 @@ def _replay_artifact_entry(
     name = entry.new_artifact if is_new else entry.artifact
     artifact_id = _find_artifact_id(conn, team_id, domain_id, name)
     if artifact_id is None:
+        # Same NOT NULL guard as the fan-out create path (artifact.type).
+        if entry.type is None:
+            raise EngineError(f"artifact {name!r} is new but has no type")
         artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
         change_kind = entry.change_kind.value if entry.change_kind else "added"
     elif artifact_id not in seen_artifacts:

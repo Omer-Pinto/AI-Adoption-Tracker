@@ -48,6 +48,16 @@ VALID_KEYS: frozenset[str] = frozenset(
     }
 )
 
+#: Keys whose values are fixed enum tokens (CHECK-constrained columns) matched
+#: EXACTLY by the compiler's ``_exact_builder`` (``col = :param``). Their bare
+#: tokens must NOT be hyphen→space slug-expanded: the lone multi-word status
+#: token ``in-progress`` is stored with its hyphen and is exactly what the chip
+#: UI / ``/api/search/values`` autocomplete emits, so expanding it to
+#: ``in progress`` would make ``status:in-progress`` match zero rows. Free-text
+#: name keys (team/domain) keep slug expansion — the compiler re-adds a
+#: hyphenated alternative for them, but the exact-match enum keys do not.
+ENUM_KEYS: frozenset[str] = frozenset({"status", "type"})
+
 
 @dataclass(frozen=True)
 class FilterClause:
@@ -98,11 +108,18 @@ def _strip_quotes(token: str) -> str:
     return token
 
 
-def _parse_value(raw: str) -> tuple[str, tuple[Any, ...], bool]:
+def _parse_value(raw: str, key: str) -> tuple[str, tuple[Any, ...], bool]:
     """Parse a raw value string into ``(op, values, negated)``.
 
-    Called *after* the key has already been extracted.
+    Called *after* the key has already been extracted. ``key`` (lower-cased)
+    selects bare-word handling: enum keys (:data:`ENUM_KEYS`) keep their literal
+    hyphenated token (``in-progress``) for exact matching; all other keys
+    slug-expand hyphens to spaces.
     """
+    # Enum keys (status/type) are fixed hyphen/lower-cased tokens matched
+    # exactly by the compiler — never slug-expand them.
+    expand = _expand_slug if key not in ENUM_KEYS else (lambda t: t)
+
     # Negation prefix: !token
     if raw.startswith("!"):
         raw = raw[1:]
@@ -111,7 +128,7 @@ def _parse_value(raw: str) -> tuple[str, tuple[Any, ...], bool]:
         elif _RE_ISO_DATE.match(raw):
             token = raw
         else:
-            token = _expand_slug(raw)
+            token = expand(raw)
         return ("negated", (token,), True)
 
     # ISO date short-circuit: YYYY-MM-DD must not be slug-expanded.
@@ -126,7 +143,7 @@ def _parse_value(raw: str) -> tuple[str, tuple[Any, ...], bool]:
             tok = tok.strip()
             if not tok:
                 continue
-            expanded.append(_strip_quotes(tok) if tok.startswith('"') else _expand_slug(tok))
+            expanded.append(_strip_quotes(tok) if tok.startswith('"') else expand(tok))
         return ("in", tuple(expanded), False)
 
     # Quoted plain value
@@ -134,7 +151,7 @@ def _parse_value(raw: str) -> tuple[str, tuple[Any, ...], bool]:
         return ("eq", (_strip_quotes(raw),), False)
 
     # Plain bare word
-    return ("eq", (_expand_slug(raw),), False)
+    return ("eq", (expand(raw),), False)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +207,7 @@ def parse(dsl: str) -> list[FilterClause]:
         if raw_key not in VALID_KEYS:
             raise ParseError(f"Unknown filter key: {raw_key!r}")
 
-        op, values, negated = _parse_value(raw_value)
+        op, values, negated = _parse_value(raw_value, raw_key)
         clauses.append(FilterClause(key=raw_key, op=op, values=values, negated=negated))
 
     return clauses
