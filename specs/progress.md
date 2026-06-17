@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜] 0% (0/34)
+Progress: [🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜] 18% (6/34)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 0 / 34 | 0% |
+| 🟢 Done | 6 / 34 | 18% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 34 | 100% |
+| ⬜ Pending | 28 | 82% |
 
 ---
 
@@ -20,7 +20,7 @@ Progress: [⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜
 
 | Wave | Status | Agents | Cherry-picked | Pending | Notes |
 |------|--------|--------|---------------|---------|-------|
-| 0 | Not Started | 0/2 | 0/2 | 6/6 | Setup (2 agents + orchestrator copy) |
+| 0 | Done | 2/2 | 2/2 | 0/6 | Setup complete — foundation merged, verified (schema applies, backend boots, frontend builds) |
 | 1 | Not Started | 0/4 | 0/4 | 14/14 | Backend (management, views, report engine, search) |
 | 2 | Not Started | 0/4 | 0/4 | 11/11 | Frontend (manage, team/domain, report flow, artifacts/tasks+search) |
 | 3 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
@@ -34,20 +34,20 @@ Progress: [⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜
 ### Agent 0A: Backend foundation (`src/backend/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 0.1 | Scaffold (FastAPI app, db.py, run script, pre-wired routers) | ⬜ Pending | |
-| 0.2 | DB schema (schema.sql, all §5 tables) | ⬜ Pending | |
-| 0.3 | Contracts (models, report JSON Schema, LLM interface, api_contract.md) | ⬜ Pending | |
+| 0.1 | Scaffold (FastAPI app, db.py, run script, pre-wired routers) | 🟢 Done | CORS app, 4 routers pre-wired, schema-on-startup |
+| 0.2 | DB schema (schema.sql, all §5 tables) | 🟢 Done | 9 tables, CHECK enums, WAL+FK; matches §5 exactly |
+| 0.3 | Contracts (models, report JSON Schema, LLM interface, api_contract.md) | 🟢 Done | +teams-index & GET report endpoints added to contract |
 
 ### Agent 0B: Frontend foundation (`src/frontend/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 0.5a | Scaffold (Vite/React/TS shell, router stubs) | ⬜ Pending | |
-| 0.5b | Primitives (api client, Modal, DataTable, Badge, ArtifactDetailModal) | ⬜ Pending | |
+| 0.5a | Scaffold (Vite/React/TS shell, router stubs) | 🟢 Done | 9 routes pre-wired to stub pages; AppShell matches mvp look |
+| 0.5b | Primitives (api client, Modal, DataTable, Badge, ArtifactDetailModal) | 🟢 Done | api.ts conformed to frozen contract |
 
 ### Orchestrator
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 0.4 | Copy SoccerSmartBet search source (`cp`, read-only safety) | ⬜ Pending | |
+| 0.4 | Copy SoccerSmartBet search source (`cp`, read-only safety) | 🟢 Done | Vendored to search/ dirs; soccer imports stripped; external repo untouched |
 
 ---
 
