@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+# tooling
+.claude/
+# python
+__pycache__/
+*.pyc
+*.db
+.venv/
+# node / frontend
+node_modules/
+dist/
