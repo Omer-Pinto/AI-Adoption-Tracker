@@ -129,25 +129,26 @@ export interface ReportArtifactLine {
 export interface ReportDomainBlock {
   domain: string;
   changes?: Partial<Pick<Domain, 'priority' | 'description' | 'scope' | 'cross_domain'>>;
-  tasks: ReportTaskLine[];
-  artifacts: ReportArtifactLine[];
+  tasks?: ReportTaskLine[];
+  artifacts?: ReportArtifactLine[];
 }
 
 export interface ReportActionItemLine {
   text: string;
-  owner: string;
+  owner?: string;
+  domain?: string;
   due_date?: string;
 }
 
 export interface ReportJson {
   champion: string;
   meeting_date: string;
-  participants: string[];
+  participants?: string[];
   raw_notes: string;
-  domains: ReportDomainBlock[];
-  action_items: ReportActionItemLine[];
-  discussion: string;
-  issues: string;
+  domains?: ReportDomainBlock[];
+  action_items?: ReportActionItemLine[];
+  discussion?: string;
+  issues?: string;
 }
 
 export interface Report {
