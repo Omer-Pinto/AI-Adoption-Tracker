@@ -331,14 +331,10 @@ def _apply_task_entry(
     entry,
 ) -> None:
     """Upsert the current-state task row + append one task_history row."""
-    if entry.new_task is not None:
-        task_id = _create_task(conn, domain_id, entry.new_task, entry)
-    else:
-        task_id = _find_task_id(conn, domain_id, entry.task)
-        if task_id is None:
-            # Existing-task reference that doesn't resolve: treat the name as a
-            # new task rather than failing the whole save (decision — flagged).
-            task_id = _create_task(conn, domain_id, entry.task, entry)
+    task_id = _find_task_id(conn, domain_id, entry.task)
+    if task_id is None:
+        # Name not found in this domain — create it.
+        task_id = _create_task(conn, domain_id, entry.task, entry)
 
     # history row first, then derive current state from full history.
     conn.execute(
@@ -427,7 +423,7 @@ def _ended_on_for_task(
     doc = json.loads(report_row["report_json"])
     for section in doc.get("domains", []):
         for entry in section.get("tasks", []):
-            name = entry.get("task") or entry.get("new_task")
+            name = entry.get("task")
             if name and _norm(name) == task_name:
                 return entry.get("finished_on") or report_row["meeting_date"]
     # Task entry not found in this report (shouldn't happen, but be safe).
@@ -452,7 +448,7 @@ def _latest_owner_for_task(conn: sqlite3.Connection, task_id: int) -> str | None
         doc = json.loads(row["report_json"])
         for section in doc.get("domains", []):
             for entry in section.get("tasks", []):
-                name = entry.get("task") or entry.get("new_task")
+                name = entry.get("task")
                 if name and _norm(name) == task_name and entry.get("owner"):
                     return entry["owner"]
     # nothing in history set an owner — keep current.
@@ -469,19 +465,14 @@ def _apply_artifact_entry(
     entry: ReportArtifactEntry,
 ) -> None:
     """Upsert the current-state artifact row + append one artifact_history row."""
-    is_new = entry.new_artifact is not None
-    name = entry.new_artifact if is_new else entry.artifact
-
-    artifact_id = (
-        None if is_new else _find_artifact_id(conn, team_id, domain_id, name)
-    )
+    name = entry.artifact
+    artifact_id = _find_artifact_id(conn, team_id, domain_id, name)
 
     if artifact_id is None:
-        # Artifact will be created (explicit new_artifact, or an `artifact:`
-        # reference that didn't resolve). `artifact.type` is NOT NULL, but the
-        # report contract allows entries without a type — reject those here as a
-        # domain error (→ 422) instead of letting raw sqlite3.IntegrityError
-        # escape as an unhandled 500.
+        # Name not found in team scope — artifact will be created.
+        # `artifact.type` is NOT NULL in the DB; reject a missing type here as a
+        # domain error (→ 422) rather than letting sqlite3.IntegrityError escape
+        # as an unhandled 500.
         if entry.type is None:
             raise EngineError(f"artifact {name!r} is new but has no type")
         artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
@@ -722,10 +713,9 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
                 continue
             _apply_domain_changes(conn, domain_id, section)
             for entry in section.tasks:
-                name = entry.new_task or entry.task
-                task_id = _find_task_id(conn, domain_id, name)
+                task_id = _find_task_id(conn, domain_id, entry.task)
                 if task_id is None:
-                    task_id = _create_task(conn, domain_id, name, entry)
+                    task_id = _create_task(conn, domain_id, entry.task, entry)
                 conn.execute(
                     "INSERT INTO task_history "
                     "(task_id, report_id, meeting_date, status_at_meeting, change_note) "
@@ -775,8 +765,7 @@ def _replay_artifact_entry(
     entry: ReportArtifactEntry,
     seen_artifacts: set[int],
 ) -> None:
-    is_new = entry.new_artifact is not None
-    name = entry.new_artifact if is_new else entry.artifact
+    name = entry.artifact
     artifact_id = _find_artifact_id(conn, team_id, domain_id, name)
     if artifact_id is None:
         # Same NOT NULL guard as the fan-out create path (artifact.type).

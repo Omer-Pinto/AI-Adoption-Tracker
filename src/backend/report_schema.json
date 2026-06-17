@@ -90,14 +90,10 @@
     "taskEntry": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A task line. Use `task` (name) for an existing task, or `new_task` for a brand-new one; exactly one of the two.",
-      "oneOf": [
-        { "required": ["task", "status"] },
-        { "required": ["new_task", "status"] }
-      ],
+      "description": "A task line. `task` is the task name; whether it already exists is resolved against the DB at fan-out time — existing name → that row; unknown name → created.",
+      "required": ["task", "status"],
       "properties": {
-        "task": { "type": "string" },
-        "new_task": { "type": "string" },
+        "task": { "type": "string", "description": "The task's name." },
         "status": { "$ref": "#/$defs/taskStatus" },
         "owner": { "type": "string" },
         "note": { "type": "string" },
@@ -111,14 +107,10 @@
     "artifactEntry": {
       "type": "object",
       "additionalProperties": false,
-      "description": "An artifact change line. Use `artifact` (name) for an existing artifact, or `new_artifact` for a brand-new one; exactly one of the two.",
-      "oneOf": [
-        { "required": ["artifact"] },
-        { "required": ["new_artifact"] }
-      ],
+      "description": "An artifact change line. `artifact` is the artifact name; whether it already exists is resolved against the DB at fan-out time — existing name → that row; unknown name → created (requires `type`).",
+      "required": ["artifact"],
       "properties": {
-        "artifact": { "type": "string" },
-        "new_artifact": { "type": "string" },
+        "artifact": { "type": "string", "description": "The artifact's name." },
         "type": { "$ref": "#/$defs/artifactType" },
         "tags": {
           "type": "array",

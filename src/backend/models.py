@@ -16,9 +16,9 @@ Design notes (see uncertainties in the agent report):
     "YYYY-MM-DD" text and SQLite has no date type; we don't coerce to
     `datetime.date` to keep the LLM-draft round-trip lossless.
   * `tags` is a list[str] in the model; persisted as JSON text in `artifact`.
-  * The report sub-models use field aliases (`task`, `new_task`, `domain`,
-    `new_artifact`) to match the spec JSON verbatim while keeping valid Python
-    attribute names.
+  * Tasks and artifacts are referenced by NAME only. Whether a name is new or
+    already exists is resolved at fan-out time against the DB (existing → reuse;
+    unknown → create). There is no new_task / new_artifact discriminator.
 """
 
 from enum import Enum
@@ -138,9 +138,10 @@ class ActionItem(BaseModel):
 
 
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
-# These match the §4 JSON exactly, including the `task` vs `new_task` and
-# `new_artifact` discriminators. `populate_by_name=True` lets callers build them
-# with either the alias (JSON wire form) or the Python attribute name.
+# Tasks and artifacts are identified by name only. Resolution (existing vs new)
+# happens at fan-out time in the engine, not in the report document.
+# `populate_by_name=True` lets callers build models with either alias or Python
+# attribute name.
 
 _doc_config = ConfigDict(populate_by_name=True)
 
@@ -148,9 +149,9 @@ _doc_config = ConfigDict(populate_by_name=True)
 class ReportTaskEntry(BaseModel):
     """A task line inside a report domain.
 
-    For an existing task use `task` (the name); for a brand-new task use
-    `new_task`. Exactly one of the two is expected (validated downstream / by
-    the JSON Schema's oneOf). Mirrors §4 verbatim.
+    ``task`` is the task's name. The engine resolves it against the DB: if a
+    task with that name exists in the domain, its row is updated; if not, a new
+    task row is created. There is no separate ``new_task`` field.
 
     ``finished_on`` is an optional per-task finish-date override (YYYY-MM-DD).
     When the task reaches a terminal status, ``ended_on`` is set to this value
@@ -159,8 +160,7 @@ class ReportTaskEntry(BaseModel):
     """
     model_config = _doc_config
 
-    task: str | None = None
-    new_task: str | None = None
+    task: str
     status: TaskStatus
     owner: str | None = None
     note: str | None = None
@@ -170,14 +170,18 @@ class ReportTaskEntry(BaseModel):
 class ReportArtifactEntry(BaseModel):
     """An artifact change line inside a report domain.
 
-    For an existing artifact use `artifact`; for a new one use `new_artifact`.
-    `change_kind` defaults conceptually to "added" for new artifacts but is left
-    optional here so the LLM/form can express updated/retired/moved.
+    ``artifact`` is the artifact's name. The engine resolves it against the DB:
+    if an artifact with that name exists in the team's scope, its row is
+    updated; if not, a new artifact row is created (``type`` is required in
+    that case). There is no separate ``new_artifact`` field.
+
+    ``change_kind`` defaults to "added" when the artifact is newly created and
+    to "updated"/"moved" when it already exists; the field may be supplied
+    explicitly to override inference.
     """
     model_config = _doc_config
 
-    artifact: str | None = None
-    new_artifact: str | None = None
+    artifact: str
     type: ArtifactType | None = None
     tags: list[str] | None = None
     change_kind: ArtifactChangeKind | None = None
