@@ -1,0 +1,111 @@
+/* ============================================================
+   Domain page — supplementary styles for classes used by
+   DomainPage that originate in the MVP HTML <style> blocks
+   (domain-build-tools.html etc.).
+   Design tokens are inherited from design-system.css / app.css.
+   ============================================================ */
+
+/* ---- Story (week-by-week) ---- */
+.story-date-group { margin-bottom: 28px; }
+
+.story-date-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.story-date-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1d23;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.story-date-line {
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.story-entry {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.story-entry:last-child { border-bottom: none; }
+
+.story-dot-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 22px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.story-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-task     { background: #4361ee; }
+.dot-artifact { background: #7c3aed; }
+.dot-finished { background: #16a34a; }
+
+.story-connector {
+  flex: 1;
+  width: 1px;
+  background: #e5e7eb;
+  margin-top: 4px;
+}
+
+.story-content { flex: 1; min-width: 0; }
+
+.story-what {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1d23;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.story-entity-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
+.type-task     { background: #dbeafe; color: #1d4ed8; }
+.type-artifact { background: #ede9fe; color: #5b21b6; }
+
+.story-note {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 3px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.story-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
