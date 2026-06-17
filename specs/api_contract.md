@@ -97,6 +97,28 @@ Fields: `team_id`, `champion_id`, `name`, `description`, `scope`, `priority`
 
 ## 2. Views & lists API (Agent 1B — `routes/views.py`)
 
+### Teams index — `GET /api/team-pages`
+
+The landing list (route `/`, spec §7 "teams index"). One entry per **team page**,
+i.e. one per (team, champion) pair — a team split across two champions yields two
+entries, "keyed internally by champion, labeled by team" (spec §7). Each entry
+links to `/teams/:championId`. No search bar / no metrics (spec §7: "browse").
+
+> **Path choice:** `/api/team-pages` (not `/api/teams/index`) — `/api/teams/{id}`
+> already exists, so `/api/teams/index` would collide with the `{id}` path param
+> (`index` parsed as an id). A distinct collection path avoids the ambiguity.
+
+```jsonc
+[
+  { "team_id": 1, "team_name": "Radar", "champion_id": 1, "champion_name": "Dana", "domain_count": 3 }
+]
+```
+
+- Fields: `team_id`, `team_name`, `champion_id`, `champion_name` (the page key/label),
+  and `domain_count` (number of that champion's domains — enough to render the list).
+- Which champion(s) a team contributes when it has had several (current vs historical)
+  is the same 1B decision as `{id}/page` champion selection — see uncertainties.
+
 ### Team page — `GET /api/teams/{id}/page`
 
 The hub: **one champion's portfolio of domains, named by the team** (spec §7).
@@ -217,6 +239,20 @@ insert `action_item` rows. Entities matched by name within domain.
   ```
   (201). Wave-1 may include the touched task/artifact ids; left to 1C.
 
+### Get one — `GET /api/reports/{id}`
+
+Fetch a saved report so the edit form can bind to its structured JSON (spec §4
+"a report can be reopened in the same form"). The form parses `report_json` to
+rebuild the `ReportDocument`; no LLM needed.
+
+- Response: the `report` row, same shape/wrapper as save/patch — `report_json`
+  stays a JSON-encoded **string** (`models.Report.report_json: str`):
+  ```jsonc
+  { "report": { "id": 42, "champion_id": 1, "meeting_date": "2026-06-15",
+                "report_json": "{...}", "schema_version": 1 } }
+  ```
+- **404** `{ "detail": ... }` when no report with that id exists.
+
 ### Edit + replay — `PATCH /api/reports/{id}`
 
 Reopen a saved report's structured JSON, edit fields (not the raw notes), re-save
@@ -293,6 +329,21 @@ live tables.
 > `{value, label}`. Flagged as an uncertainty.
 
 ---
+
+## Wave-1 implementation notes
+
+Deferred decisions surfaced in the Wave-0 review, recorded so Wave-1 owners pick
+them up (no redesign here):
+
+- **`q` DSL repeated key** (`tag:a tag:b`) = **AND** within a key (1D).
+- **Unknown `q` key** -> **422**; **inapplicable** key (e.g. `status:` on artifacts) ->
+  **ignored** (1D).
+- **`date` key semantics** (activity on/around a date via history) owned by **1D**.
+- **`report_json` is a JSON-encoded string on the wire** (`models.Report.report_json: str`):
+  clients must `JSON.parse` it to read the document.
+- **`POST /api/reports` handler path nuance:** the create route lives at the router's
+  collection root; mind the `routes/reports.py` router prefix so it resolves to
+  `/api/reports` (not a doubled prefix) when wired in `app.py` (1C).
 
 ## Health
 
