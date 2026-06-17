@@ -174,6 +174,9 @@ def get_champion(champion_id: int) -> Champion:
 @router.post("/champions", response_model=Champion, status_code=status.HTTP_201_CREATED)
 def create_champion(body: ChampionCreate) -> Champion:
     conn = get_connection()
+    if _fetch(conn, "team", body.team_id) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such team")
     new_id = _insert(conn, "champion", body.model_dump())
     conn.commit()
     row = _fetch(conn, "champion", new_id)
@@ -192,6 +195,9 @@ def update_champion(champion_id: int, body: ChampionUpdate) -> Champion:
         if field in changes and changes[field] is None:
             conn.close()
             raise HTTPException(status_code=422, detail=f"{field} cannot be null")
+    if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such team")
     if changes:
         _update(conn, "champion", champion_id, changes)
         conn.commit()
@@ -237,6 +243,12 @@ def get_domain(domain_id: int) -> Domain:
 @router.post("/domains", response_model=Domain, status_code=status.HTTP_201_CREATED)
 def create_domain(body: DomainCreate) -> Domain:
     conn = get_connection()
+    if _fetch(conn, "team", body.team_id) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such team")
+    if _fetch(conn, "champion", body.champion_id) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such champion")
     new_id = _insert(conn, "domain", body.model_dump())
     conn.commit()
     row = _fetch(conn, "domain", new_id)
@@ -255,6 +267,12 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
         if field in changes and changes[field] is None:
             conn.close()
             raise HTTPException(status_code=422, detail=f"{field} cannot be null")
+    if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such team")
+    if "champion_id" in changes and _fetch(conn, "champion", changes["champion_id"]) is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="no such champion")
     if changes:
         _update(conn, "domain", domain_id, changes)
         conn.commit()

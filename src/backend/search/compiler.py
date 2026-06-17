@@ -55,6 +55,16 @@ def _values(clause: FilterClause) -> tuple[Any, ...]:
     return clause.values
 
 
+def _like_escape(value: str) -> str:
+    """Escape LIKE special characters so a name matches literally.
+
+    SQLite ``LIKE`` treats ``%``, ``_``, and the chosen escape character as
+    special. We use ``\\`` as the escape character (``ESCAPE '\\'``), so we
+    must escape backslashes first, then ``%`` and ``_``.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _name_or_id_builder(name_col: str, id_col: str) -> Builder:
     """Build a matcher for keys whose value may be a name OR an integer id.
 
@@ -62,6 +72,8 @@ def _name_or_id_builder(name_col: str, id_col: str) -> Builder:
     via SQLite ``LIKE``) or its integer id. We OR the two interpretations so a
     user can type either. Multiple alternatives in one clause (``in`` op) OR
     together; the ``!`` prefix negates the whole clause.
+
+    ``%`` and ``_`` in names are matched literally via ``ESCAPE '\\'``.
     """
 
     def build(clause: FilterClause, prefix: str, params: dict[str, Any]) -> str:
@@ -73,12 +85,12 @@ def _name_or_id_builder(name_col: str, id_col: str) -> Builder:
             # team/domain names may contain literal hyphens (e.g.
             # "signal-processing"). Match both the space form and the
             # hyphenated form so either typed style resolves.
-            params[pname] = val
-            name_alts = [f"{name_col} LIKE :{pname}"]
+            params[pname] = _like_escape(val)
+            name_alts = [f"{name_col} LIKE :{pname} ESCAPE '\\\\'"]
             if " " in val:
                 hp = f"{pname}_h"
-                params[hp] = val.replace(" ", "-")
-                name_alts.append(f"{name_col} LIKE :{hp}")
+                params[hp] = _like_escape(val.replace(" ", "-"))
+                name_alts.append(f"{name_col} LIKE :{hp} ESCAPE '\\\\'")
             sub = name_alts[0] if len(name_alts) == 1 else "(" + " OR ".join(name_alts) + ")"
             if val.isdigit():
                 params[f"{pname}_id"] = int(val)
