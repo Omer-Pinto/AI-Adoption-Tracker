@@ -385,7 +385,9 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
 
     ended_on: str | None = None
     if latest_status in _TERMINAL_STATUSES:
-        ended_on = _ended_on_for_task(conn, task_id, latest_row["report_id"], latest_row["meeting_date"])
+        ended_on = _ended_on_for_task(
+            conn, task_id, latest_row["report_id"], latest_row["meeting_date"]
+        )
 
     # Owner: most recent report that set one (history has no owner column, so we
     # read it from the stored report_json of the latest report touching the task).
@@ -683,11 +685,9 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
         for section in doc.domains:
             if section.changes is None:
                 continue
-            changed = {
-                field
-                for field, value in section.changes.model_dump(exclude_none=True).items()
-                if field in _DOMAIN_REPORT_FIELDS
-            }
+            changed = (
+                set(section.changes.model_dump(exclude_none=True)) & set(_DOMAIN_REPORT_FIELDS)
+            )
             if not changed:
                 continue
             try:
