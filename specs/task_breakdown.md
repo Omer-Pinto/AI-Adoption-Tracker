@@ -27,12 +27,12 @@ Foundation that fixes schema/contracts/scaffold so feature agents never touch sh
 **Type:** `frontend-developer` · **Scope:** `src/frontend/`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 0.5a | Scaffold | Vite+React+TS; `AppShell` (sidebar Teams→`/`, Artifacts→`/artifacts`, Tasks→`/tasks`) reusing the `mvp/` look; router with **all routes → stub pages** at fixed paths | no router edits in Wave 2 |
-| 0.5b | Primitives | `api.ts` client (stub to the api_contract shape); `Modal`, `DataTable`, `Badge`, working `ArtifactDetailModal` | shared by 2B & 2D |
+| 0.5a | Scaffold | Vite+React+TS; `AppShell` (sidebar Teams→`/`, Artifacts→`/artifacts`, Tasks→`/tasks`) reusing the `mvp/` look; router with **all routes → stub pages** at fixed paths | no router edits in Wave 3 |
+| 0.5b | Primitives | `api.ts` client (stub to the api_contract shape); `Modal`, `DataTable`, `Badge`, working `ArtifactDetailModal` | shared by 3B & 3D |
 **Commit:** `Wave 0 Agent 0B: frontend foundation`
 
 ### 0.4 — Copy search source (orchestrator `cp` — read-only safety)
-Orchestrator copies the SoccerSmartBet search files into this repo as the adaptation base: parser/compiler/autocomplete → `src/backend/search/`; `filter-builder.js` → `src/frontend/src/search/`. **Pure copy** — strip soccer-specific imports; never edit or reference the source tree. (Adaptation happens in 1D / 2D.)
+Orchestrator copies the SoccerSmartBet search files into this repo as the adaptation base: parser/compiler/autocomplete → `src/backend/search/`; `filter-builder.js` → `src/frontend/src/search/`. **Pure copy** — strip soccer-specific imports; never edit or reference the source tree. (Adaptation happens in 1D / 3D.)
 
 ### After Wave 0
 - Cherry-pick 0A, 0B. Verify: backend boots with empty routers, schema applies, frontend builds with stub routes.
@@ -85,58 +85,111 @@ Orchestrator copies the SoccerSmartBet search files into this repo as the adapta
 
 ---
 
-## Wave 2 — Frontend (4 agents, parallel; consume Wave-1 API)
+## Wave 2 — LLM integration & report fixes (3 agents, parallel)
 
-### Agent 2A: Management UI
+Corrective wave fixing gaps surfaced in review. 2A (`llm/`), 2B (`reports/`), 2C (`management.py` + `search/`) own disjoint files → safe in parallel.
+
+### Agent 2A: LLM endpoint adapter
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/` + `.env` / `.gitignore`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Provider-agnostic client | a real client supporting **both OpenAI and Anthropic**; a config value selects the provider | both must work — no fabricated "always not-configured" stub |
+| 2 | Config + secrets | endpoint **URL** + **API key** read from `.env` (two entries, air-gap-supplied); provider switch in config; **add `.env` to `.gitignore` immediately** | secrets never committed |
+| 3 | Wire `draft_report` | replace the placeholder with the real provider call; returns a `ReportDocument`-shaped dict; genuine "not configured" **only when URL/key truly unset** | 503 only when unset, not always |
+| 4 | Test path | allow supplying a real key (e.g. OpenAI) via `.env` to exercise the live drafting path in tests | Omer may supply a key later |
+**Commit:** `Wave 2 Agent 2A: LLM adapter (OpenAI + Anthropic, .env config)`
+
+### Agent 2B: Report engine corrections
+**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py`, `report_schema.json`, `models.py`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | First meeting = first report | remove the "needs an external pre-seed report" assumption — the first meeting is just the team's first report (artifacts entered as `added`; `team.cc_baseline` holds the raw starting point), per the generic report-JSON design (spec §4) | already settled in the JSON design |
+| 2 | `started_on` derivation | a task's `started_on` is the earliest report `meeting_date` that mentions it (incl. the first meeting); verify against spec §4/§6 | closes the §6 date concern |
+| 3 | User-supplied finish date | **never auto-compute `ended_on`** — remove the trailing-terminal-run guess. The finish date comes from the report: default to the report's `meeting_date`, with an optional per-task override field on the report line (add it to `report_schema.json` + `models.py`) | Omer's rule: "the date I supply" |
+| 4 | Edits update **all** reflected fields | editing a report (even minutes after writing it) must recompute every field it touched — including **domain** description/scope/priority — not only tasks/artifacts; replay must reset a domain field when an edit removes/changes it (keep a domain-field baseline or history) | Omer: a fix 40 min later must reflect |
+**Commit:** `Wave 2 Agent 2B: report engine corrections (first-meeting, finish date, full edit-replay)`
+
+### Agent 2C: Backend fixes
+**Type:** `backend-developer` · **Scope:** `src/backend/routes/management.py`, `src/backend/search/compiler.py`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Bad reference → clean error | creating/patching a champion or domain pointing at a non-existent parent currently raises an unhandled 500; validate the parent exists and return a clear 4xx ("no such team/champion") | from review (was deferred) |
+| 2 | Search wildcard safety | escape `%` and `_` in `team`/`domain` name matching so names containing them match literally, not as SQL `LIKE` wildcards | from review (was deferred) |
+**Commit:** `Wave 2 Agent 2C: backend fixes (bad-reference 4xx, search wildcard escape)`
+
+### After Wave 2
+- Cherry-pick 2A, 2B, 2C. Verify: with `.env` unset, draft → "not configured"; with a key set, draft returns a structured report; the first meeting fans out correctly; editing a report updates domain fields too; bad references return a clean 4xx.
+
+---
+
+## Wave 3 — Frontend (4 agents, parallel; consume Wave-1 API)
+
+### Agent 3A: Management UI
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Lists | Teams / Champions / Domains as lists with Add/Edit | |
 | 2 | Isolated edit form | Edit opens **one clean modal form**, nothing else around | spec §7 fix |
-**Commit:** `Wave 2 Agent 2A: management UI`
+**Commit:** `Wave 3 Agent 3A: management UI`
 
-### Agent 2B: Team & Domain pages
+### Agent 3B: Team & Domain pages
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/team/*`, `src/frontend/src/pages/domain/*`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Team page | champion portfolio: domains + current + week-by-week story + reports + action items; **All-team gutter** for un-domained artifacts; "Create report" → report flow | named by team |
 | 2 | Domain page | current tasks/artifacts + full story | |
 | 3 | Artifact modal usage | clicking an artifact opens `ArtifactDetailModal` (no navigation) | reuse 0.5 component |
-**Commit:** `Wave 2 Agent 2B: team & domain pages`
+**Commit:** `Wave 3 Agent 3B: team & domain pages`
 
-### Agent 2C: Report flow UI
+### Agent 3C: Report flow UI
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/report/*`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Create (notes→draft) | paste raw notes → "Draft with model" → calls `/reports/draft` | no from-scratch form |
 | 2 | Preview → confirm | render drafted structured report, "not saved" banner, Confirm/Discard | |
 | 3 | Edit saved report | form bound to structured fields (not notes) → PATCH | |
-**Commit:** `Wave 2 Agent 2C: report flow UI`
+| 4 | `@`/`#` mentions | in the report editor, `@` fuzzy-finds **any** existing task and `#` **any** existing artifact (Jira-style, all of them, not domain-scoped); pick an existing one or type a new name (new ones created from the note). Reuses `GET /api/tasks` + `/api/artifacts`; fuzzy filtering client-side — no new backend | Omer's design |
+**Commit:** `Wave 3 Agent 3C: report flow UI`
 
-### Agent 2D: Artifacts, Tasks & Search bar
+### Agent 3D: Artifacts, Tasks & Search bar
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/artifacts/*`, `src/frontend/src/pages/tasks/*`, `src/frontend/src/search/*`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Adapt chip search bar | wrap the copied `filter-builder.js` into a React `SearchBar` (keys team/domain/type/tag/status/date; autocomplete via `/search/values`; URL round-trip) | replaces dropdown + pills |
 | 2 | Artifacts page | list filtered by SearchBar; rows open `ArtifactDetailModal` | |
 | 3 | Tasks page | list filtered by SearchBar; rows expand to week-by-week journey | |
-**Commit:** `Wave 2 Agent 2D: artifacts/tasks + search bar`
+**Commit:** `Wave 3 Agent 3D: artifacts/tasks + search bar`
 
-### After Wave 2
-- Cherry-pick 2A–2D. Verify: `npm run build` clean; every route renders against the live backend; no dead nav.
+### After Wave 3
+- Cherry-pick 3A–3D. Verify: `npm run build` clean; every route renders against the live backend; no dead nav.
 
 ---
 
-## Wave 3 — Integration & seed (1 agent + orchestrator)
+## Wave 4 — Integration & seed (1 agent + orchestrator)
 
-### Agent 3A: Seed + smoke
+### Agent 4A: Seed + smoke
 **Type:** `test-automator` · **Scope:** `src/backend/seed.py`, `scripts/`, `README.md`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Seed script | load the spec's canonical sample (Radar/Dana, Platform/Eli, the signal-processing tasks/artifacts/history) by calling the report engine, so seed exercises the real path | |
 | 2 | Run + README | one command to run backend+frontend; README with the model-endpoint env var | |
 | 3 | Smoke pass | create report → appears on team/domain/tasks/artifacts; search filters; modal opens; edit+replay correct | report results, don't mask failures |
-**Commit:** `Wave 3 Agent 3A: seed + smoke + docs`
+**Commit:** `Wave 4 Agent 4A: seed + smoke + docs`
 
-### After Wave 3
+### After Wave 4
 - Orchestrator runs the app end-to-end, walks the spec's flows, and confirms the SoccerSmartBet tree is untouched (`git -C ~/code/home/SoccerSmartBet status` clean / no references in our code).
+
+---
+
+## Wave 5 — Decisions sign-off (gate)
+
+A final gate so no decision rots in `specs/decisions.md`. Contents are **TBD** — whatever is still open when the build reaches this point.
+
+### Gate: resolve open decisions
+**Owner:** orchestrator + Omer
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Close every open item | walk `specs/decisions.md`; confirm each item is either accepted by Omer or completed as a task — **nothing left TBD**; any still-open item becomes a task here and is resolved before the project is called done | no silent defers |
+
+### After Wave 5
+- `specs/decisions.md` has zero open items. Project done.

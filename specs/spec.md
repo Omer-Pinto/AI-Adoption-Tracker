@@ -101,16 +101,21 @@ and the **contract** for the model that drafts the report from raw notes.
   structured fields directly (not the original notes). This is the only manual-typing surface;
   there is no from-scratch manual entry.
 - **Endpoint:** the model endpoint is yours to provide and is **required to create reports** (the
-  drafting call goes through a thin adapter). Editing existing reports works without it.
-- **First meeting:** "Current Claude Code status" (existing skills/agents/CLAUDE.md/workflows)
-  seeds the **artifacts** as `added`; the team's raw starting point goes in `team.cc_baseline`.
+  drafting call goes through a thin adapter). **Both OpenAI and Anthropic APIs are supported; a
+  config value selects the provider.** The endpoint **URL** and **API key** are read from `.env`
+  (air-gap-supplied; `.env` is git-ignored, never committed). Editing existing reports works without it.
+- **First meeting:** there is no special seeding path — the first meeting is simply the team's
+  **first report**: "Current Claude Code status" (existing skills/agents/CLAUDE.md/workflows) is
+  entered as **artifacts** `added` in that first report, and the team's raw starting point goes in
+  `team.cc_baseline`. A task's `started_on` is the date of the earliest report that mentions it.
 
 ### Updating a saved report
 
 The full `report_json` is always kept, so a report can be reopened in the same form, edited,
 and re-saved. On re-save: delete the history rows this report created (they carry its
-`report_id`), re-apply the edited report, then recompute the current state of any task/artifact
-it touched by replaying that champion's reports in date order. At this scale (one champion, a
+`report_id`), re-apply the edited report, then recompute the current state of every task,
+artifact, **and domain field** it touched by replaying that champion's reports in date order
+(an edit made minutes later must be reflected too — domain description/scope/priority included). At this scale (one champion, a
 few dozen reports) the replay is instant. Most edits are to the report you just created — the
 latest one — where this is trivial; editing old reports is rare and the replay keeps it correct.
 
@@ -153,6 +158,9 @@ Notes:
   the domain is reached via the task/artifact (`task → domain`).
 - The full `report_json` (with raw_notes) is kept as the audit + backfill safety net, in
   addition to the fanned-out rows.
+- **Task dates:** `started_on` is derived (the earliest report that mentions the task).
+  `ended_on` is **user-supplied, never auto-computed** — it defaults to the report's
+  `meeting_date` and can be overridden per task on the report line.
 
 ---
 
@@ -202,7 +210,10 @@ One MVP — everything needed to both log and see the work:
 - **Create / edit report** — *create:* paste raw meeting notes → the model drafts the structured
   report (rephrase, dedup, map to fields) → preview → fix → confirm → save. *Edit:* a form bound
   to the saved structured JSON (edit the fields, not the original notes). No from-scratch manual
-  creation (see §4).
+  creation (see §4). **Mentions:** in the report editor, typing `@` fuzzy-finds **any** existing
+  task and `#` **any** existing artifact (Jira-style — all of them, not domain-scoped); you either
+  pick an existing one or type a new name (new tasks/artifacts are created from the note, not
+  pre-registered).
 - **Team page** — the hub. One champion's set of domains for a team: each domain's current
   tasks & artifacts **+** the full week-by-week story, plus that champion's reports and action
   items. It's really *a champion's portfolio of domains*, but **named after the team** (the
@@ -258,6 +269,7 @@ demands it.
 
 - Manager dashboard — after a few weeks of real data.
 - Task priority — maybe v2.
-- Wiring the air-gapped model endpoint — **required** to create reports (Omer provides);
-  editing existing reports works without it.
+- Air-gapped model endpoint — **decided (no longer open):** OpenAI **and** Anthropic supported,
+  with provider + URL + key chosen via `.env` config; required to create reports, editing works
+  without it. Implemented in Wave 2 (Agent 2A).
 - UI / layout of the MVP pages — still to be designed (next step).

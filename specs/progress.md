@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-17 | **Branch:** `mvp-spec`
+> **Last updated:** 2026-06-18 | **Branch:** `mvp-spec`
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜] 59% (20/34)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜] 43% (20/46)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 20 / 34 | 59% |
+| 🟢 Done | 20 / 46 | 43% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 14 | 41% |
+| ⬜ Pending | 26 | 57% |
 
 ---
 
@@ -22,8 +22,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜
 |------|--------|--------|---------------|---------|-------|
 | 0 | Done | 2/2 | 2/2 | 0/6 | Setup complete — foundation merged, verified (schema applies, backend boots, frontend builds) |
 | 1 | Done | 4/4 | 4/4 | 0/14 | Backend merged + verified (18 routes; report fan-out/replay reads back; q-DSL + autocomplete live) |
-| 2 | Not Started | 0/4 | 0/4 | 11/11 | Frontend (manage, team/domain, report flow, artifacts/tasks+search) |
-| 3 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
+| 2 | Not Started | 0/3 | 0/3 | 10/10 | LLM adapter + report-engine corrections + backend fixes |
+| 3 | Not Started | 0/4 | 0/4 | 12/12 | Frontend (manage, team/domain, report flow + @/# mentions, artifacts/tasks+search) |
+| 4 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
+| 5 | Not Started | — | — | 1/1 | Decisions sign-off — resolve all open items in decisions.md |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -85,29 +87,56 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜
 
 ---
 
-## Wave 2 — Frontend
+## Wave 2 — LLM integration & report baseline
 
-### Agent 2A: Management UI (`pages/manage/`)
+### Agent 2A: LLM endpoint adapter (`llm/`, `.env`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Provider-agnostic client (OpenAI + Anthropic; config selects) | ⬜ Pending | |
+| 2 | URL + key from `.env` (2 entries); `.env` git-ignored immediately | ⬜ Pending | |
+| 3 | Wire `draft_report` to real provider call (503 only when unset) | ⬜ Pending | |
+| 4 | Test path with a real key (e.g. OpenAI) via `.env` | ⬜ Pending | |
+
+### Agent 2B: Report engine corrections (`reports/engine.py`, `report_schema.json`, `models.py`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | First meeting = first report (no pre-seed; cc_baseline + artifacts added) | ⬜ Pending | |
+| 2 | `started_on` = earliest report mentioning the task; close §6 date question | ⬜ Pending | |
+| 3 | Finish date user-supplied (never auto-compute `ended_on`); default meeting date, per-task override | ⬜ Pending | |
+| 4 | Edits recompute ALL reflected fields incl. domain (desc/scope/priority); reset on removal (keep baseline/history) | ⬜ Pending | |
+
+---
+
+### Agent 2C: Backend fixes (`routes/management.py`, `search/compiler.py`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Bad reference → clean 4xx (not 500) | ⬜ Pending | |
+| 2 | Search escapes `%`/`_` in name matching | ⬜ Pending | |
+
+## Wave 3 — Frontend
+
+### Agent 3A: Management UI (`pages/manage/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Lists (teams/champions/domains, Add/Edit) | ⬜ Pending | |
 | 2 | Isolated edit modal form | ⬜ Pending | |
 
-### Agent 2B: Team & Domain pages (`pages/team/`, `pages/domain/`)
+### Agent 3B: Team & Domain pages (`pages/team/`, `pages/domain/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Team page (portfolio + story + gutter + create report) | ⬜ Pending | |
 | 2 | Domain page (current + full story) | ⬜ Pending | |
 | 3 | Artifact detail modal usage | ⬜ Pending | |
 
-### Agent 2C: Report flow UI (`pages/report/`)
+### Agent 3C: Report flow UI (`pages/report/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Create (notes → draft) | ⬜ Pending | |
 | 2 | Preview → confirm | ⬜ Pending | |
 | 3 | Edit saved report | ⬜ Pending | |
+| 4 | `@` task / `#` artifact mentions (fuzzy, all items, Jira-style; pick existing or type new) | ⬜ Pending | |
 
-### Agent 2D: Artifacts, Tasks & Search bar (`pages/artifacts/`, `pages/tasks/`, `search/`)
+### Agent 3D: Artifacts, Tasks & Search bar (`pages/artifacts/`, `pages/tasks/`, `search/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Adapt chip search bar to React (autocomplete, URL round-trip) | ⬜ Pending | |
@@ -116,11 +145,20 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜
 
 ---
 
-## Wave 3 — Integration & seed
+## Wave 4 — Integration & seed
 
-### Agent 3A: Seed + smoke (`seed.py`, `scripts/`, `README.md`)
+### Agent 4A: Seed + smoke (`seed.py`, `scripts/`, `README.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Seed script (via the report engine path) | ⬜ Pending | |
 | 2 | Run command + README (model-endpoint env var) | ⬜ Pending | |
 | 3 | Smoke pass (create→appears everywhere; search; modal; edit+replay) | ⬜ Pending | |
+
+---
+
+## Wave 5 — Decisions sign-off (gate)
+
+### Gate: resolve open decisions (orchestrator + Omer)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Every item in `specs/decisions.md` closed — nothing left TBD | ⬜ Pending | |

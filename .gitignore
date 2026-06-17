@@ -10,3 +10,5 @@ __pycache__/
 # node / frontend
 node_modules/
 dist/
+# secrets
+.env
