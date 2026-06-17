@@ -60,8 +60,10 @@ Wire format (per dialect):
            "system": <system_prompt>,
            "messages": [{"role": "user", ...}, {"role": "assistant", "{"}]}
     The trailing assistant message prefills the response with `{`, forcing the
-    server to continue a JSON object. The returned text is prepended with `{`
-    before parsing (fence/brace fallback still applies as a safety net).
+    server to continue a JSON object. Reconstruction is prefill-echo-tolerant:
+    if the continuation already starts with `{` (server echoed the prefill),
+    it is used as-is; otherwise `{` is prepended. Fence/brace fallback in
+    _extract_json still applies as a final safety net.
     Response: content[0].text  (reconstruct → parse → unwrap "report")
 
 Design decisions:
@@ -69,9 +71,10 @@ Design decisions:
     LLMNotConfiguredError, not a silent default.
   * No SDK dependency — stdlib urllib only.
   * Anthropic JSON reliability: assistant-message prefill of `{` forces a JSON
-    object continuation at the server level. The response text is reconstructed by
-    prepending `{` before parsing. Fence/brace regex extraction is kept as a
-    secondary fallback.
+    object continuation at the server level. Reconstruction is prefill-echo-tolerant:
+    `"{" + continuation` is tried first; if the continuation (stripped) already starts
+    with `{` (OSS servers that echo the prefill token), it is used as-is. Fence/brace
+    regex extraction is kept as a final safety net.
   * anthropic-version default: "2023-06-01" (minimum stable version for the
     Messages API). Overridable via TRACKER_LLM_ANTHROPIC_VERSION.
   * OpenAI dialect sends response_format=json_object. Servers that honour it
@@ -331,11 +334,26 @@ def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: 
 
     JSON reliability mechanism: an assistant-message prefill of `{` is appended
     to the messages list. This forces the server to continue a JSON object rather
-    than emitting preamble prose. The server returns only the continuation (without
-    the prefill character itself), so we reconstruct by prepending `{` to whatever
-    the server returns before handing the string to _extract_json.
+    than emitting preamble prose.
 
-    The fence/brace fallback in _extract_json still applies as a secondary safety net.
+    Server behavior varies across implementations:
+      - Compliant servers (hosted Anthropic, most proxies): return only the
+        continuation after the prefill. We prepend `{` to reconstruct the full
+        object: `"{" + continuation`.
+      - Some air-gapped OSS servers (vLLM, llama.cpp, LiteLLM proxies): echo
+        the prefill token back, returning the complete `{"report": {...}}`. In
+        this case unconditionally prepending `{` would yield `{{"report":...}}`
+        which breaks json.loads.
+
+    Reconstruction logic (prefill-echo-tolerant):
+      1. Build candidate = "{" + continuation
+      2. If candidate is valid JSON → use it (compliant server path).
+      3. Else if continuation (stripped) starts with "{" → use continuation as-is
+         (echo-server path: the prefill was already included).
+      4. Either way, _extract_json handles fence/brace fallback as a final net.
+
+    Only the prefill-echo ambiguity is handled here; all other parse failures
+    propagate to _extract_json's existing fallback chain.
     """
     url = f"{base_url}/messages"
     payload = json.dumps({
@@ -387,10 +405,23 @@ def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: 
             f"Unexpected anthropic-dialect response shape: {str(data)[:300]}"
         ) from exc
 
-    # Reconstruct the full JSON object: the prefill `{` was consumed by the
-    # server as the start of the response; the server returns only the
-    # continuation. Prepend `{` to restore the complete object string.
-    return "{" + continuation
+    # Prefill-echo-tolerant reconstruction:
+    # Compliant servers return only the continuation after the prefill `{`, so
+    # we prepend it back.  Some OSS servers (vLLM, llama.cpp, LiteLLM) echo the
+    # prefill token and return the complete object; prepending `{` again would
+    # produce invalid `{{"report":...}}`.  To handle both without a broad
+    # try/except, we probe the candidate string with json.loads: if it is valid
+    # JSON, we are done.  Only when that fails AND the continuation already
+    # starts with `{` do we use the continuation verbatim — that is the echo
+    # case.  Any other failure is left for _extract_json's fence/brace fallback.
+    candidate = "{" + continuation
+    try:
+        json.loads(candidate)
+        return candidate
+    except json.JSONDecodeError:
+        if continuation.lstrip().startswith("{"):
+            return continuation
+        return candidate
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +499,4 @@ def draft_report(notes: str, context: dict) -> dict:
 
     data = _extract_json(raw)
     data = _unwrap_report(data)
-
-    if not isinstance(data, dict):
-        raise LLMRequestError("LLM endpoint did not return a report object")
     return data
