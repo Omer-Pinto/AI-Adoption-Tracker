@@ -21,7 +21,7 @@ import type {
   Team,
   TeamPage,
   TeamPageIndexEntry,
-} from './types';
+} from '@/types';
 
 export const API_BASE = '/api';
 

@@ -1,5 +1,5 @@
-import { Modal } from './Modal';
-import { ArtifactTypeBadge, ChangeKindBadge, TagList } from './Badge';
+import { Modal } from '@/components/Modal';
+import { ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
 import type { ArtifactDetail } from '@/types';
 
 // Working detail modal (spec §7): summary + full data + change history.
