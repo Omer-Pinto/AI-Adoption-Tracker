@@ -73,7 +73,7 @@ def _name_or_id_builder(name_col: str, id_col: str) -> Builder:
     user can type either. Multiple alternatives in one clause (``in`` op) OR
     together; the ``!`` prefix negates the whole clause.
 
-    ``%`` and ``_`` in names are matched literally via ``ESCAPE '\\'``.
+    ``%`` and ``_`` in names are matched literally via ``ESCAPE '\'`` (single backslash).
     """
 
     def build(clause: FilterClause, prefix: str, params: dict[str, Any]) -> str:
@@ -86,11 +86,11 @@ def _name_or_id_builder(name_col: str, id_col: str) -> Builder:
             # "signal-processing"). Match both the space form and the
             # hyphenated form so either typed style resolves.
             params[pname] = _like_escape(val)
-            name_alts = [f"{name_col} LIKE :{pname} ESCAPE '\\\\'"]
+            name_alts = [f"{name_col} LIKE :{pname} ESCAPE '\\'"]
             if " " in val:
                 hp = f"{pname}_h"
                 params[hp] = _like_escape(val.replace(" ", "-"))
-                name_alts.append(f"{name_col} LIKE :{hp} ESCAPE '\\\\'")
+                name_alts.append(f"{name_col} LIKE :{hp} ESCAPE '\\'")
             sub = name_alts[0] if len(name_alts) == 1 else "(" + " OR ".join(name_alts) + ")"
             if val.isdigit():
                 params[f"{pname}_id"] = int(val)
