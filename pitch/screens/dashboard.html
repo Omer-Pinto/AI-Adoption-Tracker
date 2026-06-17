@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item active">
+        <span class="nav-icon">&#9632;</span> Home
+      </a>
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9670;</span> Domains
+      </span>
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </span>
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9888;</span> Failures
+      </span>
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#10003;</span> Evaluations
+      </span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item">
+        <span class="nav-icon">&#9741;</span> Reports
+      </a>
+      <a href="ask-box-1.html" class="nav-item">
+        <span class="nav-icon">&#9998;</span> Ask Box
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9881;</span> Settings
+      </span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Dashboard / Command Center</span>
+        <span class="top-bar-sub">High-level operational health &bull; Where do I need to look today?</span>
+      </div>
+      <div class="top-bar-actions">
+        <span class="text-muted text-sm">Week of Jun 3–10, 2026</span>
+        <a href="exec-summary-1.html" class="btn btn-primary btn-sm">&#9889; Generate Weekly Summary</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Metric Cards -->
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-card-label">Active Domains</div>
+          <div class="metric-card-value value-blue">7</div>
+          <div class="metric-card-delta">All 7 leaves tracked</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Stale Domains</div>
+          <div class="metric-card-value value-amber">2</div>
+          <div class="metric-card-delta"><span class="down">&#9660;</span> 2 no update &gt; 2 wks</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Blocked Tasks</div>
+          <div class="metric-card-value value-red">1</div>
+          <div class="metric-card-delta"><span class="down">&#9660;</span> security</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">New Artifacts</div>
+          <div class="metric-card-value value-green">4</div>
+          <div class="metric-card-delta"><span class="up">&#9650;</span> This week (Jun 3–10)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Model Failures</div>
+          <div class="metric-card-value value-red">5</div>
+          <div class="metric-card-delta">3 resolved · 2 open</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Candidate Evals</div>
+          <div class="metric-card-value">3</div>
+          <div class="metric-card-delta">2 pass · 1 fail</div>
+        </div>
+      </div>
+
+      <!-- Main Panel Grid -->
+      <div class="dashboard-grid-wide" style="margin-bottom:16px;">
+
+        <!-- Left col -->
+        <div class="dashboard-col">
+
+          <!-- Domains Needing Attention -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Domains Needing Attention</span>
+              <span class="text-muted text-xs">4 of 7 flagged</span>
+            </div>
+            <div class="panel-body">
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Infrastructure</div>
+                  <div class="domain-row-name"><a href="case-security.html">Security</a></div>
+                  <div class="domain-row-meta">Champion: oliver.strand · Critical hallucination failure</div>
+                </div>
+                <span class="badge badge-blocked domain-row-badge">Blocked</span>
+                <a href="log-security.html" class="btn btn-sm btn-secondary domain-row-action">Log Entry</a>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Engineering</div>
+                  <div class="domain-row-name"><a href="case-mobile-ios.html">Mobile iOS</a></div>
+                  <div class="domain-row-meta">Champion: lena.petrov · Adoption 50% vs 70% target</div>
+                </div>
+                <span class="badge badge-at-risk domain-row-badge">At Risk</span>
+                <a href="log-mobile-ios.html" class="btn btn-sm btn-secondary domain-row-action">Log Entry</a>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">QA</div>
+                  <div class="domain-row-name"><a href="case-test-automation.html">Test Automation</a></div>
+                  <div class="domain-row-meta">Champion: james.wu · No update in 3+ weeks</div>
+                </div>
+                <span class="badge badge-stale domain-row-badge">Stale</span>
+                <a href="log-test-automation.html" class="btn btn-sm btn-secondary domain-row-action">Log Entry</a>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Infrastructure</div>
+                  <div class="domain-row-name"><a href="case-platform-reliability.html">Platform Reliability</a></div>
+                  <div class="domain-row-meta">Champion: ravi.krishnamurthy (rotated from noah.feldman)</div>
+                </div>
+                <span class="badge badge-champion-rotated domain-row-badge">Champion Rotated</span>
+                <a href="log-platform-reliability.html" class="btn btn-sm btn-secondary domain-row-action">Log Entry</a>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Recent Updates -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Recent Updates</span>
+              <span class="text-muted text-xs">Week of Jun 1–5, 2026</span>
+            </div>
+            <div class="panel-body">
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Engineering / Backend Services</div>
+                  <div class="domain-row-name"><a href="case-backend-services.html">Backend Services</a></div>
+                  <div class="domain-row-meta">Commit-message hook scoped; 20 min saved per PR · Jun 5</div>
+                </div>
+                <span class="badge badge-accelerating">Accelerating</span>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Research / NLP Tooling</div>
+                  <div class="domain-row-name"><a href="case-nlp-tooling.html">NLP Tooling</a></div>
+                  <div class="domain-row-meta">All failures cleared; limited prod run Jun 10 · Jun 5</div>
+                </div>
+                <span class="badge badge-on-track">On Track</span>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Infrastructure / Platform Reliability</div>
+                  <div class="domain-row-name"><a href="case-platform-reliability.html">Platform Reliability</a></div>
+                  <div class="domain-row-meta">Alert-annotation prototype; reference leaf · Jun 5</div>
+                </div>
+                <span class="badge badge-on-track">On Track</span>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Research / Data Science</div>
+                  <div class="domain-row-name"><a href="case-data-science.html">Data Science</a></div>
+                  <div class="domain-row-meta">Context-file pivot approved; rebuilding trust · Jun 5</div>
+                </div>
+                <span class="badge badge-at-risk">At Risk</span>
+              </div>
+
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-team">Engineering / Mobile iOS</div>
+                  <div class="domain-row-name"><a href="case-mobile-ios.html">Mobile iOS</a></div>
+                  <div class="domain-row-meta">v1.0 doc published; adoption 50%, Q2 target 70% · Jun 5</div>
+                </div>
+                <span class="badge badge-at-risk">At Risk</span>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right col -->
+        <div class="dashboard-col">
+
+          <!-- All Domains Quick View -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">All Domains</span>
+              <span class="text-muted text-xs">7 total</span>
+            </div>
+            <div class="panel-body">
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-backend-services.html">eng / backend-services</a></div>
+                </div>
+                <span class="badge badge-accelerating">Accelerating</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-nlp-tooling.html">research / nlp-tooling</a></div>
+                </div>
+                <span class="badge badge-on-track">On Track</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-platform-reliability.html">infra / platform-reliability</a></div>
+                </div>
+                <span class="badge badge-on-track">On Track</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-mobile-ios.html">eng / mobile-ios</a></div>
+                </div>
+                <span class="badge badge-at-risk">At Risk</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-test-automation.html">qa / test-automation</a></div>
+                </div>
+                <span class="badge badge-stale">Stale</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-data-science.html">research / data-science</a></div>
+                </div>
+                <span class="badge badge-at-risk">At Risk</span>
+              </div>
+              <div class="domain-row">
+                <div class="domain-row-path">
+                  <div class="domain-row-name"><a href="case-security.html">infra / security</a></div>
+                </div>
+                <span class="badge badge-blocked">Blocked</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Artifacts -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Top Artifacts (Active)</span>
+              <span class="text-muted text-xs">20 active · 4 retired</span>
+            </div>
+            <div class="panel-body">
+              <div class="artifact-row">
+                <div class="artifact-name">pr-reviewer-agent-v0.2</div>
+                <span class="artifact-type type-agent">agent</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="artifact-row">
+                <div class="artifact-name">playwright-test-generator-skill</div>
+                <span class="artifact-type type-skill">skill</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="artifact-row">
+                <div class="artifact-name">runbook-generator-skill-v0.1</div>
+                <span class="artifact-type type-skill">skill</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="artifact-row">
+                <div class="artifact-name">security-lint-hook</div>
+                <span class="artifact-type type-hook">hook</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="artifact-row">
+                <div class="artifact-name">causal-link-constraint-skill</div>
+                <span class="artifact-type type-skill">skill</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="artifact-row">
+                <div class="artifact-name">annotation-labeling-agent-v0.2</div>
+                <span class="artifact-type type-agent">agent</span>
+                <span class="badge badge-active">Active</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>build-tools — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .status-planned        { background: #f3f4f6;  color: #4b5563; }
+  .status-in-progress    { background: #dbeafe;  color: #1d4ed8; }
+  .status-finished_successfully { background: #dcfce7; color: #15803d; }
+  .status-finished_with_issues  { background: #fef9c3; color: #92400e; }
+  .status-blocked        { background: #fee2e2;  color: #991b1b; }
+  .status-abandoned      { background: #f3f4f6;  color: #9ca3af; }
+
+  .status-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .story-intro {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #1e3a8a;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .story-date-group { margin-bottom: 28px; }
+
+  .story-date-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .story-date-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1d23;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .story-date-line {
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+  }
+
+  .story-entry {
+    display: flex;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .story-entry:last-child { border-bottom: none; }
+
+  .story-dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 22px;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  .story-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-task     { background: #4361ee; }
+  .dot-artifact { background: #7c3aed; }
+  .dot-finished { background: #16a34a; }
+
+  .story-connector {
+    flex: 1;
+    width: 1px;
+    background: #e5e7eb;
+    margin-top: 4px;
+  }
+
+  .story-content { flex: 1; min-width: 0; }
+
+  .story-what {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    margin-bottom: 2px;
+  }
+
+  .story-entity-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+
+  .type-task     { background: #dbeafe; color: #1d4ed8; }
+  .type-artifact { background: #ede9fe; color: #5b21b6; }
+
+  .story-note {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 3px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  .story-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+  }
+
+  .tag-chip {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+  }
+
+  .tag-in_use_by_team  { background: #dcfce7; color: #15803d; border-color: #86efac; }
+
+  .change-kind-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+
+  .kind-added   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Journal</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9881;</span> Manage
+      </span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">build-tools</span>
+        <span class="top-bar-sub">Platform &bull; Eli Cohen</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="team-platform.html" class="btn btn-secondary btn-sm">&#8592; Team Platform</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb" style="margin-bottom:16px;">
+        <a href="index.html">Teams</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="team-platform.html">Platform</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>build-tools</span>
+      </div>
+
+      <!-- Domain header -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-body-padded">
+          <div style="font-size:22px; font-weight:800; color:#1a1d23; margin-bottom:6px;">build-tools</div>
+          <div style="font-size:13px; color:#6b7280; margin-bottom:12px;">CI/build tooling</div>
+          <div style="display:flex; gap:24px; flex-wrap:wrap;">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Team</div>
+              <div class="case-meta-value"><a href="team-platform.html">Platform</a></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">Eli Cohen</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Priority</div>
+              <div class="case-meta-value">1</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Scope</div>
+              <div class="case-meta-value">CI/build tooling</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Cross-domain</div>
+              <div class="case-meta-value"><span style="color:#9ca3af;">none</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================== CURRENT ====================== -->
+      <div style="font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#6b7280; margin-bottom:14px; padding-bottom:6px; border-bottom:2px solid #e5e7eb;">
+        Current State
+      </div>
+
+      <!-- Tasks -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">Tasks</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Started</th>
+              <th>Ended</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="tasks.html">CI migration</a></td>
+              <td><span class="status-chip status-finished_successfully">finished successfully</span></td>
+              <td>Eli</td>
+              <td>2026-04-20</td>
+              <td>2026-05-30</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Artifacts -->
+      <div class="panel" style="margin-bottom:28px;">
+        <div class="panel-header">
+          <span class="panel-title">Artifacts</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Artifact</th>
+              <th>Type</th>
+              <th>Tags</th>
+              <th>Added</th>
+              <th>Last updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="artifacts.html">ci-context</a></td>
+              <td><span class="artifact-type type-context_file">context_file</span></td>
+              <td>
+                <span class="tag-chip tag-in_use_by_team">in_use_by_team</span>
+              </td>
+              <td>2026-04-20</td>
+              <td>&mdash;</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ====================== STORY ====================== -->
+      <div style="font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#6b7280; margin-bottom:6px; padding-bottom:6px; border-bottom:2px solid #e5e7eb;">
+        Story — Week by Week
+      </div>
+
+      <div class="story-intro">
+        The story is the heart of this product. Each entry records what changed at a meeting. Read top to bottom to follow the full arc of this domain.
+      </div>
+
+      <!-- 2026-04-20 -->
+      <div class="story-date-group">
+        <div class="story-date-heading">
+          <span class="story-date-label">2026-04-20 — First meeting</span>
+          <div class="story-date-line"></div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-task"></div>
+            <div class="story-connector"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">CI migration</a> &mdash; <span style="font-size:11px; color:#6b7280;">(started)</span>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-in-progress" style="font-size:10px;">in-progress</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-artifact"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-artifact">artifact</span>
+              <a href="artifacts.html">ci-context</a> &mdash; <span class="change-kind-badge kind-added">added</span>
+            </div>
+            <div class="story-meta">
+              <span class="artifact-type type-context_file" style="font-size:10px;">context_file</span>
+              <span class="tag-chip tag-in_use_by_team">in_use_by_team</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2026-05-30 -->
+      <div class="story-date-group">
+        <div class="story-date-heading">
+          <span class="story-date-label">2026-05-30</span>
+          <div class="story-date-line"></div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-finished"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">CI migration</a>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-finished_successfully" style="font-size:10px;">finished successfully</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

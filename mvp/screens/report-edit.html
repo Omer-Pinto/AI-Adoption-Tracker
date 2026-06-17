@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Report — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .edit-banner {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #1e3a8a;
+    line-height: 1.5;
+  }
+  .edit-banner strong { color: #1e40af; }
+
+  .form-section-subtitle {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 14px;
+    margin-top: -8px;
+  }
+
+  /* Task edit block */
+  .task-edit-block {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fafafa;
+  }
+  .task-edit-block:last-child { margin-bottom: 0; }
+  .task-edit-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1d23;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .task-new-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #15803d;
+    background: #dcfce7;
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+
+  /* Artifact edit block */
+  .artifact-edit-block {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fafafa;
+  }
+  .artifact-edit-block:last-child { margin-bottom: 0; }
+  .artifact-edit-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1d23;
+    margin-bottom: 10px;
+  }
+
+  /* Action item edit block */
+  .action-edit-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .action-edit-row:last-child { margin-bottom: 0; }
+
+  .form-actions-bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  /* Override form-section spacing at top when back-to-back */
+  .form-section + .form-section { margin-top: 0; }
+
+  select.form-select option { font-family: inherit; }
+
+  .field-note {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+
+  .tags-input-note {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+
+  .section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .section-header-row .form-section-title {
+    margin-bottom: 0;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Enablement</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Navigation</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <a href="manage.html" class="nav-item">
+        <span class="nav-icon">&#9881;</span> Manage
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Edit Report</span>
+        <span class="top-bar-sub">Radar &mdash; Dana Levi &mdash; 2026-06-15</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="team-radar.html" class="btn btn-secondary btn-sm">Cancel</a>
+        <a href="team-radar.html" class="btn btn-primary btn-sm">Save changes</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <a href="index.html">Teams</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="team-radar.html">Radar</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>Edit report — 2026-06-15</span>
+      </div>
+
+      <!-- Edit mode banner -->
+      <div class="edit-banner">
+        <strong>Editing a saved report.</strong> You are editing the structured fields, not the original raw notes. On save, task and artifact records will be recomputed from this report's data.
+      </div>
+
+      <div class="form-shell" style="max-width:860px;">
+
+        <!-- ── Meeting info ── -->
+        <div class="form-section">
+          <div class="form-section-title">Meeting info</div>
+
+          <div class="form-grid-2" style="margin-bottom:14px;">
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Champion</label>
+              <input type="text" class="form-input prefilled" value="Dana Levi" readonly>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Team</label>
+              <input type="text" class="form-input prefilled" value="Radar" readonly>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Participants</label>
+              <input type="text" class="form-input" value="Dana Levi, Omer">
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label form-label-required">Meeting date</label>
+              <input type="date" class="form-input" value="2026-06-15">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Domain: signal-processing ── -->
+        <div class="form-section" style="margin-top:16px;">
+          <div class="section-header-row">
+            <div class="form-section-title">Domain: signal-processing</div>
+          </div>
+          <div class="form-section-subtitle">Edit task statuses and notes for each task discussed in this meeting. To add a new task that was created at this meeting, use the "new task" block below existing tasks.</div>
+
+          <!-- Task: CFAR tuning -->
+          <div class="task-edit-block">
+            <div class="task-edit-name">CFAR tuning</div>
+            <div class="form-grid-2">
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Status at this meeting</label>
+                <select class="form-select">
+                  <option value="planned">planned</option>
+                  <option value="in-progress">in-progress</option>
+                  <option value="finished_successfully">finished_successfully</option>
+                  <option value="finished_with_issues">finished_with_issues</option>
+                  <option value="blocked">blocked</option>
+                  <option value="abandoned" selected>abandoned</option>
+                </select>
+              </div>
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Change note</label>
+                <input type="text" class="form-input" value="retired — not worth continuing">
+              </div>
+            </div>
+          </div>
+
+          <!-- Task: Clutter map -->
+          <div class="task-edit-block">
+            <div class="task-edit-name">Clutter map</div>
+            <div class="form-grid-2">
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Status at this meeting</label>
+                <select class="form-select">
+                  <option value="planned">planned</option>
+                  <option value="in-progress" selected>in-progress</option>
+                  <option value="finished_successfully">finished_successfully</option>
+                  <option value="finished_with_issues">finished_with_issues</option>
+                  <option value="blocked">blocked</option>
+                  <option value="abandoned">abandoned</option>
+                </select>
+              </div>
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Change note</label>
+                <input type="text" class="form-input" value="still going; ran first pilot">
+              </div>
+            </div>
+          </div>
+
+          <!-- Task: Doppler check (new) -->
+          <div class="task-edit-block" style="border-color:#bbf7d0;background:#f0fdf4;">
+            <div class="task-edit-name">
+              Doppler check
+              <span class="task-new-badge">new task</span>
+            </div>
+            <div class="form-grid-2" style="margin-bottom:10px;">
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Status at this meeting</label>
+                <select class="form-select">
+                  <option value="planned" selected>planned</option>
+                  <option value="in-progress">in-progress</option>
+                  <option value="finished_successfully">finished_successfully</option>
+                  <option value="finished_with_issues">finished_with_issues</option>
+                  <option value="blocked">blocked</option>
+                  <option value="abandoned">abandoned</option>
+                </select>
+              </div>
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Owner</label>
+                <input type="text" class="form-input" value="Dana">
+              </div>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Change note</label>
+              <input type="text" class="form-input" value="started instead">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Artifact changes ── -->
+        <div class="form-section" style="margin-top:16px;">
+          <div class="section-header-row">
+            <div class="form-section-title">Artifact changes &mdash; signal-processing</div>
+          </div>
+          <div class="form-section-subtitle">Edit artifacts that were added, updated, or retired in this meeting.</div>
+
+          <!-- Artifact: clutter-review (new) -->
+          <div class="artifact-edit-block" style="border-color:#bbf7d0;background:#f0fdf4;">
+            <div class="artifact-edit-name">
+              clutter-review
+              <span class="task-new-badge" style="margin-left:8px;">added</span>
+            </div>
+            <div class="form-grid-2" style="margin-bottom:10px;">
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Type</label>
+                <select class="form-select">
+                  <option value="agent">agent</option>
+                  <option value="skill" selected>skill</option>
+                  <option value="hook">hook</option>
+                  <option value="context_file">context_file</option>
+                </select>
+              </div>
+              <div class="form-row" style="margin-bottom:0;">
+                <label class="form-label">Change kind</label>
+                <select class="form-select">
+                  <option value="added" selected>added</option>
+                  <option value="updated">updated</option>
+                  <option value="retired">retired</option>
+                  <option value="moved">moved</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row" style="margin-bottom:10px;">
+              <label class="form-label">Tags</label>
+              <input type="text" class="form-input" value="under_test">
+              <div class="tags-input-note">Comma-separated. Valid tags: in_use_by_champ_only, in_use_by_team, under_test, proved_worthy, updated_periodically, not_updated, created_by_enablement_lead, problematic. Free-text tags also allowed.</div>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Change note</label>
+              <input type="text" class="form-input" value="created to speed review">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Action items ── -->
+        <div class="form-section" style="margin-top:16px;">
+          <div class="form-section-title">Action items</div>
+
+          <div class="action-edit-row">
+            <div style="flex:1;">
+              <label class="form-label">Action</label>
+              <input type="text" class="form-input" value="find a context-usage tool">
+            </div>
+            <div style="width:140px;">
+              <label class="form-label">Owner</label>
+              <input type="text" class="form-input" value="Omer">
+            </div>
+          </div>
+
+          <div class="action-edit-row">
+            <div style="flex:1;">
+              <label class="form-label">Action</label>
+              <input type="text" class="form-input" value="talk to QA about access">
+            </div>
+            <div style="width:140px;">
+              <label class="form-label">Owner</label>
+              <input type="text" class="form-input" value="Dana">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Discussion ── -->
+        <div class="form-section" style="margin-top:16px;">
+          <div class="form-section-title">Discussion</div>
+          <div class="form-row" style="margin-bottom:0;">
+            <label class="form-label">Free-text discussion notes</label>
+            <textarea class="form-textarea" style="min-height:80px;">Demoed a meta-skill.</textarea>
+          </div>
+        </div>
+
+        <!-- ── Issues ── -->
+        <div class="form-section" style="margin-top:16px;">
+          <div class="form-section-title">Issues flagged</div>
+          <div class="form-row" style="margin-bottom:0;">
+            <label class="form-label">Issues or blockers mentioned</label>
+            <textarea class="form-textarea" style="min-height:80px;">Champion flagged a repo-access problem.</textarea>
+          </div>
+        </div>
+
+        <!-- ── Save / Cancel ── -->
+        <div class="form-actions-bottom">
+          <a href="team-radar.html" class="btn btn-primary">Save changes</a>
+          <a href="team-radar.html" class="btn btn-secondary">Cancel</a>
+        </div>
+
+      </div><!-- /form-shell -->
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

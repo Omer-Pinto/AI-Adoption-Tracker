@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Entry — Platform Reliability (Champion Rotation Week)</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Weekly Logging</span>
+        <span class="top-bar-sub">infrastructure / platform-reliability &mdash; Week of May 11, 2026 (Champion Rotation)</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="case-platform-reliability.html" class="btn btn-secondary btn-sm">Cancel</a>
+        <span class="btn btn-primary btn-sm btn-disabled">Save Entry</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="breadcrumb">
+        <a href="dashboard.html">Home</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="case-platform-reliability.html">infrastructure / platform-reliability</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>Log Entry — May 11 (Champion Rotation)</span>
+      </div>
+
+      <div class="warning-banner">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#92400e;margin-bottom:3px;">Champion Rotation Event</div>
+        Noah Feldman transferred to another team mid-week (May 14). This log was filed by Cassandra Mills (lead, interim champion). Ravi Krishnamurthy is being onboarded as permanent replacement.
+      </div>
+
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-body-padded" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+          <div><div class="case-meta-label">Domain</div><div class="case-meta-value">infrastructure / platform-reliability</div></div>
+          <div><div class="case-meta-label">Previous Champion</div><div class="case-meta-value" style="color:#ef4444;">noah.feldman (departed May 14)</div></div>
+          <div><div class="case-meta-label">Logging As</div><div class="case-meta-value">cassandra.mills (interim)</div></div>
+          <div><div class="case-meta-label">Status</div><div class="case-meta-value"><span class="badge badge-champion-rotated">Champion Rotated</span></div></div>
+          <div style="margin-left:auto;">
+            <div class="case-meta-label">Week Of</div>
+            <input type="date" value="2026-05-11" class="form-input prefilled" style="width:160px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-shell">
+        <div class="form-section">
+          <div class="form-section-title">Weekly Narrative</div>
+          <div class="form-row">
+            <label class="form-label form-label-required">What happened this week?</label>
+            <textarea class="form-textarea prefilled" rows="5">Noah departed for a new team mid-week following a surprise internal transfer. Cassandra (lead) stepped in as interim champion and ran Friday's on-call handoff. The CLAUDE.md template is still in use but no one has pushed the runbook workflow forward this week.</textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Progress &amp; Direction</div>
+          <div class="form-grid-3">
+            <div class="form-row">
+              <label class="form-label form-label-required">Target Task Progress</label>
+              <select class="form-select prefilled">
+                <option value="no_change" selected>No Change</option>
+                <option value="moved_forward">Moved Forward</option>
+                <option value="blocked">Blocked</option>
+                <option value="complete">Complete</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label form-label-required">Observed Direction</label>
+              <select class="form-select prefilled">
+                <option value="flat" selected>&#8596; Flat</option>
+                <option value="up">&#8593; Up</option>
+                <option value="down">&#8595; Down</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Current Mode / Tags</label>
+              <input type="text" class="form-input prefilled" value="champion-rotation, interim-coverage">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Champion Facilitation</div>
+          <div class="form-row">
+            <label class="form-label">What did the champion do this week?</label>
+            <textarea class="form-textarea prefilled" rows="3">Cassandra: ran on-call handoff; preserved CLAUDE.md; introduced incoming champion Ravi Krishnamurthy</textarea>
+          </div>
+        </div>
+
+        <!-- Champion update section -->
+        <div class="form-section">
+          <div class="form-section-title">Champion Update</div>
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="form-label">Departing Champion</label>
+              <input type="text" class="form-input prefilled" value="noah.feldman@company.com">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Incoming Champion</label>
+              <input type="text" class="form-input prefilled" value="ravi.krishnamurthy@company.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Rotation Reason / Notes</label>
+            <textarea class="form-textarea prefilled" rows="2">Internal team transfer — surprise announcement mid-week. Noah's institutional knowledge partially undocumented; knowledge-transfer session needed.</textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Blockers &amp; Next Step</div>
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="form-label">Blockers</label>
+              <textarea class="form-textarea prefilled" rows="3" style="border-color:#fde68a;background:#fffbeb;">Champion rotation mid-week; Noah's institutional knowledge partially undocumented</textarea>
+            </div>
+            <div class="form-row">
+              <label class="form-label form-label-required">Next Step</label>
+              <textarea class="form-textarea prefilled" rows="3">Onboard Ravi Krishnamurthy as new champion; schedule knowledge-transfer session</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding-bottom:32px;">
+          <a href="case-platform-reliability.html" class="btn btn-secondary">Cancel — Return to Case File</a>
+          <span class="btn btn-primary btn-disabled">Save Entry (No Backend)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>signal-processing — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Status coloring */
+  .status-planned        { background: #f3f4f6;  color: #4b5563; }
+  .status-in-progress    { background: #dbeafe;  color: #1d4ed8; }
+  .status-finished_successfully { background: #dcfce7; color: #15803d; }
+  .status-finished_with_issues  { background: #fef9c3; color: #92400e; }
+  .status-blocked        { background: #fee2e2;  color: #991b1b; }
+  .status-abandoned      { background: #f3f4f6;  color: #9ca3af; }
+
+  .status-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Story section */
+  .story-intro {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #1e3a8a;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .story-date-group {
+    margin-bottom: 28px;
+  }
+
+  .story-date-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .story-date-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1d23;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .story-date-line {
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+  }
+
+  .story-entry {
+    display: flex;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .story-entry:last-child { border-bottom: none; }
+
+  .story-dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 22px;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  .story-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-task    { background: #4361ee; }
+  .dot-artifact { background: #7c3aed; }
+  .dot-abandoned { background: #9ca3af; }
+  .dot-finished  { background: #16a34a; }
+
+  .story-connector {
+    flex: 1;
+    width: 1px;
+    background: #e5e7eb;
+    margin-top: 4px;
+  }
+
+  .story-content { flex: 1; min-width: 0; }
+
+  .story-what {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    margin-bottom: 2px;
+  }
+
+  .story-entity-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+
+  .type-task     { background: #dbeafe; color: #1d4ed8; }
+  .type-artifact { background: #ede9fe; color: #5b21b6; }
+
+  .story-note {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 3px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  .story-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+  }
+
+  .tag-chip {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+  }
+
+  .tag-problematic { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+  .tag-under_test  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+  .tag-in_use_by_champ_only { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+  .tag-in_use_by_team       { background: #dcfce7; color: #15803d; border-color: #86efac; }
+  .tag-proved_worthy        { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+
+  .change-kind-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+  .kind-added   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+  .kind-updated { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+  .kind-retired { background: #f3f4f6; color: #9ca3af; border-color: #e5e7eb; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Journal</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9881;</span> Manage
+      </span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">signal-processing</span>
+        <span class="top-bar-sub">Radar &bull; Dana Levi</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="team-radar.html" class="btn btn-secondary btn-sm">&#8592; Team Radar</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Domain header -->
+      <div class="breadcrumb" style="margin-bottom:16px;">
+        <a href="index.html">Teams</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="team-radar.html">Radar</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>signal-processing</span>
+      </div>
+
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-body-padded">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+            <div>
+              <div style="font-size:22px; font-weight:800; color:#1a1d23; margin-bottom:6px;">signal-processing</div>
+              <div style="font-size:13px; color:#6b7280; margin-bottom:12px;">Real-time radar signal pipeline</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:24px; flex-wrap:wrap;">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Team</div>
+              <div class="case-meta-value"><a href="team-radar.html">Radar</a></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">Dana Levi</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Priority</div>
+              <div class="case-meta-value">1</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Scope</div>
+              <div class="case-meta-value">Real-time radar signal pipeline</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Cross-domain</div>
+              <div class="case-meta-value">feeds <a href="domain-firmware.html">firmware</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================== CURRENT ====================== -->
+      <div style="font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#6b7280; margin-bottom:14px; padding-bottom:6px; border-bottom:2px solid #e5e7eb;">
+        Current State
+      </div>
+
+      <!-- Tasks table -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">Tasks</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Started</th>
+              <th>Ended</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="tasks.html">Clutter map</a></td>
+              <td><span class="status-chip status-in-progress">in-progress</span></td>
+              <td>Dana</td>
+              <td>2026-06-01</td>
+              <td>&mdash;</td>
+            </tr>
+            <tr>
+              <td><a href="tasks.html">Doppler check</a></td>
+              <td><span class="status-chip status-planned">planned</span></td>
+              <td>Dana</td>
+              <td>2026-06-15</td>
+              <td>&mdash;</td>
+            </tr>
+            <tr>
+              <td><a href="tasks.html">CFAR tuning</a></td>
+              <td><span class="status-chip status-abandoned">abandoned</span></td>
+              <td>Dana</td>
+              <td>2026-06-01</td>
+              <td>2026-06-15</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Artifacts table -->
+      <div class="panel" style="margin-bottom:28px;">
+        <div class="panel-header">
+          <span class="panel-title">Artifacts</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Artifact</th>
+              <th>Type</th>
+              <th>Tags</th>
+              <th>Added</th>
+              <th>Last updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="artifacts.html">clutter-review</a></td>
+              <td><span class="artifact-type type-skill">skill</span></td>
+              <td>
+                <span class="tag-chip tag-under_test">under_test</span>
+              </td>
+              <td>2026-06-15</td>
+              <td>&mdash;</td>
+            </tr>
+            <tr>
+              <td><a href="artifacts.html">cfar-helper</a></td>
+              <td><span class="artifact-type type-agent">agent</span></td>
+              <td>
+                <span class="tag-chip tag-problematic">problematic</span>
+                <span class="tag-chip tag-in_use_by_champ_only">in_use_by_champ_only</span>
+              </td>
+              <td>2026-05-15</td>
+              <td>2026-06-08</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ====================== STORY ====================== -->
+      <div style="font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#6b7280; margin-bottom:6px; padding-bottom:6px; border-bottom:2px solid #e5e7eb;">
+        Story — Week by Week
+      </div>
+
+      <div class="story-intro">
+        The story is the heart of this product. Each entry records what changed at a meeting — not a state snapshot, but the change itself. Read top to bottom to follow the full arc of this domain.
+      </div>
+
+      <!-- 2026-05-15 -->
+      <div class="story-date-group">
+        <div class="story-date-heading">
+          <span class="story-date-label">2026-05-15</span>
+          <div class="story-date-line"></div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-artifact"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-artifact">artifact</span>
+              <a href="artifacts.html">cfar-helper</a> &mdash; <span class="change-kind-badge kind-added">added</span>
+            </div>
+            <div class="story-meta">
+              <span class="artifact-type type-agent" style="font-size:10px;">agent</span>
+            </div>
+            <div class="story-note">"first version"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2026-06-08 -->
+      <div class="story-date-group">
+        <div class="story-date-heading">
+          <span class="story-date-label">2026-06-08</span>
+          <div class="story-date-line"></div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-task"></div>
+            <div class="story-connector"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">Clutter map</a>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-in-progress" style="font-size:10px;">in-progress</span>
+            </div>
+            <div class="story-note">"first draft of map"</div>
+          </div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-artifact"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-artifact">artifact</span>
+              <a href="artifacts.html">cfar-helper</a> &mdash; <span class="change-kind-badge kind-updated">updated</span>
+            </div>
+            <div class="story-meta">
+              <span class="artifact-type type-agent" style="font-size:10px;">agent</span>
+              <span class="tag-chip tag-problematic">problematic</span>
+            </div>
+            <div class="story-note">"tweaked prompt; still flaky"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2026-06-15 -->
+      <div class="story-date-group">
+        <div class="story-date-heading">
+          <span class="story-date-label">2026-06-15</span>
+          <div class="story-date-line"></div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-abandoned"></div>
+            <div class="story-connector"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">CFAR tuning</a>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-abandoned" style="font-size:10px;">abandoned</span>
+            </div>
+            <div class="story-note">"retired &mdash; not worth continuing"</div>
+          </div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-task"></div>
+            <div class="story-connector"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">Clutter map</a>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-in-progress" style="font-size:10px;">in-progress</span>
+            </div>
+            <div class="story-note">"still going; ran first pilot"</div>
+          </div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-task"></div>
+            <div class="story-connector"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-task">task</span>
+              <a href="tasks.html">Doppler check</a> &mdash; <span style="font-size:11px; color:#6b7280;">(new)</span>
+            </div>
+            <div class="story-meta">
+              <span class="status-chip status-planned" style="font-size:10px;">planned</span>
+            </div>
+            <div class="story-note">"started instead"</div>
+          </div>
+        </div>
+
+        <div class="story-entry">
+          <div class="story-dot-col">
+            <div class="story-dot dot-artifact"></div>
+          </div>
+          <div class="story-content">
+            <div class="story-what">
+              <span class="story-entity-type type-artifact">artifact</span>
+              <a href="artifacts.html">clutter-review</a> &mdash; <span class="change-kind-badge kind-added">added</span>
+            </div>
+            <div class="story-meta">
+              <span class="artifact-type type-skill" style="font-size:10px;">skill</span>
+              <span class="tag-chip tag-under_test">under_test</span>
+            </div>
+            <div class="story-note">"created to speed review"</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

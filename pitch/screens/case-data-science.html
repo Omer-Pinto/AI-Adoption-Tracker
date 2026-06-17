@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Science — Domain Case File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="case-header">
+      <div class="case-header-top">
+        <div>
+          <div class="case-header-team">Research</div>
+          <div class="case-header-domain">data-science</div>
+          <div class="case-header-meta">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Status</div>
+              <div class="case-meta-value"><span class="badge badge-at-risk">At Risk</span></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">fatima.ali@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Lead</div>
+              <div class="case-meta-value">dr.wei.zhang@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Target Task</div>
+              <div class="case-meta-value">Build Claude-assisted EDA notebook template reused across projects</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Started</div>
+              <div class="case-meta-value">Apr 28, 2026</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding-top:8px;">
+          <span class="btn btn-secondary btn-sm btn-disabled">Meeting Prep</span>
+          <a href="log-data-science.html" class="btn btn-primary btn-sm">Log Weekly Entry</a>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Overview</div>
+        <div class="tab disabled">Timeline</div>
+        <div class="tab disabled">Artifacts</div>
+        <div class="tab disabled">Failures</div>
+        <div class="tab disabled">Evaluations</div>
+        <div class="tab disabled">Notes</div>
+      </div>
+    </div>
+
+    <div class="overview-grid">
+      <div>
+        <div class="warning-banner">
+          <strong>Net-negative history:</strong> 3 consecutive weeks of flat/down direction before Jun 1 pivot. Wei approved design pivot to context_file approach Jun 1 &mdash; cautiously recovering but trust needs rebuilding with the team.
+        </div>
+
+        <div class="narrative-block">
+          <div class="narrative-week-label">Latest Entry &mdash; Week of Jun 1, 2026</div>
+          <div class="narrative-text">
+            Wei approved the design pivot to context_file. Fatima rebuilt the EDA template as a context_file approach over the weekend and early tests are already more consistent. Direction is cautiously up but the leaf has been net-negative for three weeks &mdash; trust needs rebuilding with the team.
+          </div>
+          <div class="narrative-meta">
+            <span class="narrative-meta-tag">design-pivot-active</span>
+            <span class="narrative-meta-tag">rebuilding</span>
+            <span class="progress-pill progress-moved_forward">moved forward</span>
+            <span class="badge badge-up">&#8593; Up (cautious)</span>
+          </div>
+        </div>
+
+        <div class="next-step-block" style="margin-bottom:16px;">
+          <div class="next-step-label">Next Step</div>
+          Run team re-intro session Jun 10; collect feedback; publish v1.0 of context_file template
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Open Failures</span>
+          </div>
+          <div class="panel-body-padded">
+            <div class="failure-card">
+              <div class="failure-title">F-4: Nullable field refusal</div>
+              <div class="failure-desc">Claude refuses to populate optional EDA fields marked as nullable in the JSON schema, returning absent keys. Breaks downstream scripts expecting all schema keys present.</div>
+              <div class="failure-meta">
+                <span>Owner: <strong>fatima.ali</strong></span>
+                <span>Due: <strong>May 30</strong> <span class="due-date-badge due-overdue">Overdue</span></span>
+                <span>Status: Superseded by design pivot to context_file approach</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Artifacts (1 active, 1 retired)</span>
+          </div>
+          <div class="panel-body">
+            <div class="artifact-row">
+              <div class="artifact-name">eda-context-file-v1.0</div>
+              <span class="artifact-type type-context_file">context_file</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name" style="color:#9ca3af;text-decoration:line-through;">eda-notebook-template-v0.1</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-retired">Retired</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Progress History</span></div>
+          <div class="panel-body-padded">
+            <div class="timeline">
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">Jun 1, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span> <span class="badge badge-up">Cautious &#8593;</span></div>
+                  <div class="timeline-narrative">Design pivot approved. Context_file rebuilt. Early tests more consistent.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change" style="background:#ef4444;"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 25, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-down">&#8595; Down</span></div>
+                  <div class="timeline-narrative">Context_file spike completed. Recommended pivot. Awaiting Wei sign-off. No progress.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change" style="background:#ef4444;"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 18, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-down">&#8595; Down</span></div>
+                  <div class="timeline-narrative">JSON schema caused nullable refusal failure. Fatima questioning fundamental design.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 11, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-flat">Flat</span></div>
+                  <div class="timeline-narrative">Structured-output helped but template drifts across dataset types. Week of prompt debugging.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 4, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span></div>
+                  <div class="timeline-narrative">Initial template draft. Output useful but too verbose.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="at-a-glance" style="margin-bottom:16px;">
+          <div class="at-a-glance-title">At a Glance</div>
+          <div class="glance-row"><span class="glance-label">Total Weeks</span><span class="glance-value">6</span></div>
+          <div class="glance-row"><span class="glance-label">Entries Logged</span><span class="glance-value">5</span></div>
+          <div class="glance-row"><span class="glance-label">Active Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Retired Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Open Failures</span><span class="glance-value" style="color:#d97706;">1</span></div>
+          <div class="glance-row"><span class="glance-label">Candidate Evals</span><span class="glance-value">0</span></div>
+          <div class="glance-row"><span class="glance-label">Direction</span><span class="glance-value"><span class="badge badge-up">&#8593; Cautious</span></span></div>
+        </div>
+        <div class="at-a-glance">
+          <div class="at-a-glance-title">Design Pivot Summary</div>
+          <div class="glance-row"><span class="glance-label">Old Approach</span><span class="glance-value" style="color:#9ca3af;">Template (skill)</span></div>
+          <div class="glance-row"><span class="glance-label">New Approach</span><span class="glance-value">Context file</span></div>
+          <div class="glance-row"><span class="glance-label">Approved by</span><span class="glance-value">dr.wei.zhang</span></div>
+          <div class="glance-row"><span class="glance-label">Pivot Date</span><span class="glance-value">Jun 1</span></div>
+          <div class="glance-row"><span class="glance-label">Re-intro Session</span><span class="glance-value">Jun 10</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

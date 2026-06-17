@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Platform — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .champion-note {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 4px solid #16a34a;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #14532d;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .domain-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .domain-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f3f4f6;
+    background: #fafafa;
+  }
+  .domain-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1d23;
+  }
+  .domain-card-title a {
+    color: #1a1d23;
+  }
+  .domain-card-title a:hover {
+    color: #4361ee;
+    text-decoration: none;
+  }
+  .domain-card-meta {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .domain-card-body {
+    padding: 14px 18px;
+  }
+  .domain-card-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .domain-col-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  .task-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 5px;
+    margin-right: 4px;
+  }
+  .status-planned        { background: #f3f4f6;  color: #4b5563; }
+  .status-in-progress    { background: #dbeafe;  color: #1d4ed8; }
+  .status-finished_successfully { background: #dcfce7; color: #15803d; }
+  .status-finished_with_issues  { background: #fef9c3; color: #92400e; }
+  .status-blocked        { background: #fee2e2;  color: #991b1b; }
+  .status-abandoned      { background: #f3f4f6;  color: #9ca3af; text-decoration: line-through; }
+  .artifact-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    margin-right: 3px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+  .report-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .report-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .report-row:last-child { border-bottom: none; }
+  .report-date {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+  }
+  .report-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .priority-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .priority-1 { background: #fee2e2; color: #991b1b; }
+  .no-action-items {
+    font-size: 13px;
+    color: #9ca3af;
+    font-style: italic;
+    padding: 8px 0;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Journal</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled">
+        <span class="nav-icon">&#9881;</span> Manage
+      </span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Team Platform</span>
+        <span class="top-bar-sub">Champion portfolio &bull; Eli Cohen &bull; since 2026-04-15</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="report-create.html" class="btn btn-primary btn-sm">+ Create report</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <div class="champion-note">
+        This page tracks the current champion's portfolio within Team Platform. If the champion changes, this page persists — history is kept and the incoming champion inherits the same domains.
+      </div>
+
+      <!-- Champion header -->
+      <div class="panel mb-16" style="margin-bottom:20px;">
+        <div class="panel-body-padded">
+          <div class="d-flex gap-12 align-center" style="flex-wrap:wrap; gap:24px;">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Team</div>
+              <div class="case-meta-value" style="font-size:16px; font-weight:700;">Platform</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Current Champion</div>
+              <div class="case-meta-value">Eli Cohen</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion Since</div>
+              <div class="case-meta-value">2026-04-15</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Domains</div>
+              <div class="case-meta-value">1 (build-tools)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Domains -->
+      <div class="page-header" style="margin-bottom:12px;">
+        <div>
+          <div class="page-header-title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.6px; color:#6b7280; font-weight:700;">Domains</div>
+        </div>
+      </div>
+
+      <!-- Domain: build-tools -->
+      <div class="domain-card">
+        <div class="domain-card-header">
+          <div>
+            <div class="domain-card-title"><a href="domain-build-tools.html">build-tools</a></div>
+            <div class="domain-card-meta">CI/build tooling</div>
+          </div>
+          <div class="d-flex gap-8 align-center">
+            <span class="priority-badge priority-1">Priority 1</span>
+            <a href="domain-build-tools.html" class="btn btn-secondary btn-sm">View domain</a>
+          </div>
+        </div>
+        <div class="domain-card-body">
+          <div class="domain-card-cols">
+            <div>
+              <div class="domain-col-label">Tasks</div>
+              <div>
+                <span class="task-pill status-finished_successfully">CI migration &mdash; finished successfully</span>
+              </div>
+            </div>
+            <div>
+              <div class="domain-col-label">Artifacts</div>
+              <div>
+                <span class="artifact-pill"><span class="artifact-type type-context_file" style="font-size:10px; padding:1px 5px; border-radius:3px;">context_file</span> <a href="artifacts.html">ci-context</a></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider">
+
+      <!-- Reports + Action Items -->
+      <div class="col-2" style="gap:24px; margin-top:8px;">
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Reports (Eli Cohen)</span>
+            <a href="report-create.html" class="btn btn-primary btn-sm">+ Create report</a>
+          </div>
+          <div class="panel-body-padded">
+            <div class="report-list">
+              <div class="report-row">
+                <div>
+                  <div class="report-date">2026-05-30</div>
+                  <div class="report-label">Champion meeting</div>
+                </div>
+                <a href="report-edit.html" class="btn btn-secondary btn-sm">View / Edit</a>
+              </div>
+              <div class="report-row">
+                <div>
+                  <div class="report-date">2026-04-20</div>
+                  <div class="report-label">Champion meeting (first meeting)</div>
+                </div>
+                <a href="report-edit.html" class="btn btn-secondary btn-sm">View / Edit</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Action Items</span>
+          </div>
+          <div class="panel-body-padded">
+            <div class="no-action-items">No open action items for Eli Cohen.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

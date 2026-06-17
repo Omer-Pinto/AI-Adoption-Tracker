@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .manage-section {
+    margin-bottom: 36px;
+  }
+  .manage-section-heading {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1d23;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .manage-section-heading::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: #4361ee;
+    border-radius: 2px;
+  }
+  .list-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .list-item-row:last-child { border-bottom: none; }
+  .list-item-row:hover { background: #fafafa; }
+  .list-item-main { flex: 1; min-width: 0; }
+  .list-item-name { font-size: 13px; font-weight: 600; color: #1a1d23; }
+  .list-item-meta { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.5; }
+  .list-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .divider-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #9ca3af;
+    padding: 14px 16px 6px;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .form-note {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+  .field-group {
+    margin-bottom: 14px;
+  }
+  .field-group:last-child { margin-bottom: 0; }
+  .tag-pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: #4b5563;
+    margin: 2px 3px 2px 0;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Enablement Journey</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Manage</span>
+        <span class="top-bar-sub">Teams, Champions, and Domains</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="index.html" class="btn btn-secondary btn-sm">&#8592; Back to Teams</a>
+      </div>
+    </div>
+
+    <div class="page-body" style="max-width:900px;">
+
+      <!-- ============================================================
+           SECTION 1: TEAMS
+           ============================================================ -->
+      <div class="manage-section">
+        <div class="manage-section-heading">Teams</div>
+
+        <!-- Existing teams list -->
+        <div class="panel mb-16">
+          <div class="divider-label">Existing teams</div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">Radar</div>
+              <div class="list-item-meta">
+                <span style="font-weight:600;color:#374151;">Baseline:</span> Used Claude Code ad-hoc, no shared context files.
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">Platform</div>
+              <div class="list-item-meta">
+                <span style="font-weight:600;color:#374151;">Baseline:</span> A few CLAUDE.md files, no skills.
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create / edit team form -->
+        <div class="panel">
+          <div class="divider-label">Create / edit team</div>
+          <div class="panel-body-padded">
+            <div class="field-group">
+              <label class="form-label form-label-required">Name</label>
+              <input type="text" class="form-input" placeholder="e.g. Radar">
+            </div>
+            <div class="field-group">
+              <label class="form-label form-label-required">Claude Code baseline</label>
+              <textarea class="form-textarea" rows="3" placeholder="Describe the team's starting point with Claude Code — what they had before the enablement programme started."></textarea>
+              <div class="form-note">Stored once; captures the team's raw starting state (team.cc_baseline).</div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn btn-primary btn-sm">Save team</button>
+              <button class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SECTION 2: CHAMPIONS
+           ============================================================ -->
+      <div class="manage-section">
+        <div class="manage-section-heading">Champions</div>
+
+        <!-- Existing champions list -->
+        <div class="panel mb-16">
+          <div class="divider-label">Existing champions</div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">Dana Levi</div>
+              <div class="list-item-meta">
+                Team: <strong>Radar</strong> &nbsp;&bull;&nbsp;
+                Start date: 2026-05-01 &nbsp;&bull;&nbsp;
+                End date: &mdash;
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">Eli Cohen</div>
+              <div class="list-item-meta">
+                Team: <strong>Platform</strong> &nbsp;&bull;&nbsp;
+                Start date: 2026-04-15 &nbsp;&bull;&nbsp;
+                End date: &mdash;
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create / edit champion form -->
+        <div class="panel">
+          <div class="divider-label">Create / edit champion</div>
+          <div class="panel-body-padded">
+            <div class="form-grid-2" style="margin-bottom:14px;">
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Name</label>
+                <input type="text" class="form-input" placeholder="e.g. Dana Levi">
+              </div>
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Team</label>
+                <select class="form-select">
+                  <option value="">Select team…</option>
+                  <option value="radar">Radar</option>
+                  <option value="platform">Platform</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid-2" style="margin-bottom:14px;">
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Start date</label>
+                <input type="date" class="form-input" value="">
+              </div>
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label">End date <span style="font-weight:400;color:#9ca3af;">(nullable)</span></label>
+                <input type="date" class="form-input" value="">
+                <div class="form-note">Leave blank if still active.</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn btn-primary btn-sm">Save champion</button>
+              <button class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SECTION 3: DOMAINS
+           ============================================================ -->
+      <div class="manage-section">
+        <div class="manage-section-heading">Domains</div>
+
+        <!-- Existing domains list -->
+        <div class="panel mb-16">
+          <div class="divider-label">Existing domains</div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">signal-processing</div>
+              <div class="list-item-meta">
+                Team: <strong>Radar</strong> &nbsp;&bull;&nbsp;
+                Champion: <strong>Dana Levi</strong> &nbsp;&bull;&nbsp;
+                Priority: <strong>1</strong>
+              </div>
+              <div class="list-item-meta" style="margin-top:3px;">
+                Scope: Real-time radar signal pipeline &nbsp;&bull;&nbsp;
+                Cross-domain: feeds firmware
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">firmware</div>
+              <div class="list-item-meta">
+                Team: <strong>Radar</strong> &nbsp;&bull;&nbsp;
+                Champion: <strong>Dana Levi</strong> &nbsp;&bull;&nbsp;
+                Priority: <strong>2</strong>
+              </div>
+              <div class="list-item-meta" style="margin-top:3px;">
+                Scope: Embedded firmware &nbsp;&bull;&nbsp;
+                Cross-domain: &mdash;
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+
+          <div class="list-item-row">
+            <div class="list-item-main">
+              <div class="list-item-name">build-tools</div>
+              <div class="list-item-meta">
+                Team: <strong>Platform</strong> &nbsp;&bull;&nbsp;
+                Champion: <strong>Eli Cohen</strong> &nbsp;&bull;&nbsp;
+                Priority: <strong>1</strong>
+              </div>
+              <div class="list-item-meta" style="margin-top:3px;">
+                Scope: CI/build tooling &nbsp;&bull;&nbsp;
+                Cross-domain: &mdash;
+              </div>
+            </div>
+            <div class="list-actions">
+              <button class="btn btn-secondary btn-sm">Edit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create / edit domain form -->
+        <div class="panel">
+          <div class="divider-label">Create / edit domain</div>
+          <div class="panel-body-padded">
+            <div class="form-grid-2" style="margin-bottom:14px;">
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Team</label>
+                <select class="form-select">
+                  <option value="">Select team…</option>
+                  <option value="radar">Radar</option>
+                  <option value="platform">Platform</option>
+                </select>
+              </div>
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Champion</label>
+                <select class="form-select">
+                  <option value="">Select champion…</option>
+                  <option value="dana">Dana Levi</option>
+                  <option value="eli">Eli Cohen</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid-2" style="margin-bottom:14px;">
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Name</label>
+                <input type="text" class="form-input" placeholder="e.g. signal-processing">
+              </div>
+              <div class="field-group" style="margin-bottom:0;">
+                <label class="form-label form-label-required">Priority</label>
+                <input type="number" class="form-input" placeholder="1" min="1">
+                <div class="form-note">Lower = higher priority relative to team's other domains.</div>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-textarea" rows="2" placeholder="Free-text description of this domain."></textarea>
+            </div>
+            <div class="field-group">
+              <label class="form-label form-label-required">Scope</label>
+              <input type="text" class="form-input" placeholder="e.g. Real-time radar signal pipeline">
+            </div>
+            <div class="field-group">
+              <label class="form-label">Cross-domain relevance</label>
+              <input type="text" class="form-input" placeholder="e.g. feeds firmware">
+              <div class="form-note">Optional. Note any cross-domain dependencies or outputs.</div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn btn-primary btn-sm">Save domain</button>
+              <button class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

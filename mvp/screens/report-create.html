@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Report — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .notes-area {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #1a1d23;
+    background: #ffffff;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 320px;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  .notes-area:focus {
+    outline: none;
+    border-color: #4361ee;
+    box-shadow: 0 0 0 2px rgba(67,97,238,0.12);
+  }
+  .notes-area::placeholder { color: #9ca3af; }
+
+  .model-callout {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #4361ee;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #1e3a8a;
+    line-height: 1.55;
+  }
+  .model-callout strong { color: #1e40af; }
+
+  .meta-readonly {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+  }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+  }
+
+  .draft-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    background: #4361ee;
+    color: #ffffff;
+    font-family: inherit;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .draft-btn:hover { background: #3451d1; text-decoration: none; color: #fff; }
+
+  .step-row {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .step-item.active { color: #4361ee; font-weight: 600; }
+  .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: #9ca3af;
+  }
+  .step-item.active .step-num {
+    border-color: #4361ee;
+    background: #4361ee;
+    color: #ffffff;
+  }
+  .step-arrow {
+    width: 32px;
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0 6px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Enablement</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Navigation</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <a href="manage.html" class="nav-item">
+        <span class="nav-icon">&#9881;</span> Manage
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Create Report</span>
+        <span class="top-bar-sub">Radar &mdash; Dana Levi</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="team-radar.html" class="btn btn-secondary btn-sm">Cancel</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <a href="index.html">Teams</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="team-radar.html">Radar</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>Create Report</span>
+      </div>
+
+      <!-- Step indicator -->
+      <div class="step-row">
+        <div class="step-item active">
+          <div class="step-num">1</div>
+          Paste notes
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          Review draft
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          Confirm &amp; save
+        </div>
+      </div>
+
+      <div class="form-shell">
+
+        <!-- Meeting Meta -->
+        <div class="form-section">
+          <div class="form-section-title">Meeting info</div>
+
+          <div class="form-grid-2" style="margin-bottom:14px;">
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Champion</label>
+              <div class="meta-readonly">Dana Levi</div>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Team</label>
+              <div class="meta-readonly">Radar</div>
+            </div>
+          </div>
+
+          <div class="form-grid-2" style="margin-bottom:0;">
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label">Participants</label>
+              <div class="meta-readonly">Dana Levi, Omer</div>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label class="form-label form-label-required">Meeting date</label>
+              <input type="date" class="form-input" value="">
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw notes -->
+        <div class="form-section">
+          <div class="form-section-title">Raw meeting notes</div>
+
+          <div class="form-row" style="margin-bottom:8px;">
+            <label class="form-label form-label-required">
+              Paste your raw notes
+            </label>
+            <textarea
+              class="notes-area"
+              placeholder="Paste everything here — rough, unstructured, copied from your notes app or a doc.&#10;&#10;The model will read these and produce a structured report: it will identify which tasks changed status, any new tasks or artifacts, action items, and anything worth flagging. You do not need to fill any fields yourself.&#10;&#10;Example:&#10;talked with Dana — clutter map is still going, she ran a first pilot this week&#10;we retired the CFAR tuning work, not worth it&#10;started a new thing: doppler check, just planned for now&#10;she created a new skill called clutter-review to speed up the review step&#10;action: I (Omer) need to find a context-usage tool&#10;action: Dana to talk to QA about access&#10;we demoed a meta-skill&#10;Dana flagged a repo-access problem"
+            ></textarea>
+          </div>
+
+          <div class="model-callout">
+            <strong>How this works:</strong> when you click "Draft report with model", your notes are sent to your local Claude Code endpoint. The model maps what you wrote onto the structured report fields — task statuses, artifact changes, action items, discussion notes, and issues — using the existing domain and task records as context. You then review the draft before anything is saved.
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <a href="report-preview.html" class="draft-btn">
+            &#9654; Draft report with model
+          </a>
+          <span class="text-muted text-sm">Your notes are not saved until you confirm the draft.</span>
+        </div>
+
+      </div><!-- /form-shell -->
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Executive Projection — Week of Jun 3–10, 2026</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item active"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Executive Projection (Generated View)</span>
+        <span class="top-bar-sub">Manager summary &bull; Week of Jun 3–10, 2026 &bull; Generated Jun 10, 2026</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="exec-summary-2.html" class="btn btn-secondary btn-sm">View May Report</a>
+        <span class="btn btn-primary btn-sm btn-disabled">Regenerate</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Health Cards -->
+      <div class="exec-health-grid">
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#16a34a;">7</div>
+          <div class="exec-health-label">Active Domains</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">All 7 leaves tracked</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#d97706;">2</div>
+          <div class="exec-health-label">At Risk</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">mobile-ios · data-science</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#dc2626;">1</div>
+          <div class="exec-health-label">Blocked (Critical)</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">infra/security</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#2563eb;">3</div>
+          <div class="exec-health-label">Strong Examples</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">backend · platform-rel · nlp</div>
+        </div>
+      </div>
+
+      <!-- Highlights + Risks -->
+      <div class="exec-sections">
+
+        <div class="exec-section">
+          <div class="exec-section-title" style="color:#15803d;">
+            <span style="font-size:16px;">&#9650;</span> Highlights
+          </div>
+          <ul class="exec-list highlight">
+            <li><strong>engineering/backend-services</strong> completed its original target task (100% PR coverage, 3 weeks sustained) and launched a second target &mdash; commit-message hook due Jun 17. Champion Tomas Reyes is being asked by peer teams to share the pattern. Time savings quantified at 20 min/PR.</li>
+            <li><strong>infrastructure/platform-reliability</strong> successfully navigated a surprise champion rotation (Noah Feldman → Ravi Krishnamurthy) with only one week of no-change. Ravi has completed the original runbook target and started an alert-annotation prototype. Two other infra teams have requested onboarding support.</li>
+            <li><strong>research/nlp-tooling</strong> cleared all 3 model failures and is running its first limited production batch (500 docs) today (Jun 10). This was a 4-week blocked domain &mdash; full recovery is a strong signal of champion persistence and disciplined failure remediation.</li>
+            <li><strong>qa/test-automation</strong> went from 62% to 81% E2E Playwright coverage in two sprints. Though stale (no log in 3+ weeks), the underlying adoption appears healthy &mdash; James Wu has been fielding cross-team requests for 3 weeks.</li>
+          </ul>
+        </div>
+
+        <div class="exec-section">
+          <div class="exec-section-title" style="color:#dc2626;">
+            <span style="font-size:16px;">&#9660;</span> Top Risks
+          </div>
+          <ul class="exec-list risk">
+            <li><strong>infrastructure/security — CRITICAL &amp; STALE:</strong> Package version hallucination failure (F-5) is a safety risk for CVE triage decisions. Oliver Strand's remediation was due May 22 &mdash; now 3 weeks overdue with zero log entries. No visibility into whether work is even proceeding. Recommend: escalate to Rashida Banks for immediate status check.</li>
+            <li><strong>engineering/mobile-ios — Q2 deadline risk:</strong> Adoption is at 50% vs a 70% target due Jun 30. With 3 weeks remaining and 4 of 5 weeks at no-change, this leaf may miss its Q2 milestone without top-down intervention from Darius Okonkwo. Champion Lena Petrov is asking for a manager nudge.</li>
+            <li><strong>qa/test-automation — Stale, no formal close-out:</strong> Last log May 18. Target task appears complete but has never been formally closed. Three weeks without an entry creates false ambiguity. Recommend: James Wu log one catch-up entry to formally mark target task complete.</li>
+            <li><strong>research/data-science — Net-negative history, trust gap:</strong> Three consecutive down/flat weeks before Jun 1 pivot. The context_file redesign looks promising but the team re-intro session is today &mdash; outcome unknown. Watch closely for the next two weeks.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Top Domains Table -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">All Domains &mdash; Current State</span>
+          <span class="text-muted text-xs">Jun 10, 2026</span>
+        </div>
+        <div class="panel-body-padded">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Champion</th>
+                <th>Status</th>
+                <th>Direction</th>
+                <th>Active Artifacts</th>
+                <th>Open Failures</th>
+                <th>Last Entry</th>
+                <th>Case File</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>engineering/backend-services</strong></td>
+                <td>tomas.reyes</td>
+                <td><span class="badge badge-accelerating">Accelerating</span></td>
+                <td><span class="badge badge-up">&#8593; Up</span></td>
+                <td>5</td>
+                <td style="color:#16a34a;">0</td>
+                <td>Jun 5</td>
+                <td><a href="case-backend-services.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>research/nlp-tooling</strong></td>
+                <td>amara.osei</td>
+                <td><span class="badge badge-on-track">On Track</span></td>
+                <td><span class="badge badge-up">&#8593; Up</span></td>
+                <td>3</td>
+                <td style="color:#16a34a;">0</td>
+                <td>Jun 5</td>
+                <td><a href="case-nlp-tooling.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>infrastructure/platform-reliability</strong></td>
+                <td>ravi.krishnamurthy</td>
+                <td><span class="badge badge-on-track">On Track</span></td>
+                <td><span class="badge badge-up">&#8593; Up</span></td>
+                <td>4</td>
+                <td style="color:#16a34a;">0</td>
+                <td>Jun 5</td>
+                <td><a href="case-platform-reliability.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>engineering/mobile-ios</strong></td>
+                <td>lena.petrov</td>
+                <td><span class="badge badge-at-risk">At Risk</span></td>
+                <td><span class="badge badge-flat">&#8596; Flat</span></td>
+                <td>2</td>
+                <td style="color:#16a34a;">0</td>
+                <td>Jun 5</td>
+                <td><a href="case-mobile-ios.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>qa/test-automation</strong></td>
+                <td>james.wu</td>
+                <td><span class="badge badge-stale">Stale</span></td>
+                <td><span class="badge badge-up">&#8593; (last known)</span></td>
+                <td>3</td>
+                <td style="color:#16a34a;">0</td>
+                <td style="color:#d97706;">May 18</td>
+                <td><a href="case-test-automation.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>research/data-science</strong></td>
+                <td>fatima.ali</td>
+                <td><span class="badge badge-at-risk">At Risk</span></td>
+                <td><span class="badge badge-up">&#8593; (cautious)</span></td>
+                <td>1</td>
+                <td style="color:#d97706;">1 (overdue)</td>
+                <td>Jun 5</td>
+                <td><a href="case-data-science.html">View</a></td>
+              </tr>
+              <tr>
+                <td><strong>infrastructure/security</strong></td>
+                <td>oliver.strand</td>
+                <td><span class="badge badge-blocked">Blocked</span></td>
+                <td><span class="badge badge-flat">&#8596; Flat</span></td>
+                <td>1</td>
+                <td style="color:#dc2626;">1 (Critical, Overdue)</td>
+                <td style="color:#dc2626;">May 15</td>
+                <td><a href="case-security.html">View</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recommended Actions -->
+      <div class="exec-section" style="margin-bottom:24px;">
+        <div class="exec-section-title" style="color:#4361ee;">
+          <span style="font-size:16px;">&#9654;</span> Recommended Actions This Week
+        </div>
+        <ul class="exec-list action">
+          <li><strong>URGENT — infra/security:</strong> Contact Oliver Strand and Rashida Banks directly. Confirm whether F-5 remediation is in progress, get a revised due date, and require a log entry by Jun 12. If no response, flag to manager as a safety risk.</li>
+          <li><strong>eng/mobile-ios:</strong> Request Darius Okonkwo issue a top-down message to the iOS team affirming the 70% adoption target for Q2. Identify 2 peer champions from the existing 50% who can influence the holdouts. Lena Petrov needs organizational backing.</li>
+          <li><strong>qa/test-automation:</strong> Ask James Wu to file a single catch-up entry formally closing the Playwright target task and noting whether mutation testing will be pursued as a next target. This clears the "stale" flag.</li>
+          <li><strong>research/data-science:</strong> Review Fatima Ali's team re-intro session results (Jun 10). If feedback is positive, schedule a formal v1.0 launch. If negative, schedule a lead-champion alignment meeting with Wei Zhang this week.</li>
+        </ul>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+</body>
+</html>

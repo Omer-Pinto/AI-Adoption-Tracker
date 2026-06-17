@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tasks — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* ---- Status badge variants matching spec enum ---- */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-planned              { background: #f3f4f6; color: #374151; }
+  .status-planned::before      { background: #9ca3af; }
+
+  .status-in-progress          { background: #dbeafe; color: #1e40af; }
+  .status-in-progress::before  { background: #3b82f6; }
+
+  .status-finished_successfully          { background: #dcfce7; color: #166534; }
+  .status-finished_successfully::before  { background: #16a34a; }
+
+  .status-finished_with_issues          { background: #fef9c3; color: #854d0e; }
+  .status-finished_with_issues::before  { background: #d97706; }
+
+  .status-blocked              { background: #fee2e2; color: #991b1b; }
+  .status-blocked::before      { background: #ef4444; }
+
+  .status-abandoned            { background: #f3f4f6; color: #6b7280; }
+  .status-abandoned::before    { background: #9ca3af; }
+
+  /* ---- Expand toggle ---- */
+  .expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4361ee;
+    background: #eff2ff;
+    border: 1px solid #c7d2fe;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+  }
+
+  .expand-btn:hover { background: #e0e7ff; }
+
+  /* ---- Journey panel (expandable row) ---- */
+  .journey-row {
+    display: none;
+    background: #fafafa;
+  }
+
+  .journey-row.open {
+    display: table-row;
+  }
+
+  .journey-cell {
+    padding: 0 !important;
+    border-bottom: 2px solid #4361ee !important;
+  }
+
+  .journey-inner {
+    padding: 14px 18px 16px 42px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .journey-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #4361ee;
+    margin-bottom: 12px;
+  }
+
+  /* ---- Journey timeline ---- */
+  .journey-timeline {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .journey-step {
+    position: relative;
+    padding: 0 0 16px 0;
+  }
+
+  .journey-step:last-child {
+    padding-bottom: 0;
+  }
+
+  /* Vertical line connecting dots */
+  .journey-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: -22px;
+    top: 10px;
+    bottom: -6px;
+    width: 1px;
+    background: #e5e7eb;
+  }
+
+  /* Dot */
+  .journey-dot {
+    position: absolute;
+    left: -28px;
+    top: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #9ca3af;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #d1d5db;
+  }
+
+  .journey-dot.dot-planned              { background: #9ca3af; }
+  .journey-dot.dot-in-progress          { background: #3b82f6; }
+  .journey-dot.dot-finished_successfully { background: #16a34a; }
+  .journey-dot.dot-finished_with_issues  { background: #d97706; }
+  .journey-dot.dot-blocked              { background: #ef4444; }
+  .journey-dot.dot-abandoned            { background: #6b7280; }
+
+  .journey-step-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 3px;
+  }
+
+  .journey-step-date {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    min-width: 44px;
+  }
+
+  .journey-step-note {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.5;
+    padding-left: 0;
+  }
+
+  /* ---- Abandoned row styling ---- */
+  tr.row-abandoned > td:not(:first-child) {
+    color: #9ca3af;
+  }
+
+  tr.row-abandoned .task-name {
+    text-decoration: line-through;
+    color: #9ca3af;
+  }
+
+  /* ---- task name ---- */
+  .task-name {
+    font-weight: 600;
+    color: #1a1d23;
+  }
+
+  /* ---- dates ---- */
+  .date-cell {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  .date-dash {
+    color: #d1d5db;
+  }
+
+  /* highlight expanded source row */
+  tr.expanded-source > td {
+    background: #f5f7ff;
+    border-bottom-color: transparent;
+  }
+
+  /* filter bar */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .filter-bar-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    transition: background 0.12s, border-color 0.12s;
+    user-select: none;
+  }
+
+  .filter-chip:hover {
+    background: #eff2ff;
+    border-color: #a5b4fc;
+    color: #3730a3;
+  }
+
+  .filter-chip.active {
+    background: #4361ee;
+    border-color: #4361ee;
+    color: #fff;
+  }
+
+  .filter-sep {
+    width: 1px;
+    height: 20px;
+    background: #e5e7eb;
+    margin: 0 4px;
+  }
+
+  .visual-only-note {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Journal</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item active">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <a href="manage.html" class="nav-item">
+        <span class="nav-icon">&#9881;</span> Manage
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Tasks</span>
+        <span class="top-bar-sub">All tasks across all domains &bull; week-by-week journey per entry</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="report-create.html" class="btn btn-primary btn-sm">+ New Report</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <span class="filter-bar-label">Status</span>
+        <span class="filter-chip active" onclick="this.classList.toggle('active')">All</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">Planned</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">In progress</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">Finished successfully</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">Finished with issues</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">Blocked</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">Abandoned</span>
+
+        <span class="filter-sep"></span>
+
+        <span class="filter-bar-label">Domain</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">signal-processing</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">firmware</span>
+        <span class="filter-chip" onclick="this.classList.toggle('active')">build-tools</span>
+
+        <span class="visual-only-note">(visual filter — no data is hidden in this mockup)</span>
+      </div>
+
+      <!-- Table -->
+      <div class="panel">
+        <table class="data-table" id="tasks-table">
+          <thead>
+            <tr>
+              <th style="width:28px;"></th>
+              <th>Name</th>
+              <th>Domain</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Started</th>
+              <th>Ended</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- ============================================================ -->
+            <!-- CFAR tuning — abandoned -->
+            <!-- ============================================================ -->
+            <tr id="row-cfar-tuning" class="row-abandoned" data-status="abandoned" data-domain="signal-processing">
+              <td>
+                <button class="expand-btn" onclick="toggleJourney('cfar-tuning')" aria-expanded="false" aria-controls="journey-cfar-tuning">
+                  &#9660;
+                </button>
+              </td>
+              <td><span class="task-name">CFAR tuning</span></td>
+              <td><a href="domain-signal-processing.html">signal-processing</a></td>
+              <td><span class="status-badge status-abandoned">abandoned</span></td>
+              <td>Dana</td>
+              <td class="date-cell">06-01</td>
+              <td class="date-cell">06-15</td>
+            </tr>
+            <tr id="journey-cfar-tuning" class="journey-row">
+              <td colspan="7" class="journey-cell">
+                <div class="journey-inner">
+                  <div class="journey-title">Week-by-week journey</div>
+                  <div class="journey-timeline">
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-abandoned"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">06-15</span>
+                        <span class="status-badge status-abandoned">abandoned</span>
+                      </div>
+                      <p class="journey-step-note">retired — not worth continuing</p>
+                    </div>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Clutter map — in-progress -->
+            <!-- ============================================================ -->
+            <tr id="row-clutter-map" data-status="in-progress" data-domain="signal-processing">
+              <td>
+                <button class="expand-btn" onclick="toggleJourney('clutter-map')" aria-expanded="false" aria-controls="journey-clutter-map">
+                  &#9660;
+                </button>
+              </td>
+              <td><span class="task-name">Clutter map</span></td>
+              <td><a href="domain-signal-processing.html">signal-processing</a></td>
+              <td><span class="status-badge status-in-progress">in-progress</span></td>
+              <td>Dana</td>
+              <td class="date-cell">06-01</td>
+              <td class="date-cell date-dash">—</td>
+            </tr>
+            <tr id="journey-clutter-map" class="journey-row">
+              <td colspan="7" class="journey-cell">
+                <div class="journey-inner">
+                  <div class="journey-title">Week-by-week journey</div>
+                  <div class="journey-timeline">
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-in-progress"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">06-08</span>
+                        <span class="status-badge status-in-progress">in-progress</span>
+                      </div>
+                      <p class="journey-step-note">first draft of map</p>
+                    </div>
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-in-progress"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">06-15</span>
+                        <span class="status-badge status-in-progress">in-progress</span>
+                      </div>
+                      <p class="journey-step-note">still going; ran first pilot</p>
+                    </div>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Doppler check — planned -->
+            <!-- ============================================================ -->
+            <tr id="row-doppler-check" data-status="planned" data-domain="signal-processing">
+              <td>
+                <button class="expand-btn" onclick="toggleJourney('doppler-check')" aria-expanded="false" aria-controls="journey-doppler-check">
+                  &#9660;
+                </button>
+              </td>
+              <td><span class="task-name">Doppler check</span></td>
+              <td><a href="domain-signal-processing.html">signal-processing</a></td>
+              <td><span class="status-badge status-planned">planned</span></td>
+              <td>Dana</td>
+              <td class="date-cell">06-15</td>
+              <td class="date-cell date-dash">—</td>
+            </tr>
+            <tr id="journey-doppler-check" class="journey-row">
+              <td colspan="7" class="journey-cell">
+                <div class="journey-inner">
+                  <div class="journey-title">Week-by-week journey</div>
+                  <div class="journey-timeline">
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-planned"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">06-15</span>
+                        <span class="status-badge status-planned">planned</span>
+                      </div>
+                      <p class="journey-step-note">started instead</p>
+                    </div>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Build agent — in-progress -->
+            <!-- ============================================================ -->
+            <tr id="row-build-agent" data-status="in-progress" data-domain="firmware">
+              <td>
+                <button class="expand-btn" onclick="toggleJourney('build-agent')" aria-expanded="false" aria-controls="journey-build-agent">
+                  &#9660;
+                </button>
+              </td>
+              <td><span class="task-name">Build agent</span></td>
+              <td><a href="domain-firmware.html">firmware</a></td>
+              <td><span class="status-badge status-in-progress">in-progress</span></td>
+              <td>Dana</td>
+              <td class="date-cell">05-20</td>
+              <td class="date-cell date-dash">—</td>
+            </tr>
+            <tr id="journey-build-agent" class="journey-row">
+              <td colspan="7" class="journey-cell">
+                <div class="journey-inner">
+                  <div class="journey-title">Week-by-week journey</div>
+                  <div class="journey-timeline">
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-in-progress"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">05-20</span>
+                        <span class="status-badge status-in-progress">in-progress</span>
+                      </div>
+                      <p class="journey-step-note">started</p>
+                    </div>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- CI migration — finished_successfully -->
+            <!-- ============================================================ -->
+            <tr id="row-ci-migration" data-status="finished_successfully" data-domain="build-tools">
+              <td>
+                <button class="expand-btn" onclick="toggleJourney('ci-migration')" aria-expanded="false" aria-controls="journey-ci-migration">
+                  &#9660;
+                </button>
+              </td>
+              <td><span class="task-name">CI migration</span></td>
+              <td><a href="domain-build-tools.html">build-tools</a></td>
+              <td><span class="status-badge status-finished_successfully">finished_successfully</span></td>
+              <td>Eli</td>
+              <td class="date-cell">04-20</td>
+              <td class="date-cell">05-30</td>
+            </tr>
+            <tr id="journey-ci-migration" class="journey-row">
+              <td colspan="7" class="journey-cell">
+                <div class="journey-inner">
+                  <div class="journey-title">Week-by-week journey</div>
+                  <div class="journey-timeline">
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-in-progress"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">04-20</span>
+                        <span class="status-badge status-in-progress">in-progress</span>
+                      </div>
+                      <p class="journey-step-note">started</p>
+                    </div>
+
+                    <div class="journey-step">
+                      <span class="journey-dot dot-finished_successfully"></span>
+                      <div class="journey-step-header">
+                        <span class="journey-step-date">05-30</span>
+                        <span class="status-badge status-finished_successfully">finished_successfully</span>
+                      </div>
+                      <p class="journey-step-note">&mdash;</p>
+                    </div>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div><!-- /panel -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<script>
+  function toggleJourney(id) {
+    var journeyRow = document.getElementById('journey-' + id);
+    var sourceRow  = document.getElementById('row-' + id);
+    var btn        = sourceRow.querySelector('.expand-btn');
+    var isOpen     = journeyRow.classList.contains('open');
+
+    if (isOpen) {
+      journeyRow.classList.remove('open');
+      sourceRow.classList.remove('expanded-source');
+      btn.innerHTML = '&#9660;';
+      btn.setAttribute('aria-expanded', 'false');
+    } else {
+      journeyRow.classList.add('open');
+      sourceRow.classList.add('expanded-source');
+      btn.innerHTML = '&#9650;';
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+</script>
+</body>
+</html>

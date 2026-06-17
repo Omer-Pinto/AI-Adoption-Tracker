@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Entry — NLP Tooling (Blocked)</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Weekly Logging</span>
+        <span class="top-bar-sub">research / nlp-tooling &mdash; Week of May 18, 2026 (Blocked Period)</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="case-nlp-tooling.html" class="btn btn-secondary btn-sm">Cancel</a>
+        <span class="btn btn-primary btn-sm btn-disabled">Save Entry</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="breadcrumb">
+        <a href="dashboard.html">Home</a>
+        <span class="breadcrumb-sep">/</span>
+        <a href="case-nlp-tooling.html">research / nlp-tooling</a>
+        <span class="breadcrumb-sep">/</span>
+        <span>Log Entry — May 18 (Blocked)</span>
+      </div>
+
+      <div class="blocker-banner">
+        <div class="blocker-banner-label">Context: Blocked Week</div>
+        This is the week 3 entry for NLP Tooling, showing the domain during its blocked / multi-failure period. Two concurrent failures were active this week. The form below reflects what was logged.
+      </div>
+
+      <!-- Context bar -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-body-padded" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+          <div><div class="case-meta-label">Domain</div><div class="case-meta-value">research / nlp-tooling</div></div>
+          <div><div class="case-meta-label">Champion</div><div class="case-meta-value">amara.osei@company.com</div></div>
+          <div><div class="case-meta-label">Target Task</div><div class="case-meta-value">Replace manual annotation pipeline with Claude-assisted labeling workflow</div></div>
+          <div><div class="case-meta-label">Current Status</div><div class="case-meta-value"><span class="badge badge-blocked">Blocked</span></div></div>
+          <div style="margin-left:auto;">
+            <div class="case-meta-label">Week Of</div>
+            <input type="date" value="2026-05-18" class="form-input prefilled" style="width:160px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-shell">
+        <div class="form-section">
+          <div class="form-section-title">Weekly Narrative</div>
+          <div class="form-row">
+            <label class="form-label form-label-required">What happened this week?</label>
+            <textarea class="form-textarea prefilled" rows="5">Few-shot prompting brought causal-link error rate to 9% — improved but still above the 5% threshold. A third failure emerged: the agent intermittently drops annotations on the last chunk of a document. Remediation ownership assigned to Amara with June 1 deadline. The team is running out of headroom to reach the target task on schedule.</textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Progress &amp; Direction</div>
+          <div class="form-grid-3">
+            <div class="form-row">
+              <label class="form-label form-label-required">Target Task Progress</label>
+              <select class="form-select prefilled">
+                <option value="blocked" selected>Blocked</option>
+                <option value="moved_forward">Moved Forward</option>
+                <option value="no_change">No Change</option>
+                <option value="complete">Complete</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label form-label-required">Observed Direction</label>
+              <select class="form-select prefilled">
+                <option value="flat" selected>&#8596; Flat</option>
+                <option value="up">&#8593; Up</option>
+                <option value="down">&#8595; Down</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Current Mode / Tags</label>
+              <input type="text" class="form-input prefilled" value="blocked, multi-failure">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Champion Facilitation</div>
+          <div class="form-row">
+            <label class="form-label">What did the champion do this week?</label>
+            <textarea class="form-textarea prefilled" rows="3">Ran few-shot experiment; escalated to lead; wrote remediation plans for both open failures</textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Blockers &amp; Next Step</div>
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="form-label">Blockers</label>
+              <textarea class="form-textarea prefilled" rows="4" style="border-color:#fca5a5;background:#fff8f8;">Causal-link error still above threshold (9% vs 5% target); last-chunk drop rate ~4%</textarea>
+            </div>
+            <div class="form-row">
+              <label class="form-label form-label-required">Next Step</label>
+              <textarea class="form-textarea prefilled" rows="4">Test chain-of-thought prompting for causal-link; patch chunk-boundary logic; re-eval by Jun 1</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Failures logged this week -->
+        <div class="form-section">
+          <div class="form-section-title">Failures Logged This Week</div>
+          <div style="border:1px solid #fecaca;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+            <div style="background:#fee2e2;padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;color:#991b1b;">Failure #3 — Last-Chunk Annotation Drop</div>
+            <div style="padding:12px 14px;">
+              <div class="form-grid-2">
+                <div class="form-row">
+                  <label class="form-label">Description</label>
+                  <textarea class="form-textarea prefilled" rows="3" style="border-color:#fca5a5;">Agent silently skips annotations on the final chunk of documents longer than ~3000 tokens. Affects approximately 4% of production-length documents.</textarea>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Remediation Plan</label>
+                  <textarea class="form-textarea prefilled" rows="3">Audit chunk-boundary logic. Add explicit 'do not skip final chunk' instruction and sentinel token.</textarea>
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-row">
+                  <label class="form-label">Owner</label>
+                  <input type="text" class="form-input prefilled" value="amara.osei@company.com">
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Due Date</label>
+                  <input type="date" class="form-input prefilled" value="2026-06-08">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding-bottom:32px;">
+          <a href="case-nlp-tooling.html" class="btn btn-secondary">Cancel — Return to Case File</a>
+          <span class="btn btn-primary btn-disabled">Save Entry (No Backend)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

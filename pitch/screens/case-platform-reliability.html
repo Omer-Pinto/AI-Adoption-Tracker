@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Reliability — Domain Case File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="case-header">
+      <div class="case-header-top">
+        <div>
+          <div class="case-header-team">Infrastructure</div>
+          <div class="case-header-domain">platform-reliability</div>
+          <div class="case-header-meta">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Status</div>
+              <div class="case-meta-value"><span class="badge badge-on-track">On Track</span> <span class="badge badge-champion-rotated" style="margin-left:4px;">Champion Rotated</span></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Current Champion</div>
+              <div class="case-meta-value">ravi.krishnamurthy@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Previous Champion</div>
+              <div class="case-meta-value" style="color:#ef4444;">noah.feldman@company.com (departed May 14)</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Lead</div>
+              <div class="case-meta-value">cassandra.mills@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Target Task</div>
+              <div class="case-meta-value">Generate runbook drafts from incident postmortems using Claude Code</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Started</div>
+              <div class="case-meta-value">Apr 28, 2026</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding-top:8px;">
+          <a href="prep-platform-reliability.html" class="btn btn-secondary btn-sm">Meeting Prep</a>
+          <a href="log-platform-reliability.html" class="btn btn-primary btn-sm">Log Weekly Entry</a>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Overview</div>
+        <div class="tab disabled">Timeline</div>
+        <div class="tab disabled">Artifacts</div>
+        <div class="tab disabled">Failures</div>
+        <div class="tab disabled">Evaluations</div>
+        <div class="tab disabled">Notes</div>
+      </div>
+    </div>
+
+    <div class="overview-grid">
+      <div>
+        <div class="warning-banner">
+          <strong>Champion rotation event:</strong> Noah Feldman transferred internally on May 14. Cassandra Mills held interim coverage. Ravi Krishnamurthy onboarded as new champion May 18 &mdash; momentum has fully recovered.
+        </div>
+
+        <div class="narrative-block">
+          <div class="narrative-week-label">Latest Entry &mdash; Week of Jun 1, 2026</div>
+          <div class="narrative-text">
+            Alert-annotation scope confirmed. Ravi began prototyping; first results are noisy but directionally correct. Team is energized &mdash; this leaf is now a reference case that other infra teams are asking about.
+          </div>
+          <div class="narrative-meta">
+            <span class="narrative-meta-tag">new-target-task</span>
+            <span class="narrative-meta-tag">reference-leaf</span>
+            <span class="progress-pill progress-moved_forward">moved forward</span>
+            <span class="badge badge-up">&#8593; Up</span>
+          </div>
+        </div>
+
+        <div class="next-step-block" style="margin-bottom:16px;">
+          <div class="next-step-label">Next Step</div>
+          Iterate on alert-annotation prompt; set quality bar by Jun 17
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Champion Facilitation (Jun 1 week)</span>
+          </div>
+          <div class="panel-body-padded" style="font-size:13px;color:#374151;">
+            Ravi: demo'd alert-annotation prototype to 2 other infra teams; collected feedback for iteration
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Artifacts (4 active, 0 retired)</span>
+          </div>
+          <div class="panel-body">
+            <div class="artifact-row">
+              <div class="artifact-name">runbook-generator-skill-v0.1</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">infra-platform/CLAUDE.md</div>
+              <span class="artifact-type type-context_file">context_file</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">runbook-generation-workflow</div>
+              <span class="artifact-type type-workflow">workflow</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">alert-annotation-agent-v0.1</div>
+              <span class="artifact-type type-agent">agent</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Progress History</span></div>
+          <div class="panel-body-padded">
+            <div class="timeline">
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">Jun 1, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span></div>
+                  <div class="timeline-narrative">Alert-annotation prototype started. Reference leaf for other infra teams.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-complete"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 25, 2026 &bull; <span class="progress-pill progress-complete">complete</span></div>
+                  <div class="timeline-narrative">10th runbook generated. Lead approved production quality. Confluence guide published.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 18, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span></div>
+                  <div class="timeline-narrative">Ravi's first solo session. 3 more runbooks logged. Momentum rebuilding.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change" style="background:#7c3aed;"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 11, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> &mdash; <span class="badge badge-champion-rotated">Champion Rotated</span></div>
+                  <div class="timeline-narrative">Noah departed. Cassandra interim. CLAUDE.md preserved but no forward progress.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 4, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span></div>
+                  <div class="timeline-narrative">Noah kickoff. CLAUDE.md drafted. 2 incidents tested successfully.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="at-a-glance" style="margin-bottom:16px;">
+          <div class="at-a-glance-title">At a Glance</div>
+          <div class="glance-row"><span class="glance-label">Total Weeks</span><span class="glance-value">6</span></div>
+          <div class="glance-row"><span class="glance-label">Entries Logged</span><span class="glance-value">5</span></div>
+          <div class="glance-row"><span class="glance-label">Active Artifacts</span><span class="glance-value">4</span></div>
+          <div class="glance-row"><span class="glance-label">Retired Artifacts</span><span class="glance-value">0</span></div>
+          <div class="glance-row"><span class="glance-label">Open Failures</span><span class="glance-value" style="color:#16a34a;">0</span></div>
+          <div class="glance-row"><span class="glance-label">Champion Rotations</span><span class="glance-value" style="color:#7c3aed;">1</span></div>
+          <div class="glance-row"><span class="glance-label">Runbooks Generated</span><span class="glance-value">10+</span></div>
+          <div class="glance-row"><span class="glance-label">Direction</span><span class="glance-value"><span class="badge badge-up">&#8593; Up</span></span></div>
+        </div>
+        <div class="at-a-glance">
+          <div class="at-a-glance-title">Champion Rotation Event</div>
+          <div class="glance-row"><span class="glance-label">Departed</span><span class="glance-value">noah.feldman</span></div>
+          <div class="glance-row"><span class="glance-label">Rotation Date</span><span class="glance-value">May 14, 2026</span></div>
+          <div class="glance-row"><span class="glance-label">Interim</span><span class="glance-value">cassandra.mills</span></div>
+          <div class="glance-row"><span class="glance-label">New Champion</span><span class="glance-value">ravi.krishnamurthy</span></div>
+          <div class="glance-row"><span class="glance-label">Recovery Time</span><span class="glance-value">1 week</span></div>
+          <div class="glance-row"><span class="glance-label">Impact</span><span class="glance-value" style="color:#16a34a;">Minimal</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

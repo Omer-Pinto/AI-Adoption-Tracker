@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artifacts — AI Adoption Tracker</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* ---- Filter bar ---- */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .filter-bar-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    transition: background 0.12s, border-color 0.12s;
+    user-select: none;
+  }
+
+  .filter-chip:hover {
+    background: #eff2ff;
+    border-color: #a5b4fc;
+    color: #3730a3;
+  }
+
+  .filter-chip.active {
+    background: #4361ee;
+    border-color: #4361ee;
+    color: #fff;
+  }
+
+  .filter-sep {
+    width: 1px;
+    height: 20px;
+    background: #e5e7eb;
+    margin: 0 4px;
+  }
+
+  /* ---- Expand toggle ---- */
+  .expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4361ee;
+    background: #eff2ff;
+    border: 1px solid #c7d2fe;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+  }
+
+  .expand-btn:hover { background: #e0e7ff; }
+
+  /* ---- Tags inline ---- */
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+  }
+
+  .tag.tag-problematic    { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+  .tag.tag-under_test     { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+  .tag.tag-in_use_by_team { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  .tag.tag-in_use_by_champ_only { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+  .tag.tag-proved_worthy  { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+
+  /* ---- History panel (expandable row) ---- */
+  .history-row {
+    display: none;
+    background: #fafafa;
+  }
+
+  .history-row.open {
+    display: table-row;
+  }
+
+  .history-cell {
+    padding: 0 !important;
+    border-bottom: 2px solid #4361ee !important;
+  }
+
+  .history-inner {
+    padding: 14px 18px 14px 42px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .history-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #4361ee;
+    margin-bottom: 10px;
+  }
+
+  .history-entry {
+    display: flex;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #f3f4f6;
+    align-items: flex-start;
+  }
+
+  .history-entry:last-child { border-bottom: none; }
+
+  .history-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 52px;
+    padding-top: 2px;
+  }
+
+  .change-kind {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 58px;
+    text-align: center;
+  }
+
+  .change-kind.added   { background: #dcfce7; color: #166534; }
+  .change-kind.updated { background: #dbeafe; color: #1e40af; }
+  .change-kind.retired { background: #f3f4f6; color: #6b7280; }
+  .change-kind.moved   { background: #ede9fe; color: #5b21b6; }
+
+  .history-note {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.5;
+    flex: 1;
+    padding-top: 1px;
+  }
+
+  /* ---- visual-only notice ---- */
+  .visual-only-note {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+    margin-left: 6px;
+  }
+
+  /* artifact row highlight when expanded */
+  tr.expanded-source > td {
+    background: #f5f7ff;
+    border-bottom-color: transparent;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Left Nav -->
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Journal</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">&#9632;</span> Teams
+      </a>
+      <a href="artifacts.html" class="nav-item active">
+        <span class="nav-icon">&#9679;</span> Artifacts
+      </a>
+      <a href="tasks.html" class="nav-item">
+        <span class="nav-icon">&#10003;</span> Tasks
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <a href="manage.html" class="nav-item">
+        <span class="nav-icon">&#9881;</span> Manage
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Artifacts</span>
+        <span class="top-bar-sub">All artifacts across all domains &bull; change history per entry</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="report-create.html" class="btn btn-primary btn-sm">+ New Report</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <span class="filter-bar-label">Type</span>
+        <span class="filter-chip active" onclick="toggleFilter(this,'type','all')">All</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'type','agent')">Agent</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'type','skill')">Skill</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'type','context_file')">Context file</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'type','hook')">Hook</span>
+
+        <span class="filter-sep"></span>
+
+        <span class="filter-bar-label">Tag</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'tag','in_use_by_team')">In use by team</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'tag','in_use_by_champ_only')">Champ only</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'tag','under_test')">Under test</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'tag','proved_worthy')">Proved worthy</span>
+        <span class="filter-chip" onclick="toggleFilter(this,'tag','problematic')">Problematic</span>
+
+        <span class="visual-only-note">(visual filter — no data is hidden in this mockup)</span>
+      </div>
+
+      <!-- Table -->
+      <div class="panel">
+        <table class="data-table" id="artifacts-table">
+          <thead>
+            <tr>
+              <th style="width:28px;"></th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Domain</th>
+              <th>Current tags</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- ============================================================ -->
+            <!-- Row 1: clutter-review -->
+            <!-- ============================================================ -->
+            <tr id="row-clutter-review" data-type="skill" data-tags="under_test">
+              <td>
+                <button class="expand-btn" onclick="toggleHistory('clutter-review')" aria-expanded="false" aria-controls="hist-clutter-review">
+                  &#9660;
+                </button>
+              </td>
+              <td style="font-weight:600; color:#1a1d23;">clutter-review</td>
+              <td><span class="artifact-type type-skill">skill</span></td>
+              <td><a href="domain-signal-processing.html">signal-processing</a></td>
+              <td>
+                <div class="tag-list">
+                  <span class="tag tag-under_test">under_test</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="hist-clutter-review" class="history-row">
+              <td colspan="5" class="history-cell">
+                <div class="history-inner">
+                  <div class="history-title">Change history</div>
+                  <div class="history-entry">
+                    <span class="history-date">06-15</span>
+                    <span class="change-kind added">added</span>
+                    <span class="history-note">created to speed review</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Row 2: cfar-helper -->
+            <!-- ============================================================ -->
+            <tr id="row-cfar-helper" data-type="agent" data-tags="problematic in_use_by_champ_only">
+              <td>
+                <button class="expand-btn" onclick="toggleHistory('cfar-helper')" aria-expanded="false" aria-controls="hist-cfar-helper">
+                  &#9660;
+                </button>
+              </td>
+              <td style="font-weight:600; color:#1a1d23;">cfar-helper</td>
+              <td><span class="artifact-type type-agent">agent</span></td>
+              <td><a href="domain-signal-processing.html">signal-processing</a></td>
+              <td>
+                <div class="tag-list">
+                  <span class="tag tag-problematic">problematic</span>
+                  <span class="tag tag-in_use_by_champ_only">in_use_by_champ_only</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="hist-cfar-helper" class="history-row">
+              <td colspan="5" class="history-cell">
+                <div class="history-inner">
+                  <div class="history-title">Change history</div>
+                  <div class="history-entry">
+                    <span class="history-date">05-15</span>
+                    <span class="change-kind added">added</span>
+                    <span class="history-note">first version</span>
+                  </div>
+                  <div class="history-entry">
+                    <span class="history-date">06-08</span>
+                    <span class="change-kind updated">updated</span>
+                    <span class="history-note">tweaked prompt; still flaky</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Row 3: build-orchestrator -->
+            <!-- ============================================================ -->
+            <tr id="row-build-orchestrator" data-type="agent" data-tags="in_use_by_team proved_worthy">
+              <td>
+                <button class="expand-btn" onclick="toggleHistory('build-orchestrator')" aria-expanded="false" aria-controls="hist-build-orchestrator">
+                  &#9660;
+                </button>
+              </td>
+              <td style="font-weight:600; color:#1a1d23;">build-orchestrator</td>
+              <td><span class="artifact-type type-agent">agent</span></td>
+              <td><a href="domain-firmware.html">firmware</a></td>
+              <td>
+                <div class="tag-list">
+                  <span class="tag tag-in_use_by_team">in_use_by_team</span>
+                  <span class="tag tag-proved_worthy">proved_worthy</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="hist-build-orchestrator" class="history-row">
+              <td colspan="5" class="history-cell">
+                <div class="history-inner">
+                  <div class="history-title">Change history</div>
+                  <div class="history-entry">
+                    <span class="history-date">05-20</span>
+                    <span class="change-kind added">added</span>
+                    <span class="history-note">&mdash;</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ============================================================ -->
+            <!-- Row 4: ci-context -->
+            <!-- ============================================================ -->
+            <tr id="row-ci-context" data-type="context_file" data-tags="in_use_by_team">
+              <td>
+                <button class="expand-btn" onclick="toggleHistory('ci-context')" aria-expanded="false" aria-controls="hist-ci-context">
+                  &#9660;
+                </button>
+              </td>
+              <td style="font-weight:600; color:#1a1d23;">ci-context</td>
+              <td><span class="artifact-type type-context_file">context_file</span></td>
+              <td><a href="domain-build-tools.html">build-tools</a></td>
+              <td>
+                <div class="tag-list">
+                  <span class="tag tag-in_use_by_team">in_use_by_team</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="hist-ci-context" class="history-row">
+              <td colspan="5" class="history-cell">
+                <div class="history-inner">
+                  <div class="history-title">Change history</div>
+                  <div class="history-entry">
+                    <span class="history-date">04-20</span>
+                    <span class="change-kind added">added</span>
+                    <span class="history-note">&mdash;</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div><!-- /panel -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<script>
+  /* ---- Expand / collapse history rows ---- */
+  function toggleHistory(id) {
+    var histRow   = document.getElementById('hist-' + id);
+    var sourceRow = document.getElementById('row-' + id);
+    var btn       = sourceRow.querySelector('.expand-btn');
+    var isOpen    = histRow.classList.contains('open');
+
+    if (isOpen) {
+      histRow.classList.remove('open');
+      sourceRow.classList.remove('expanded-source');
+      btn.innerHTML  = '&#9660;';
+      btn.setAttribute('aria-expanded', 'false');
+    } else {
+      histRow.classList.add('open');
+      sourceRow.classList.add('expanded-source');
+      btn.innerHTML  = '&#9650;';
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  /* ---- Visual-only filter chips (cosmetic toggle, no data hiding) ---- */
+  function toggleFilter(el, group, value) {
+    /* deselect siblings in same group and activate clicked one */
+    var siblings = document.querySelectorAll('.filter-chip');
+    if (group === 'type') {
+      /* deactivate all type chips, then activate this one */
+      document.querySelectorAll('.filter-bar .filter-chip').forEach(function(c) {
+        if (['All','Agent','Skill','Context file','Hook'].indexOf(c.textContent.trim()) > -1) {
+          c.classList.remove('active');
+        }
+      });
+    }
+    el.classList.toggle('active');
+  }
+</script>
+</body>
+</html>

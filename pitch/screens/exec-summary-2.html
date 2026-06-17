@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Executive Projection — May 2026 Summary</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item active"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Executive Projection (Generated View)</span>
+        <span class="top-bar-sub">Manager summary &bull; May 2026 Monthly Report &bull; Generated Jun 1, 2026</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="exec-summary-1.html" class="btn btn-secondary btn-sm">View Jun Report</a>
+        <span class="btn btn-primary btn-sm btn-disabled">Regenerate</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Health Cards — May end-of-month state -->
+      <div class="exec-health-grid">
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#16a34a;">7</div>
+          <div class="exec-health-label">Active Domains</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">All 7 enrolled in May</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#d97706;">3</div>
+          <div class="exec-health-label">At Risk</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">mobile-ios · data-science · nlp</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#dc2626;">2</div>
+          <div class="exec-health-label">Blocked</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">nlp-tooling · security</div>
+        </div>
+        <div class="exec-health-card">
+          <div class="exec-health-number" style="color:#2563eb;">2</div>
+          <div class="exec-health-label">Strong Examples</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">backend-services · platform-rel</div>
+        </div>
+      </div>
+
+      <!-- Highlights + Risks -->
+      <div class="exec-sections">
+
+        <div class="exec-section">
+          <div class="exec-section-title" style="color:#15803d;">
+            <span style="font-size:16px;">&#9650;</span> May 2026 Highlights
+          </div>
+          <ul class="exec-list highlight">
+            <li><strong>engineering/backend-services</strong> completed its Q1/Q2 target task in May: 100% PR adoption (12/12 PRs) for 3 consecutive weeks. Tomas Reyes is the standout champion story &mdash; organic, zero blockers, peer-enabling pattern emerging. Now scoping a second artifact (commit-message hook).</li>
+            <li><strong>infrastructure/platform-reliability</strong> navigated a surprise champion transition (Noah → Ravi) with remarkable resilience. Ravi onboarded in 1 week, reached production-grade runbook quality by May 25, and is now fielding interest from 2 other infra teams.</li>
+            <li><strong>qa/test-automation</strong> delivered strong concrete outcomes: E2E Playwright coverage grew from 62% to 81% across sprints 6 and 7. James Wu became a cross-team resource without being asked.</li>
+            <li>Across all domains in May, <strong>18 artifacts</strong> were created (20 total, 4 retired). Retirement rate of 20% suggests the team is iterating rather than accumulating dead artifacts.</li>
+          </ul>
+        </div>
+
+        <div class="exec-section">
+          <div class="exec-section-title" style="color:#dc2626;">
+            <span style="font-size:16px;">&#9660;</span> May 2026 Top Risks
+          </div>
+          <ul class="exec-list risk">
+            <li><strong>research/nlp-tooling</strong> spent all of May in a blocked state with 3 concurrent model failures. While Amara Osei made consistent progress, the 4-week block is a signal that the team's eval standards are high &mdash; which is positive &mdash; but the velocity cost was significant.</li>
+            <li><strong>infrastructure/security</strong> logged a critical safety failure in its second week and has been silent since. This is the highest-risk domain in the portfolio &mdash; a hallucinating CVE triage tool could cause real-world security decisions to be made on fabricated data.</li>
+            <li><strong>engineering/mobile-ios</strong> experienced 4 of 5 weeks with no-change progress due to scope creep and competing CLAUDE.md configs. While the situation stabilized with a canonical config enforced, adoption remains stalled at 50% with a Q2 deadline approaching.</li>
+            <li><strong>research/data-science</strong> recorded 2 consecutive weeks of downward direction (May 18 and May 25) before Fatima Ali recommended and received approval for a design pivot. The 5-week journey from promising pilot to design reset is a cautionary case study.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Monthly metrics summary -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <span class="panel-title">May 2026 &mdash; Monthly Metrics</span>
+        </div>
+        <div class="panel-body-padded">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+            <div style="text-align:center;padding:14px;background:#f9fafb;border-radius:8px;">
+              <div style="font-size:24px;font-weight:700;color:#2563eb;">30</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px;">Weekly Entries Logged</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:#f9fafb;border-radius:8px;">
+              <div style="font-size:24px;font-weight:700;color:#16a34a;">18</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px;">New Artifacts Added</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:#f9fafb;border-radius:8px;">
+              <div style="font-size:24px;font-weight:700;color:#dc2626;">5</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px;">Failures Logged</div>
+            </div>
+            <div style="text-align:center;padding:14px;background:#f9fafb;border-radius:8px;">
+              <div style="font-size:24px;font-weight:700;color:#7c3aed;">4</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px;">Artifacts Retired</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Actions -->
+      <div class="exec-section" style="margin-bottom:24px;">
+        <div class="exec-section-title" style="color:#4361ee;">
+          <span style="font-size:16px;">&#9654;</span> Actions for June
+        </div>
+        <ul class="exec-list action">
+          <li>Resolve infra/security immediately. Either get Oliver Strand back on record or formally reassign the failure owner. This cannot stay silent another week.</li>
+          <li>Mobile-iOS needs a Darius Okonkwo escalation before Jun 15. A manager nudge + 2 peer champion nominations is the most direct lever available to Lena.</li>
+          <li>Celebrate backend-services and platform-reliability publicly. Both are reference cases the broader org should know about &mdash; especially the champion rotation recovery story.</li>
+          <li>Watch nlp-tooling's Jun 10 production run closely. If error rates hold in production, this becomes the third fully-deployed use case in the portfolio and a major milestone.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

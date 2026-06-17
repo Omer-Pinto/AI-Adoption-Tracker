@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security — Domain Case File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="case-header">
+      <div class="case-header-top">
+        <div>
+          <div class="case-header-team">Infrastructure</div>
+          <div class="case-header-domain">security</div>
+          <div class="case-header-meta">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Status</div>
+              <div class="case-meta-value"><span class="badge badge-blocked">Blocked</span></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">oliver.strand@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Lead</div>
+              <div class="case-meta-value">rashida.banks@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Target Task</div>
+              <div class="case-meta-value">Automate CVE triage summaries using Claude Code skill</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Started</div>
+              <div class="case-meta-value">Apr 28, 2026</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding-top:8px;">
+          <span class="btn btn-secondary btn-sm btn-disabled">Meeting Prep</span>
+          <a href="log-security.html" class="btn btn-primary btn-sm">Log Weekly Entry</a>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Overview</div>
+        <div class="tab disabled">Timeline</div>
+        <div class="tab disabled">Artifacts</div>
+        <div class="tab disabled">Failures</div>
+        <div class="tab disabled">Evaluations</div>
+        <div class="tab disabled">Notes</div>
+      </div>
+    </div>
+
+    <div class="overview-grid">
+      <div>
+        <div class="blocker-banner">
+          <div class="blocker-banner-label">Critical Blocker &mdash; Safety Risk</div>
+          Package version hallucination on sparse CVEs: Claude fabricates specific affected package version numbers not present in NVD source. CRITICAL SAFETY RISK if used in triage decisions. Production use halted. No entry since May 15 &mdash; also stale.
+        </div>
+
+        <div class="narrative-block">
+          <div class="narrative-week-label">Last Entry &mdash; Week of May 11, 2026</div>
+          <div class="narrative-text">
+            Live feed test completed. Accuracy on standard CVEs remains high (85%) but the tool struggled on two zero-day CVEs from NVD with sparse descriptions &mdash; it hallucinated affected package versions. Oliver logged this as a critical failure.
+          </div>
+          <div class="narrative-meta">
+            <span class="narrative-meta-tag">blocked</span>
+            <span class="narrative-meta-tag">critical-failure</span>
+            <span class="progress-pill progress-blocked">blocked</span>
+            <span class="badge badge-flat">&#8596; Flat</span>
+          </div>
+        </div>
+
+        <div class="blocker-banner" style="margin-bottom:16px;">
+          <div class="blocker-banner-label">Active Blocker</div>
+          Hallucinated affected package versions on sparse NVD entries &mdash; safety risk if used in triage. Production use halted pending redesign. Due date May 22 &mdash; overdue by 3 weeks with no update.
+        </div>
+
+        <div class="warning-banner" style="margin-bottom:16px;">
+          <strong>Stale + Blocked:</strong> Last entry May 15. Failure due date was May 22. Oliver has not logged a follow-up. Urgent: check if remediation is proceeding or if the leaf has been abandoned.
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Open Failures</span>
+          </div>
+          <div class="panel-body-padded">
+            <div class="failure-card">
+              <div class="failure-title">F-5: Package version hallucination on sparse CVEs</div>
+              <div class="failure-desc">When NVD entry has minimal description text, Claude fabricates specific affected package version numbers (e.g. "libssl 3.0.2") that are not in the source. Critical safety risk for triage decisions.</div>
+              <div class="failure-meta">
+                <span>Owner: <strong>oliver.strand</strong></span>
+                <span>Due: <strong>May 22</strong> <span class="due-date-badge due-overdue">Overdue 3 wks</span></span>
+                <span>Plan: Add explicit uncertainty instruction; test on 20 sparse CVEs before re-enabling</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Artifacts (1 active, 1 retired)</span>
+          </div>
+          <div class="panel-body">
+            <div class="artifact-row">
+              <div class="artifact-name">cve-triage-uncertainty-skill-v0.2</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-active">Active (not yet validated)</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name" style="color:#9ca3af;text-decoration:line-through;">cve-triage-skill-v0.1</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-retired">Retired — Safety Issue</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Eval Log</span></div>
+          <div class="panel-body-padded">
+            <table class="data-table">
+              <thead><tr><th>Eval</th><th>Artifact</th><th>Result</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>E-3 (May 15)</td>
+                  <td>cve-triage-skill-v0.1</td>
+                  <td><span class="badge badge-fail">Fail</span></td>
+                  <td>Hallucinated versions on 2/5 sparse CVEs. Non-deterministic. Artifact retired.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="at-a-glance" style="margin-bottom:16px;">
+          <div class="at-a-glance-title">At a Glance</div>
+          <div class="glance-row"><span class="glance-label">Total Weeks</span><span class="glance-value">6</span></div>
+          <div class="glance-row"><span class="glance-label">Entries Logged</span><span class="glance-value">2</span></div>
+          <div class="glance-row"><span class="glance-label">Weeks Since Last</span><span class="glance-value" style="color:#dc2626;">4+</span></div>
+          <div class="glance-row"><span class="glance-label">Active Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Retired Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Open Failures</span><span class="glance-value" style="color:#dc2626;">1 (Critical)</span></div>
+          <div class="glance-row"><span class="glance-label">Candidate Evals</span><span class="glance-value">1 (Fail)</span></div>
+          <div class="glance-row"><span class="glance-label">Direction</span><span class="glance-value"><span class="badge badge-flat">&#8596; Flat (Stale)</span></span></div>
+        </div>
+        <div class="at-a-glance">
+          <div class="at-a-glance-title">Risk Assessment</div>
+          <div class="glance-row"><span class="glance-label">Safety Risk</span><span class="glance-value" style="color:#dc2626;">CRITICAL</span></div>
+          <div class="glance-row"><span class="glance-label">Prod Use</span><span class="glance-value" style="color:#dc2626;">Halted</span></div>
+          <div class="glance-row"><span class="glance-label">Overdue Since</span><span class="glance-value">May 22</span></div>
+          <div class="glance-row"><span class="glance-label">Accuracy (standard)</span><span class="glance-value">85%</span></div>
+          <div class="glance-row"><span class="glance-label">Accuracy (sparse)</span><span class="glance-value" style="color:#dc2626;">&lt;60%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask Box — Blocked Domains Query</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item active"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Ask Box</span>
+        <span class="top-bar-sub">Free-text query over all adoption data &bull; Air-gapped Claude endpoint</span>
+      </div>
+      <div class="top-bar-actions">
+        <a href="ask-box-2.html" class="btn btn-secondary btn-sm">Example Query 2</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="ask-box-container">
+
+        <!-- Query input -->
+        <div class="ask-box-input-wrap">
+          <textarea rows="2" style="flex:1;border:none;outline:none;font-size:14px;font-family:inherit;resize:none;background:transparent;color:#1a1d23;">Which domains are blocked by model failures?</textarea>
+          <button class="btn btn-primary" style="align-self:flex-end;">Ask</button>
+        </div>
+
+        <!-- Answer block -->
+        <div class="ask-answer-block">
+          <div class="ask-answer-label">Answer</div>
+          <div class="ask-answer-text">
+            <strong>1 domain is currently blocked by model quality failures (a 2nd was just cleared, shown for context):</strong>
+            <br><br>
+            <strong>1. research/nlp-tooling</strong> (Now unblocked as of Jun 5) — was blocked for 4 weeks (May 11 – Jun 1) by three concurrent failures: (a) span-boundary hallucination at 14% rate on inputs &gt;512 tokens, (b) causal-link label misclassification at up to 18%, and (c) last-chunk annotation drop affecting ~4% of documents. Champion Amara Osei resolved all three through chunking redesign, chain-of-thought prompting, and a sentinel-token fix. Limited production run is scheduled Jun 10.
+            <br><br>
+            <strong>2. infrastructure/security</strong> (Still blocked — critical) — blocked since May 15 by a single but safety-critical failure: Claude hallucinates specific affected package version numbers on sparse NVD entries. Example: fabricated "libssl 3.0.2" as affected version when the NVD source contained no version information. Remediation was due May 22 but no update has been logged in 4 weeks. Production use is halted.
+          </div>
+          <div style="border-top:1px solid #f3f4f6;padding-top:12px;margin-top:4px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;margin-bottom:8px;">Supporting Data</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Domain</th>
+                  <th>Failure Count</th>
+                  <th>Oldest Open Failure</th>
+                  <th>Owner</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                  <th>Link</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>research/nlp-tooling</td>
+                  <td>3 (all resolved)</td>
+                  <td>F-1: Span hallucination</td>
+                  <td>amara.osei</td>
+                  <td>May 15 &mdash; closed</td>
+                  <td><span class="badge badge-complete">All Resolved</span></td>
+                  <td><a href="case-nlp-tooling.html">View</a></td>
+                </tr>
+                <tr>
+                  <td>infrastructure/security</td>
+                  <td>1 (open, critical)</td>
+                  <td>F-5: Package version hallucination</td>
+                  <td>oliver.strand</td>
+                  <td>May 22 &mdash; <span style="color:#dc2626;font-weight:600;">Overdue</span></td>
+                  <td><span class="badge badge-blocked">Blocked (Critical)</span></td>
+                  <td><a href="case-security.html">View</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Suggested chips -->
+        <div style="margin-top:4px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:8px;">Suggested Questions</div>
+          <div class="ask-chips">
+            <span class="ask-chip">Which domains are blocked by model failures?</span>
+            <a href="ask-box-2.html" class="ask-chip" style="background:#eff2ff;color:#4361ee;border-color:#c7d2fe;text-decoration:none;">Artifacts retired &amp; why?</a>
+            <span class="ask-chip">Domains without update 2+ weeks?</span>
+            <span class="ask-chip">Which champion has the highest facilitation activity?</span>
+            <span class="ask-chip">What are the top risks this week?</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

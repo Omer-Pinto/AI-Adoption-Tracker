@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP Tooling — Domain Case File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="case-header">
+      <div class="case-header-top">
+        <div>
+          <div class="case-header-team">Research</div>
+          <div class="case-header-domain">nlp-tooling</div>
+          <div class="case-header-meta">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Status</div>
+              <div class="case-meta-value"><span class="badge badge-on-track">On Track</span></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">amara.osei@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Lead</div>
+              <div class="case-meta-value">dr.wei.zhang@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Target Task</div>
+              <div class="case-meta-value">Replace manual annotation pipeline with Claude-assisted labeling workflow</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Started</div>
+              <div class="case-meta-value">Apr 28, 2026</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding-top:8px;">
+          <a href="prep-nlp-tooling.html" class="btn btn-secondary btn-sm">Meeting Prep</a>
+          <a href="log-nlp-tooling.html" class="btn btn-primary btn-sm">Log Weekly Entry</a>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Overview</div>
+        <div class="tab disabled">Timeline</div>
+        <div class="tab disabled">Artifacts</div>
+        <div class="tab disabled">Failures</div>
+        <div class="tab disabled">Evaluations</div>
+        <div class="tab disabled">Notes</div>
+      </div>
+    </div>
+
+    <div class="overview-grid">
+      <div>
+        <div class="info-banner">
+          <strong>Unblocked as of Jun 5:</strong> All 3 failures resolved. Causal-link error at 4.8% (below 5% threshold). Limited production run scheduled Jun 10.
+        </div>
+
+        <div class="narrative-block">
+          <div class="narrative-week-label">Latest Entry &mdash; Week of Jun 1, 2026</div>
+          <div class="narrative-text">
+            Causal-link error finally below threshold at 4.8% after adding an explicit constraint in the system prompt. Last-chunk drop patched and confirmed fixed in staging. Amara is cautiously optimistic the pipeline can go to limited production next week.
+          </div>
+          <div class="narrative-meta">
+            <span class="narrative-meta-tag">remediation-complete</span>
+            <span class="narrative-meta-tag">pre-production</span>
+            <span class="progress-pill progress-moved_forward">moved forward</span>
+            <span class="badge badge-up">&#8593; Up</span>
+          </div>
+        </div>
+
+        <div class="next-step-block" style="margin-bottom:16px;">
+          <div class="next-step-label">Next Step</div>
+          Run limited production batch (500 docs) Jun 10; monitor error rates live
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Open Failures (0 open &mdash; all resolved)</span>
+          </div>
+          <div class="panel-body-padded">
+            <table class="data-table">
+              <thead><tr><th>#</th><th>Description</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>F-1</td>
+                  <td>Span-boundary hallucination (&gt;512 tokens, 14% rate)</td>
+                  <td>amara.osei</td>
+                  <td>May 15</td>
+                  <td><span class="badge badge-complete">Resolved</span></td>
+                </tr>
+                <tr>
+                  <td>F-2</td>
+                  <td>Causal-link misclassification (18% → 4.8%)</td>
+                  <td>amara.osei</td>
+                  <td>Jun 1</td>
+                  <td><span class="badge badge-complete">Resolved</span></td>
+                </tr>
+                <tr>
+                  <td>F-3</td>
+                  <td>Last-chunk annotation drop (~4% of docs)</td>
+                  <td>amara.osei</td>
+                  <td>Jun 8</td>
+                  <td><span class="badge badge-complete">Resolved</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Artifacts (3 active, 1 retired)</span>
+          </div>
+          <div class="panel-body">
+            <div class="artifact-row">
+              <div class="artifact-name">annotation-labeling-agent-v0.2</div>
+              <span class="artifact-type type-agent">agent</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">nlp-annotation-eval</div>
+              <span class="artifact-type type-eval">eval</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">causal-link-constraint-skill</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name" style="color:#9ca3af;text-decoration:line-through;">annotation-labeling-agent-v0.1</div>
+              <span class="artifact-type type-agent">agent</span>
+              <span class="badge badge-retired">Retired</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Candidate Evals</span></div>
+          <div class="panel-body-padded">
+            <table class="data-table">
+              <thead><tr><th>Eval</th><th>Artifact</th><th>Result</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>E-1 (May 25)</td>
+                  <td>annotation-labeling-agent-v0.2</td>
+                  <td><span class="badge badge-fail">Fail</span></td>
+                  <td>Causal-link 6% — above 5% threshold</td>
+                </tr>
+                <tr>
+                  <td>E-2 (Jun 5)</td>
+                  <td>annotation-labeling-agent-v0.2</td>
+                  <td><span class="badge badge-pass">Pass</span></td>
+                  <td>4.8% error rate — cleared for limited production</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="at-a-glance" style="margin-bottom:16px;">
+          <div class="at-a-glance-title">At a Glance</div>
+          <div class="glance-row"><span class="glance-label">Total Weeks</span><span class="glance-value">6</span></div>
+          <div class="glance-row"><span class="glance-label">Entries Logged</span><span class="glance-value">5</span></div>
+          <div class="glance-row"><span class="glance-label">Active Artifacts</span><span class="glance-value">3</span></div>
+          <div class="glance-row"><span class="glance-label">Retired Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Total Failures</span><span class="glance-value">3</span></div>
+          <div class="glance-row"><span class="glance-label">Open Failures</span><span class="glance-value" style="color:#16a34a;">0</span></div>
+          <div class="glance-row"><span class="glance-label">Candidate Evals</span><span class="glance-value">2 (1 pass)</span></div>
+          <div class="glance-row"><span class="glance-label">Direction</span><span class="glance-value"><span class="badge badge-up">&#8593; Up</span></span></div>
+        </div>
+        <div class="at-a-glance">
+          <div class="at-a-glance-title">Failure Resolution</div>
+          <div class="glance-row"><span class="glance-label">F-1 Span Hallucination</span><span class="glance-value" style="color:#16a34a;">&#10003;</span></div>
+          <div class="glance-row"><span class="glance-label">F-2 Causal-Link</span><span class="glance-value" style="color:#16a34a;">&#10003;</span></div>
+          <div class="glance-row"><span class="glance-label">F-3 Last-Chunk Drop</span><span class="glance-value" style="color:#16a34a;">&#10003;</span></div>
+          <div class="glance-row"><span class="glance-label">Prod Run Scheduled</span><span class="glance-value">Jun 10</span></div>
+          <div class="glance-row"><span class="glance-label">Batch Size</span><span class="glance-value">500 docs</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

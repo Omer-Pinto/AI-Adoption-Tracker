@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile iOS — Domain Case File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="nav-sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">Adoption Tracker</div>
+      <div class="nav-logo-sub">AI Adoption Command Center</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9632;</span> Home</a>
+      <span class="nav-item active disabled"><span class="nav-icon">&#9670;</span> Domains</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9679;</span> Artifacts</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#9888;</span> Failures</span>
+      <span class="nav-item disabled"><span class="nav-icon">&#10003;</span> Evaluations</span>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-section-label">Insights</div>
+      <a href="exec-summary-1.html" class="nav-item"><span class="nav-icon">&#9741;</span> Reports</a>
+      <a href="ask-box-1.html" class="nav-item"><span class="nav-icon">&#9998;</span> Ask Box</a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <span class="nav-item disabled"><span class="nav-icon">&#9881;</span> Settings</span>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="case-header">
+      <div class="case-header-top">
+        <div>
+          <div class="case-header-team">Engineering</div>
+          <div class="case-header-domain">mobile-ios</div>
+          <div class="case-header-meta">
+            <div class="case-meta-item">
+              <div class="case-meta-label">Status</div>
+              <div class="case-meta-value"><span class="badge badge-at-risk">At Risk</span></div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Champion</div>
+              <div class="case-meta-value">lena.petrov@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Lead</div>
+              <div class="case-meta-value">darius.okonkwo@company.com</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Target Task</div>
+              <div class="case-meta-value">Use Claude Code to produce SwiftUI component stubs from design specs (+ accessibility annotations)</div>
+            </div>
+            <div class="case-meta-item">
+              <div class="case-meta-label">Started</div>
+              <div class="case-meta-value">Apr 28, 2026</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding-top:8px;">
+          <a href="prep-mobile-ios.html" class="btn btn-secondary btn-sm">Meeting Prep</a>
+          <a href="log-mobile-ios.html" class="btn btn-primary btn-sm">Log Weekly Entry</a>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Overview</div>
+        <div class="tab disabled">Timeline</div>
+        <div class="tab disabled">Artifacts</div>
+        <div class="tab disabled">Failures</div>
+        <div class="tab disabled">Evaluations</div>
+        <div class="tab disabled">Notes</div>
+      </div>
+    </div>
+
+    <div class="overview-grid">
+      <div>
+        <div class="blocker-banner">
+          <div class="blocker-banner-label">At Risk</div>
+          Adoption at 50% vs Q2 target of 70% by Jun 30. Low urgency from engineers amid competing sprint priorities. Scope creep caused 3 weeks of no-change before stabilization.
+        </div>
+
+        <div class="narrative-block">
+          <div class="narrative-week-label">Latest Entry &mdash; Week of Jun 1, 2026</div>
+          <div class="narrative-text">
+            v1.0 workflow doc published but adoption ticked up only marginally to 50% &mdash; still below the 70% threshold Darius set. Lena ran a lunch-and-learn but attendance was low (6 of 12). This leaf is at risk of missing its Q2 adoption target with two weeks left in the quarter.
+          </div>
+          <div class="narrative-meta">
+            <span class="narrative-meta-tag">at-risk</span>
+            <span class="narrative-meta-tag">adoption-below-threshold</span>
+            <span class="progress-pill progress-no_change">no change</span>
+            <span class="badge badge-flat">&#8596; Flat</span>
+          </div>
+        </div>
+
+        <div class="blocker-banner" style="margin-bottom:16px;">
+          <div class="blocker-banner-label">Active Blocker</div>
+          Adoption at 50%; Q2 target is 70% by Jun 30; low urgency from engineers amid competing sprint priorities
+        </div>
+
+        <div class="next-step-block" style="margin-bottom:16px;">
+          <div class="next-step-label">Next Step</div>
+          Escalate to Darius for top-down nudge; identify two influential engineers to act as peer champions
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <span class="panel-title">Artifacts (2 active, 1 retired)</span>
+          </div>
+          <div class="panel-body">
+            <div class="artifact-row">
+              <div class="artifact-name">mobile-ios/CLAUDE.md-canonical</div>
+              <span class="artifact-type type-context_file">context_file</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name">swiftui-stub-workflow-v1.0</div>
+              <span class="artifact-type type-workflow">workflow</span>
+              <span class="badge badge-active">Active</span>
+            </div>
+            <div class="artifact-row">
+              <div class="artifact-name" style="color:#9ca3af;text-decoration:line-through;">swiftui-stub-generator-skill-v0.1</div>
+              <span class="artifact-type type-skill">skill</span>
+              <span class="badge badge-retired">Retired</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Progress History</span></div>
+          <div class="panel-body-padded">
+            <div class="timeline">
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">Jun 1, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-flat">Flat</span></div>
+                  <div class="timeline-narrative">v1.0 doc published. Adoption 50%. Lunch-and-learn low attendance.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 25, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-flat">Flat</span></div>
+                  <div class="timeline-narrative">Target task re-scoped. Adoption stalled at 40%. Engineers waiting for "final" version.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 18, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-flat">Flat</span></div>
+                  <div class="timeline-narrative">Single CLAUDE.md enforced. Lead approved scope expansion informally &mdash; target task definition unclear.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot dot-no_change"></div><div class="timeline-line"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 11, 2026 &bull; <span class="progress-pill progress-no_change">no change</span> <span class="badge badge-flat">Flat</span></div>
+                  <div class="timeline-narrative">Two engineers forked CLAUDE.md for animation hooks. Inconsistent output.</div>
+                </div>
+              </div>
+              <div class="timeline-entry">
+                <div class="timeline-dot-col"><div class="timeline-dot"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-week">May 4, 2026 &bull; <span class="progress-pill progress-moved_forward">moved forward</span></div>
+                  <div class="timeline-narrative">Pilot started. Good initial results. Scope creep signals already emerging.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="at-a-glance" style="margin-bottom:16px;">
+          <div class="at-a-glance-title">At a Glance</div>
+          <div class="glance-row"><span class="glance-label">Total Weeks</span><span class="glance-value">6</span></div>
+          <div class="glance-row"><span class="glance-label">Entries Logged</span><span class="glance-value">5</span></div>
+          <div class="glance-row"><span class="glance-label">Active Artifacts</span><span class="glance-value">2</span></div>
+          <div class="glance-row"><span class="glance-label">Retired Artifacts</span><span class="glance-value">1</span></div>
+          <div class="glance-row"><span class="glance-label">Open Failures</span><span class="glance-value" style="color:#16a34a;">0</span></div>
+          <div class="glance-row"><span class="glance-label">Candidate Evals</span><span class="glance-value">0</span></div>
+          <div class="glance-row"><span class="glance-label">Direction</span><span class="glance-value"><span class="badge badge-flat">&#8596; Flat</span></span></div>
+        </div>
+        <div class="at-a-glance">
+          <div class="at-a-glance-title">Risk Indicators</div>
+          <div class="glance-row"><span class="glance-label">Current Adoption</span><span class="glance-value" style="color:#d97706;">50%</span></div>
+          <div class="glance-row"><span class="glance-label">Q2 Target</span><span class="glance-value">70%</span></div>
+          <div class="glance-row"><span class="glance-label">Deadline</span><span class="glance-value" style="color:#dc2626;">Jun 30</span></div>
+          <div class="glance-row"><span class="glance-label">Weeks Left</span><span class="glance-value" style="color:#dc2626;">3</span></div>
+          <div class="glance-row"><span class="glance-label">Scope Changes</span><span class="glance-value" style="color:#d97706;">2</span></div>
+          <div class="glance-row"><span class="glance-label">No-Change Weeks</span><span class="glance-value" style="color:#d97706;">4 of 5</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
