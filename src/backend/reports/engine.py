@@ -668,11 +668,20 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
             report_ids,
         )
 
-    # Reset report-driven domain fields to NULL before replaying so that a
-    # removed ``changes`` key reverts to no-value rather than sticking.
-    if domain_ids:
+    # Reset only the domain fields that at least one report in this champion's
+    # timeline actually sets via a ``changes`` block.  Fields no report has ever
+    # mentioned are left untouched so that management-CRUD values are preserved.
+    report_touched_fields: set[str] = set()
+    for rep in reports:
+        doc = ReportDocument.model_validate_json(rep["report_json"])
+        for section in doc.domains:
+            if section.changes is not None:
+                for field, value in section.changes.model_dump(exclude_none=True).items():
+                    if field in _DOMAIN_REPORT_FIELDS:
+                        report_touched_fields.add(field)
+    if domain_ids and report_touched_fields:
         placeholders = ",".join("?" * len(domain_ids))
-        reset_cols = ", ".join(f"{col} = NULL" for col in _DOMAIN_REPORT_FIELDS)
+        reset_cols = ", ".join(f"{col} = NULL" for col in _DOMAIN_REPORT_FIELDS if col in report_touched_fields)
         conn.execute(
             f"UPDATE domain SET {reset_cols} WHERE id IN ({placeholders})",
             domain_ids,
