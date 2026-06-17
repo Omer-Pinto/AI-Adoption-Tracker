@@ -1,11 +1,11 @@
-"""LLM drafting interface — provider-agnostic adapter (OpenAI + Anthropic).
+"""LLM drafting interface — provider-agnostic adapter (OpenAI-compatible + Anthropic-compatible).
 
-Wave-2 Agent 2A implements the real multi-provider adapter here, replacing the
-single-endpoint urllib POST client from Wave-1. Per spec §4/§10 and decisions.md,
-both OpenAI and Anthropic are supported; a config value selects the provider.
-URL + key live in `.env` (never committed).
+This module targets AIR-GAPPED deployments. There are no public API URLs and no
+hosted model defaults. Every value comes from operator-supplied environment
+variables. "Provider" selects only the HTTP wire format / API dialect — it does
+NOT imply a specific hosted vendor.
 
-Contract (unchanged from Wave-0 / Wave-1):
+Contract (unchanged from Wave-0 / Wave-1 — callers must not be broken):
   `draft_report(notes, context) -> dict`
     notes   — the raw meeting notes pasted verbatim.
     context — existing-state hints for mapping (the champion's current
@@ -14,58 +14,68 @@ Contract (unchanged from Wave-0 / Wave-1):
               (`reports.build_draft_context`).
     returns — a dict conforming to report_schema.json / models.ReportDocument.
 
-  When no endpoint is configured, callers must get a clear, typed failure rather
-  than a silent fallback — raise `LLMNotConfiguredError`. There is NO fabricated
-  fallback report.
+  When any required config var is unset or blank, raise `LLMNotConfiguredError`.
+  There is NO fabricated fallback report and NO public-API fallback URL.
 
-  When the endpoint is configured but unreachable/failing, raise `LLMRequestError`
-  (separate from "not configured", per decisions.md).
+  When all config vars are present but the call fails (transport, HTTP error,
+  unparseable response), raise `LLMRequestError`. This distinction is required
+  by decisions.md: "if the AI endpoint is set but down, the app says so clearly."
 
-Configuration (all env vars — document in .env.example):
-  TRACKER_LLM_PROVIDER  — required. "openai" or "anthropic". Selects the API
-                          wire format. Unset/blank ⇒ LLMNotConfiguredError.
-  TRACKER_LLM_API_KEY   — required. Sent as Authorization: Bearer <key> (OpenAI)
-                          or x-api-key header (Anthropic). Unset/blank ⇒
-                          LLMNotConfiguredError.
-  TRACKER_LLM_MODEL     — optional. Model ID to use.
-                          Default OpenAI:    gpt-4o
-                          Default Anthropic: claude-3-5-sonnet-20241022
-  TRACKER_LLM_ENDPOINT  — optional. Override base URL (air-gapped / proxied
-                          deployment). When blank, public API URLs are used:
-                          OpenAI:    https://api.openai.com/v1
-                          Anthropic: https://api.anthropic.com/v1
-  TRACKER_LLM_TIMEOUT   — optional. Request timeout in seconds (default 120).
+Configuration — ALL FOUR ARE REQUIRED (unset/blank ⇒ LLMNotConfiguredError):
+  TRACKER_LLM_PROVIDER   — "openai" or "anthropic". Selects the API wire format.
+  TRACKER_LLM_ENDPOINT   — Full base URL of the air-gapped inference server
+                            (e.g. http://llm-host:8080/v1). No default, no public
+                            fallback — must be set explicitly.
+  TRACKER_LLM_API_KEY    — Bearer token / API key for the inference server. Sent
+                            as `Authorization: Bearer <key>` (openai dialect) or
+                            `x-api-key: <key>` (anthropic dialect).
+  TRACKER_LLM_MODEL      — Served model name as the inference server expects it
+                            (e.g. "llama-3-70b", "mistral-7b-instruct"). No
+                            hosted-model default.
 
-Wire format (per provider):
-  OpenAI (Chat Completions):
-    POST {base_url}/chat/completions
+Optional:
+  TRACKER_LLM_TIMEOUT          — Request timeout in seconds (default 120).
+  TRACKER_LLM_ANTHROPIC_VERSION — Override the `anthropic-version` header sent
+                                   in the Anthropic dialect (default "2023-06-01").
+                                   Some OSS server implementations require a
+                                   specific value or ignore the header entirely;
+                                   this escape hatch lets operators set it without
+                                   a code change.
+
+Wire format (per dialect):
+  openai (Chat Completions):
+    POST {TRACKER_LLM_ENDPOINT}/chat/completions
     Headers: Authorization: Bearer <key>, Content-Type: application/json
     Body: {"model": <model>, "response_format": {"type": "json_object"},
            "messages": [{"role": "system", ...}, {"role": "user", ...}]}
     Response: choices[0].message.content  (JSON string → parse → unwrap "report")
+    Note: response_format is sent as a hint; servers that ignore it are handled
+    via the same robust fence/brace JSON extraction used for the anthropic dialect.
 
-  Anthropic (Messages):
-    POST {base_url}/messages
-    Headers: x-api-key: <key>, anthropic-version: 2023-06-01,
+  anthropic (Messages API):
+    POST {TRACKER_LLM_ENDPOINT}/messages
+    Headers: x-api-key: <key>, anthropic-version: <version>,
              Content-Type: application/json
     Body: {"model": <model>, "max_tokens": 4096,
            "system": <system_prompt>,
-           "messages": [{"role": "user", ...}]}
-    Response: content[0].text  (JSON string → parse → unwrap "report")
+           "messages": [{"role": "user", ...}, {"role": "assistant", "{"}]}
+    The trailing assistant message prefills the response with `{`, forcing the
+    server to continue a JSON object. The returned text is prepended with `{`
+    before parsing (fence/brace fallback still applies as a safety net).
+    Response: content[0].text  (reconstruct → parse → unwrap "report")
 
-Design decisions flagged:
-  * TRACKER_LLM_PROVIDER is the new required selector env var.
-  * Default OpenAI model: "gpt-4o" (supports json_object response_format).
-  * Default Anthropic model: "claude-3-5-sonnet-20241022".
-  * Anthropic API version header: "2023-06-01" (minimum stable for Messages API).
-  * JSON mode for OpenAI: response_format={"type":"json_object"} — requires the
-    word "JSON" in the prompt, which the system prompt provides.
-  * Anthropic has no json_object mode — the system prompt instructs JSON emission
-    and we parse the first JSON object found in the response text.
-  * No SDK dependency — stdlib urllib only (per instructions).
-  * TRACKER_LLM_ENDPOINT overrides the base URL for air-gapped / proxy use.
-  * When TRACKER_LLM_ENDPOINT is set, it is used as-is as the base (we append
-    the provider's path segment: /chat/completions or /messages).
+Design decisions:
+  * All four config vars (provider/endpoint/api_key/model) are required. Blank ⇒
+    LLMNotConfiguredError, not a silent default.
+  * No SDK dependency — stdlib urllib only.
+  * Anthropic JSON reliability: assistant-message prefill of `{` forces a JSON
+    object continuation at the server level. The response text is reconstructed by
+    prepending `{` before parsing. Fence/brace regex extraction is kept as a
+    secondary fallback.
+  * anthropic-version default: "2023-06-01" (minimum stable version for the
+    Messages API). Overridable via TRACKER_LLM_ANTHROPIC_VERSION.
+  * OpenAI dialect sends response_format=json_object. Servers that honour it
+    return clean JSON; those that ignore it still go through the shared extractor.
 """
 
 from __future__ import annotations
@@ -83,20 +93,20 @@ from pathlib import Path
 _PROVIDER_ENV = "TRACKER_LLM_PROVIDER"
 _API_KEY_ENV = "TRACKER_LLM_API_KEY"
 _MODEL_ENV = "TRACKER_LLM_MODEL"
-_ENDPOINT_ENV = "TRACKER_LLM_ENDPOINT"   # optional base-URL override
+_ENDPOINT_ENV = "TRACKER_LLM_ENDPOINT"
 _TIMEOUT_ENV = "TRACKER_LLM_TIMEOUT"
+_ANTHROPIC_VERSION_ENV = "TRACKER_LLM_ANTHROPIC_VERSION"
 
 # Provider identifiers
 _PROVIDER_OPENAI = "openai"
 _PROVIDER_ANTHROPIC = "anthropic"
 
-# Defaults
-_DEFAULT_OPENAI_BASE = "https://api.openai.com/v1"
-_DEFAULT_ANTHROPIC_BASE = "https://api.anthropic.com/v1"
-_DEFAULT_OPENAI_MODEL = "gpt-4o"
-_DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+# Non-overridable constants
 _DEFAULT_TIMEOUT = 120.0
-_ANTHROPIC_API_VERSION = "2023-06-01"
+# Minimum stable version for the Anthropic Messages API. Overridable via
+# TRACKER_LLM_ANTHROPIC_VERSION for operators whose OSS server needs a
+# specific value or ignores this header altogether.
+_DEFAULT_ANTHROPIC_API_VERSION = "2023-06-01"
 _ANTHROPIC_MAX_TOKENS = 4096
 
 _SCHEMA_PATH = Path(__file__).resolve().parent.parent / "report_schema.json"
@@ -107,11 +117,14 @@ _SCHEMA_PATH = Path(__file__).resolve().parent.parent / "report_schema.json"
 # ---------------------------------------------------------------------------
 
 class LLMNotConfiguredError(RuntimeError):
-    """Raised when report drafting is attempted but no model endpoint is configured.
+    """Raised when report drafting is attempted but required config is missing.
 
-    The report-draft route translates this into an HTTP 503 with a clear
-    message ("LLM endpoint not configured") so the UI can tell the user to wire
-    the endpoint before creating reports.
+    Triggered when ANY of TRACKER_LLM_PROVIDER, TRACKER_LLM_ENDPOINT,
+    TRACKER_LLM_API_KEY, or TRACKER_LLM_MODEL is unset or blank.
+
+    The report-draft route translates this into HTTP 503 with a clear message
+    ("LLM endpoint not configured") so the UI can instruct the operator to
+    supply all four variables before creating reports.
     """
 
     def __init__(self, message: str = "LLM endpoint not configured") -> None:
@@ -119,8 +132,10 @@ class LLMNotConfiguredError(RuntimeError):
 
 
 class LLMRequestError(RuntimeError):
-    """The endpoint was configured but the drafting call failed (transport,
-    HTTP status, or an unparseable/non-object response).
+    """The endpoint was configured but the drafting call failed.
+
+    Covers: transport errors, non-2xx HTTP responses, unparseable or
+    non-object JSON in the reply.
 
     Separate from LLMNotConfiguredError per decisions.md:
     "if the AI endpoint is set but down, the app says so clearly."
@@ -128,7 +143,7 @@ class LLMRequestError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Config helpers
+# Config helpers — all required vars raise LLMNotConfiguredError when blank
 # ---------------------------------------------------------------------------
 
 def _provider() -> str:
@@ -136,11 +151,12 @@ def _provider() -> str:
     val = os.environ.get(_PROVIDER_ENV, "").strip().lower()
     if not val:
         raise LLMNotConfiguredError(
-            "TRACKER_LLM_PROVIDER is not set. Set it to 'openai' or 'anthropic'."
+            "TRACKER_LLM_PROVIDER is not set. "
+            "Set it to 'openai' or 'anthropic' to select the wire format."
         )
     if val not in (_PROVIDER_OPENAI, _PROVIDER_ANTHROPIC):
         raise LLMNotConfiguredError(
-            f"TRACKER_LLM_PROVIDER='{val}' is not supported. "
+            f"TRACKER_LLM_PROVIDER='{val}' is not a supported wire format. "
             "Use 'openai' or 'anthropic'."
         )
     return val
@@ -151,24 +167,33 @@ def _api_key() -> str:
     key = os.environ.get(_API_KEY_ENV, "").strip()
     if not key:
         raise LLMNotConfiguredError(
-            "TRACKER_LLM_API_KEY is not set. Supply the API key for the chosen provider."
+            "TRACKER_LLM_API_KEY is not set. "
+            "Supply the credential for the air-gapped inference server."
         )
     return key
 
 
-def _model(provider: str) -> str:
-    override = os.environ.get(_MODEL_ENV, "").strip()
-    if override:
-        return override
-    return _DEFAULT_OPENAI_MODEL if provider == _PROVIDER_OPENAI else _DEFAULT_ANTHROPIC_MODEL
+def _model() -> str:
+    """Return the model name or raise LLMNotConfiguredError. No hosted default."""
+    name = os.environ.get(_MODEL_ENV, "").strip()
+    if not name:
+        raise LLMNotConfiguredError(
+            "TRACKER_LLM_MODEL is not set. "
+            "Supply the model name exactly as the inference server serves it."
+        )
+    return name
 
 
-def _base_url(provider: str) -> str:
-    """Return the base URL, stripping any trailing slash."""
-    override = os.environ.get(_ENDPOINT_ENV, "").strip().rstrip("/")
-    if override:
-        return override
-    return _DEFAULT_OPENAI_BASE if provider == _PROVIDER_OPENAI else _DEFAULT_ANTHROPIC_BASE
+def _base_url() -> str:
+    """Return the operator-supplied base URL or raise LLMNotConfiguredError."""
+    url = os.environ.get(_ENDPOINT_ENV, "").strip().rstrip("/")
+    if not url:
+        raise LLMNotConfiguredError(
+            "TRACKER_LLM_ENDPOINT is not set. "
+            "Supply the full base URL of the air-gapped inference server "
+            "(e.g. http://llm-host:8080/v1). There is no public-API fallback."
+        )
+    return url
 
 
 def _timeout() -> float:
@@ -179,6 +204,17 @@ def _timeout() -> float:
         return float(raw)
     except ValueError:
         return _DEFAULT_TIMEOUT
+
+
+def _anthropic_version() -> str:
+    """Return the anthropic-version header value.
+
+    Reads TRACKER_LLM_ANTHROPIC_VERSION; falls back to the module default
+    "2023-06-01". The env var exists solely as an operator escape hatch for
+    OSS inference servers that mandate or ignore a specific version string.
+    """
+    override = os.environ.get(_ANTHROPIC_VERSION_ENV, "").strip()
+    return override if override else _DEFAULT_ANTHROPIC_API_VERSION
 
 
 def _load_schema() -> dict:
@@ -236,7 +272,12 @@ def _build_prompts(notes: str, context: dict) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 def _call_openai(api_key: str, model: str, base_url: str, system: str, user: str) -> str:
-    """POST to OpenAI Chat Completions; return the raw content string."""
+    """POST to an OpenAI-compatible Chat Completions endpoint; return raw content string.
+
+    response_format=json_object is sent as a hint. Servers that honour it return
+    clean JSON. Servers that ignore it still go through the shared _extract_json
+    fence/brace extractor.
+    """
     url = f"{base_url}/chat/completions"
     payload = json.dumps({
         "model": model,
@@ -263,26 +304,39 @@ def _call_openai(api_key: str, model: str, base_url: str, system: str, user: str
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         raise LLMRequestError(
-            f"OpenAI API returned HTTP {exc.code}: {error_body[:300]}"
+            f"Inference server (openai dialect) returned HTTP {exc.code}: {error_body[:300]}"
         ) from exc
     except urllib.error.URLError as exc:
-        raise LLMRequestError(f"OpenAI request failed: {exc}") from exc
+        raise LLMRequestError(
+            f"Inference server (openai dialect) request failed: {exc}"
+        ) from exc
 
     try:
         data = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise LLMRequestError("OpenAI returned non-JSON response") from exc
+        raise LLMRequestError(
+            "Inference server (openai dialect) returned non-JSON response"
+        ) from exc
 
     try:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
         raise LLMRequestError(
-            f"Unexpected OpenAI response shape: {str(data)[:300]}"
+            f"Unexpected openai-dialect response shape: {str(data)[:300]}"
         ) from exc
 
 
 def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: str) -> str:
-    """POST to Anthropic Messages API; return the raw content text string."""
+    """POST to an Anthropic-compatible Messages endpoint; return reconstructed JSON string.
+
+    JSON reliability mechanism: an assistant-message prefill of `{` is appended
+    to the messages list. This forces the server to continue a JSON object rather
+    than emitting preamble prose. The server returns only the continuation (without
+    the prefill character itself), so we reconstruct by prepending `{` to whatever
+    the server returns before handing the string to _extract_json.
+
+    The fence/brace fallback in _extract_json still applies as a secondary safety net.
+    """
     url = f"{base_url}/messages"
     payload = json.dumps({
         "model": model,
@@ -290,6 +344,8 @@ def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: 
         "system": system,
         "messages": [
             {"role": "user", "content": user},
+            # Assistant prefill: forces server to continue a JSON object.
+            {"role": "assistant", "content": "{"},
         ],
     }).encode("utf-8")
 
@@ -301,7 +357,7 @@ def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: 
             "Content-Type": "application/json",
             "Accept": "application/json",
             "x-api-key": api_key,
-            "anthropic-version": _ANTHROPIC_API_VERSION,
+            "anthropic-version": _anthropic_version(),
         },
     )
     try:
@@ -310,22 +366,31 @@ def _call_anthropic(api_key: str, model: str, base_url: str, system: str, user: 
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         raise LLMRequestError(
-            f"Anthropic API returned HTTP {exc.code}: {error_body[:300]}"
+            f"Inference server (anthropic dialect) returned HTTP {exc.code}: {error_body[:300]}"
         ) from exc
     except urllib.error.URLError as exc:
-        raise LLMRequestError(f"Anthropic request failed: {exc}") from exc
+        raise LLMRequestError(
+            f"Inference server (anthropic dialect) request failed: {exc}"
+        ) from exc
 
     try:
         data = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise LLMRequestError("Anthropic returned non-JSON response") from exc
+        raise LLMRequestError(
+            "Inference server (anthropic dialect) returned non-JSON response"
+        ) from exc
 
     try:
-        return data["content"][0]["text"]
+        continuation = data["content"][0]["text"]
     except (KeyError, IndexError, TypeError) as exc:
         raise LLMRequestError(
-            f"Unexpected Anthropic response shape: {str(data)[:300]}"
+            f"Unexpected anthropic-dialect response shape: {str(data)[:300]}"
         ) from exc
+
+    # Reconstruct the full JSON object: the prefill `{` was consumed by the
+    # server as the start of the response; the server returns only the
+    # continuation. Prepend `{` to restore the complete object string.
+    return "{" + continuation
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +401,7 @@ def _extract_json(raw: str) -> dict:
     """Parse a JSON object from the model's text response.
 
     Handles:
-      1. Clean JSON string (direct parse).
+      1. Clean JSON string (direct parse) — expected path after prefill reconstruction.
       2. JSON wrapped in markdown code fences (```json ... ```).
       3. First {...} block found via regex fallback.
     """
@@ -367,7 +432,7 @@ def _extract_json(raw: str) -> dict:
 
 
 def _unwrap_report(data: dict) -> dict:
-    """Unwrap a top-level 'report' key if present (both providers use this)."""
+    """Unwrap a top-level 'report' key if present (both dialects use this)."""
     if "report" in data and isinstance(data["report"], dict):
         return data["report"]
     return data
@@ -380,19 +445,20 @@ def _unwrap_report(data: dict) -> dict:
 def draft_report(notes: str, context: dict) -> dict:
     """Draft a structured weekly report (report_schema.json shape) from raw notes.
 
-    Detects provider from TRACKER_LLM_PROVIDER env var, builds the appropriate
-    API request via stdlib urllib, and returns the structured dict. The caller
-    (the reports route) validates the dict against ReportDocument.
+    Reads all four required env vars (TRACKER_LLM_PROVIDER, TRACKER_LLM_ENDPOINT,
+    TRACKER_LLM_API_KEY, TRACKER_LLM_MODEL), builds the appropriate API request
+    via stdlib urllib, and returns the structured dict. The caller (the reports
+    route) validates the dict against ReportDocument.
 
     Raises:
-      LLMNotConfiguredError — TRACKER_LLM_PROVIDER or TRACKER_LLM_API_KEY unset.
-      LLMRequestError       — endpoint configured but call failed (transport,
+      LLMNotConfiguredError — ANY of provider/endpoint/api_key/model is unset or blank.
+      LLMRequestError       — all four vars present but call failed (transport,
                               HTTP error, or unparseable/non-object response).
     """
-    provider = _provider()   # raises LLMNotConfiguredError if unset/invalid
-    api_key = _api_key()     # raises LLMNotConfiguredError if unset
-    model = _model(provider)
-    base_url = _base_url(provider)
+    provider = _provider()    # raises LLMNotConfiguredError if unset/invalid
+    api_key = _api_key()      # raises LLMNotConfiguredError if unset/blank
+    model = _model()          # raises LLMNotConfiguredError if unset/blank
+    base_url = _base_url()    # raises LLMNotConfiguredError if unset/blank
     system, user = _build_prompts(notes, context)
 
     if provider == _PROVIDER_OPENAI:
