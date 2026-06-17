@@ -151,6 +151,11 @@ class ReportTaskEntry(BaseModel):
     For an existing task use `task` (the name); for a brand-new task use
     `new_task`. Exactly one of the two is expected (validated downstream / by
     the JSON Schema's oneOf). Mirrors §4 verbatim.
+
+    ``finished_on`` is an optional per-task finish-date override (YYYY-MM-DD).
+    When the task reaches a terminal status, ``ended_on`` is set to this value
+    if present, otherwise to the report's ``meeting_date``.  The engine NEVER
+    auto-computes a finish date from status history (spec §5, Omer's rule).
     """
     model_config = _doc_config
 
@@ -159,6 +164,7 @@ class ReportTaskEntry(BaseModel):
     status: TaskStatus
     owner: str | None = None
     note: str | None = None
+    finished_on: str | None = None
 
 
 class ReportArtifactEntry(BaseModel):

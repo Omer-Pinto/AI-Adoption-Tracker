@@ -18,6 +18,27 @@ Read helpers: ``build_draft_context`` (state hints for the LLM) and
 
 Conventions match the rest of the backend: plain functions, parameterized SQL,
 ``sqlite3.Row`` access, dates as ISO "YYYY-MM-DD" strings.
+
+Design decisions (Wave 2 Agent 2B):
+
+* **First meeting = first report** — no pre-seed assumption anywhere.  The fan-
+  out path already handles this; the first report creates tasks with
+  ``change_kind = "added"`` and sets ``started_on`` to the first meeting date.
+
+* **``started_on``** = date of the earliest history row (unchanged — already
+  correct per spec §4/§6).
+
+* **``ended_on``** — NEVER auto-computed from a trailing terminal-status run.
+  It is the user-supplied finish date: ``finished_on`` on the task entry if
+  present, otherwise the report's own ``meeting_date`` (only when the latest
+  status is terminal).  See ``_ended_on_for_task``.
+
+* **Domain field reset on replay** — before replaying a champion's reports,
+  every domain's mutable report-driven fields (``description``, ``scope``,
+  ``priority``, ``cross_domain``) are reset to NULL so that an edit that
+  removes a ``changes`` key reverts that field rather than leaving a stale
+  value.  Fields that the management CRUD set directly (not via a report) are
+  therefore wiped on the first edit-replay — flagged as an uncertainty.
 """
 
 from __future__ import annotations
@@ -27,13 +48,17 @@ import sqlite3
 
 from models import ReportArtifactEntry, ReportDocument, ReportDomainSection, SCHEMA_VERSION
 
-# ── design constants (see uncertainties in the agent report) ────────────────
+# ── design constants ─────────────────────────────────────────────────────────
 
-# Statuses that "close" a task — used to derive ``task.ended_on`` and to answer
-# "what's active now?" (spec §6 read-back).
+# Statuses that close a task — used only to decide whether ``ended_on`` should
+# be populated (spec §5).  No longer used to walk the trailing run.
 _TERMINAL_STATUSES = frozenset(
     {"finished_successfully", "finished_with_issues", "abandoned"}
 )
+
+# Domain columns that are driven exclusively by report ``changes`` sections and
+# must therefore be reset to NULL before a replay so that removed changes revert.
+_DOMAIN_REPORT_FIELDS = ("description", "scope", "priority", "cross_domain")
 
 
 # ── exceptions ──────────────────────────────────────────────────────────────
@@ -338,10 +363,13 @@ def _create_task(
 def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> None:
     """Set task.status/owner/started_on/ended_on from its full history journey.
 
-    Decisions (flagged): ``started_on`` = date of the earliest history row;
-    ``ended_on`` = the meeting date the task entered its final terminal run
-    (only when its latest status is terminal); ``owner`` carried from the most
-    recent report that named one; ``status`` = latest status."""
+    * ``started_on`` = meeting_date of the earliest history row (spec §4/§6).
+    * ``ended_on``   = user-supplied finish date (spec §5): ``finished_on`` on
+      the task entry if present, else the report's ``meeting_date`` — but ONLY
+      when the task's latest status is terminal.  Never auto-computed from a
+      trailing status run.
+    * ``owner``      = most recent report that named one.
+    * ``status``     = latest status."""
     rows = conn.execute(
         "SELECT th.meeting_date, th.status_at_meeting, th.change_note, th.report_id "
         "FROM task_history th WHERE th.task_id = ? "
@@ -352,18 +380,12 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
         return
 
     started_on = rows[0]["meeting_date"]
-    latest_status = rows[-1]["status_at_meeting"]
+    latest_row = rows[-1]
+    latest_status = latest_row["status_at_meeting"]
 
     ended_on: str | None = None
     if latest_status in _TERMINAL_STATUSES:
-        # Walk back over the trailing run of terminal statuses; ended_on is the
-        # date that run began.
-        ended_on = rows[-1]["meeting_date"]
-        for row in reversed(rows[:-1]):
-            if row["status_at_meeting"] in _TERMINAL_STATUSES:
-                ended_on = row["meeting_date"]
-            else:
-                break
+        ended_on = _ended_on_for_task(conn, task_id, latest_row["report_id"], latest_row["meeting_date"])
 
     # Owner: most recent report that set one (history has no owner column, so we
     # read it from the stored report_json of the latest report touching the task).
@@ -374,6 +396,40 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
         "WHERE id = ?",
         (latest_status, owner, started_on, ended_on, task_id),
     )
+
+
+def _ended_on_for_task(
+    conn: sqlite3.Connection,
+    task_id: int,
+    report_id: int,
+    meeting_date: str,
+) -> str:
+    """Return the user-supplied finish date for a task that just turned terminal.
+
+    Reads the stored ``report_json`` of *report_id* and looks for a
+    ``finished_on`` field on the matching task entry.  Falls back to
+    ``meeting_date`` (the report's own date) when no override is present.
+
+    This is the ONLY place ``ended_on`` is derived — no trailing-run logic."""
+    name_row = conn.execute("SELECT name FROM task WHERE id = ?", (task_id,)).fetchone()
+    if name_row is None:
+        return meeting_date
+    task_name = _norm(name_row["name"])
+
+    report_row = conn.execute(
+        "SELECT report_json, meeting_date FROM report WHERE id = ?", (report_id,)
+    ).fetchone()
+    if report_row is None:
+        return meeting_date
+
+    doc = json.loads(report_row["report_json"])
+    for section in doc.get("domains", []):
+        for entry in section.get("tasks", []):
+            name = entry.get("task") or entry.get("new_task")
+            if name and _norm(name) == task_name:
+                return entry.get("finished_on") or report_row["meeting_date"]
+    # Task entry not found in this report (shouldn't happen, but be safe).
+    return meeting_date
 
 
 def _latest_owner_for_task(conn: sqlite3.Connection, task_id: int) -> str | None:
@@ -575,14 +631,22 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
     Idempotent: clears this champion's history rows, then re-fans-out every one
     of the champion's reports in (meeting_date, id) order. Current-state rows
     that the timeline no longer references keep their last computed value
-    (entities are not deleted on replay — decision, flagged)."""
+    (entities are not deleted on replay — decision, flagged).
+
+    Domain field reset: before replaying, ``description / scope / priority /
+    cross_domain`` are reset to NULL on every domain owned by this champion so
+    that an edit that removes a ``changes`` key correctly reverts that field
+    rather than leaving a stale value from the previous save.  Any values that
+    were set by the management CRUD (not via a report) will also be cleared —
+    flagged as an uncertainty."""
     reports = conn.execute(
         "SELECT id, meeting_date, report_json FROM report "
         "WHERE champion_id = ? ORDER BY meeting_date ASC, id ASC",
         (champion_id,),
     ).fetchall()
 
-    # Collect the domain ids for this champion so we can scope the history wipe.
+    # Collect the domain ids for this champion so we can scope the history wipe
+    # and the domain-field reset.
     domain_ids = [
         r["id"]
         for r in conn.execute(
@@ -602,6 +666,16 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
         conn.execute(
             f"DELETE FROM artifact_history WHERE report_id IN ({placeholders})",
             report_ids,
+        )
+
+    # Reset report-driven domain fields to NULL before replaying so that a
+    # removed ``changes`` key reverts to no-value rather than sticking.
+    if domain_ids:
+        placeholders = ",".join("?" * len(domain_ids))
+        reset_cols = ", ".join(f"{col} = NULL" for col in _DOMAIN_REPORT_FIELDS)
+        conn.execute(
+            f"UPDATE domain SET {reset_cols} WHERE id IN ({placeholders})",
+            domain_ids,
         )
 
     touched_tasks: set[int] = set()

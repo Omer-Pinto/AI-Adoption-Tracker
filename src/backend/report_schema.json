@@ -100,7 +100,12 @@
         "new_task": { "type": "string" },
         "status": { "$ref": "#/$defs/taskStatus" },
         "owner": { "type": "string" },
-        "note": { "type": "string" }
+        "note": { "type": "string" },
+        "finished_on": {
+          "type": "string",
+          "format": "date",
+          "description": "Optional per-task finish-date override (YYYY-MM-DD). When the task reaches a terminal status, ended_on is set to this value if present, otherwise to the report's meeting_date. The engine never auto-computes ended_on from status history."
+        }
       }
     },
     "artifactEntry": {
