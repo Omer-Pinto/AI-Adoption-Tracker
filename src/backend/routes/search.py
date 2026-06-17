@@ -1,11 +1,41 @@
-"""Search API — `key:value` DSL filtering + autocomplete value endpoints.
+"""Search API — autocomplete value endpoint for the `key:value` chip bar.
 
-Wave-0 stub: exposes an empty `router` so app.py can pre-wire the include.
-The DSL parser/compiler module (src/backend/search/) is copied in by the
-orchestrator (task 0.4) and adapted by Wave-1 Agent 1D, which also fills this
-router. Do NOT create the search module here; do NOT edit app.py to add routes.
+The DSL filtering itself is not its own HTTP route: ``filter_tasks`` /
+``filter_artifacts`` (in the ``search`` package) are imported and called by
+Agent 1B's ``/api/tasks`` and ``/api/artifacts`` list endpoints. This router
+only exposes the chip bar's value suggestions (api_contract §4).
+
+Router prefix is ``/api/search`` (frozen in Wave 0), so the endpoint resolves
+to ``GET /api/search/values?key=...``.
 """
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query
+
+from db import get_connection
+from search.autocomplete import build_values
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+@router.get("/values", summary="Autocomplete values for a search DSL key")
+def search_values(
+    key: Annotated[str, Query(description="DSL key: team|domain|type|tag|status|date")],
+) -> dict:
+    """Return the candidate values for one DSL key as a tagged result.
+
+    Response shape (api_contract §4)::
+
+        {"key": str, "kind": "enum"|"free"|"date", "values": [{"value","label"}]}
+
+    Raises:
+        HTTPException: 422 when *key* is not one of the six DSL keys.
+    """
+    conn = get_connection()
+    try:
+        return build_values(conn, key)
+    except KeyError:
+        raise HTTPException(status_code=422, detail=f"Unknown search key: {key}")
+    finally:
+        conn.close()
