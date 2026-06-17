@@ -1,7 +1,7 @@
-// Domain types — mirror spec.md §4 (report JSON) and §5 (data model).
-// These are the shared contract types consumed by Wave-2 page agents.
-// Derived from specs/spec.md because specs/api_contract.md did not yet exist
-// at scaffold time (backend Agent 0A writes it in parallel).
+// Domain types — conform to specs/api_contract.md and src/backend/models.py.
+// These are the shared contract types consumed by Wave-2 page agents. The
+// contract (Agent 0A) is authoritative; these types mirror it exactly,
+// including field nullability from models.py (`str | None` → `string | null`).
 
 // ---- Enums (spec §5) ----
 
@@ -34,7 +34,7 @@ export type ArtifactTag =
 export interface Team {
   id: number;
   name: string;
-  cc_baseline: string;
+  cc_baseline: string | null;
   baseline_date: string | null;
 }
 
@@ -42,7 +42,7 @@ export interface Champion {
   id: number;
   name: string;
   team_id: number;
-  start_date: string;
+  start_date: string | null;
   end_date: string | null;
 }
 
@@ -51,10 +51,10 @@ export interface Domain {
   team_id: number;
   champion_id: number;
   name: string;
-  description: string;
-  scope: string;
-  priority: number;
-  cross_domain: string;
+  description: string | null;
+  scope: string | null;
+  priority: number | null;
+  cross_domain: string | null;
 }
 
 export interface Task {
@@ -62,7 +62,7 @@ export interface Task {
   domain_id: number;
   name: string;
   status: TaskStatus;
-  owner: string;
+  owner: string | null;
   started_on: string | null;
   ended_on: string | null;
 }
@@ -74,7 +74,7 @@ export interface Artifact {
   name: string;
   type: ArtifactType;
   tags: ArtifactTag[];
-  summary: string;
+  summary: string | null;
 }
 
 export interface ActionItem {
@@ -82,7 +82,7 @@ export interface ActionItem {
   report_id: number;
   domain_id: number | null;
   text: string;
-  owner: string;
+  owner: string | null;
   due_date: string | null;
   resolved: boolean;
 }
@@ -95,7 +95,7 @@ export interface TaskHistoryEntry {
   report_id: number;
   meeting_date: string;
   status_at_meeting: TaskStatus;
-  change_note: string;
+  change_note: string | null;
 }
 
 export interface ArtifactHistoryEntry {
@@ -104,7 +104,7 @@ export interface ArtifactHistoryEntry {
   report_id: number;
   meeting_date: string;
   change_kind: ArtifactChangeKind;
-  change_note: string;
+  change_note: string | null;
 }
 
 // ---- Report JSON (spec §4) ----
@@ -154,54 +154,73 @@ export interface Report {
   id: number;
   champion_id: number;
   meeting_date: string;
-  report_json: ReportJson;
+  // JSON-encoded string on the wire (models.Report.report_json: str). Wave-2
+  // does `JSON.parse(report.report_json) as ReportJson` to read the document.
+  report_json: string;
   schema_version: number;
 }
 
-// ---- Composite view payloads (spec §7, §8 — backend views.py) ----
+// ---- Composite view payloads (api_contract §2 — backend routes/views.py) ----
 
-/** A task plus its week-by-week journey (spec §6 read-back). */
-export interface TaskWithHistory extends Task {
+/** Task detail wrapper — `GET /api/tasks/{id}` (contract §2). */
+export interface TaskDetail {
+  task: Task;
   history: TaskHistoryEntry[];
 }
 
-/** An artifact plus its change history — feeds ArtifactDetailModal (spec §7). */
-export interface ArtifactWithHistory extends Artifact {
+/** Artifact detail wrapper — `GET /api/artifacts/{id}` (contract §2). */
+export interface ArtifactDetail {
+  artifact: Artifact;
   history: ArtifactHistoryEntry[];
 }
 
-/** A domain bundled with its current state + story (domain page). */
+/**
+ * One domain's slice of a team page, and the full `GET /api/domains/{id}/page`
+ * payload (contract §2). Current-state rows + separate ordered history arrays.
+ * No team/champion embedded; tasks/artifacts are plain rows.
+ */
 export interface DomainPage {
   domain: Domain;
-  team: Team;
-  champion: Champion;
-  tasks: TaskWithHistory[];
-  artifacts: ArtifactWithHistory[];
+  tasks: Task[];
+  task_history: TaskHistoryEntry[];
+  artifacts: Artifact[];
+  artifact_history: ArtifactHistoryEntry[];
 }
 
-/** One champion's portfolio, labeled by team (team page, spec §7). */
+/** One champion's portfolio, labeled by team — `GET /api/teams/{id}/page` (contract §2). */
 export interface TeamPage {
   team: Team;
   champion: Champion;
   domains: DomainPage[];
-  /** Un-domained, team-wide artifacts (all-team gutter). */
-  gutter_artifacts: ArtifactWithHistory[];
+  /** Un-domained, team-wide artifacts (the all-team gutter, domain_id = null). */
+  all_team_artifacts: Artifact[];
   reports: Report[];
   action_items: ActionItem[];
 }
 
-/** Teams index row (spec §7 — list of champion portfolios). */
-export interface TeamIndexEntry {
-  team: Team;
-  champion: Champion;
-  domains: Domain[];
+/** Teams index row — `GET /api/team-pages` (contract §2). One per (team, champion). */
+export interface TeamPageIndexEntry {
+  team_id: number;
+  team_name: string;
+  champion_id: number;
+  champion_name: string;
+  domain_count: number;
 }
 
-// ---- Search autocomplete (spec §7 search bar) ----
+// ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----
 
 export type SearchKey = 'team' | 'domain' | 'type' | 'tag' | 'status' | 'date';
+
+export type SearchValueKind = 'enum' | 'free' | 'date' | 'numeric';
 
 export interface SearchValue {
   value: string;
   label: string;
+}
+
+/** Tagged autocomplete result so the chip UI can render enum vs free vs date. */
+export interface SearchValuesResult {
+  key: SearchKey;
+  kind: SearchValueKind;
+  values: SearchValue[];
 }

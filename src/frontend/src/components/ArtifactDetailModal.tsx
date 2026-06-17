@@ -1,18 +1,22 @@
 import { Modal } from './Modal';
 import { ArtifactTypeBadge, ChangeKindBadge, TagList } from './Badge';
-import type { ArtifactWithHistory } from '@/types';
+import type { ArtifactDetail } from '@/types';
 
 // Working detail modal (spec §7): summary + full data + change history.
 // Used by team / domain / artifacts pages (Wave-2 agents 2B & 2D). Clicking an
 // artifact opens this — it is NOT a navigation away (spec §7 domain/team pages).
+//
+// Binds to the `GET /api/artifacts/{id}` wrapper: { artifact, history }.
 
 export interface ArtifactDetailModalProps {
   open: boolean;
   onClose: () => void;
-  artifact: ArtifactWithHistory | null;
+  detail: ArtifactDetail | null;
 }
 
-export function ArtifactDetailModal({ open, onClose, artifact }: ArtifactDetailModalProps) {
+export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailModalProps) {
+  const artifact = detail?.artifact ?? null;
+  const history = detail?.history ?? [];
   return (
     <Modal open={open && artifact !== null} title={artifact?.name ?? ''} onClose={onClose} wide>
       {artifact && (
@@ -52,10 +56,10 @@ export function ArtifactDetailModal({ open, onClose, artifact }: ArtifactDetailM
           {/* Change history (spec §5 artifact_history) */}
           <div className="history-inner" style={{ paddingLeft: 0 }}>
             <div className="history-title">Change history</div>
-            {artifact.history.length === 0 ? (
+            {history.length === 0 ? (
               <div className="text-muted text-sm">No recorded changes.</div>
             ) : (
-              artifact.history.map((h) => (
+              history.map((h) => (
                 <div className="history-entry" key={h.id}>
                   <span className="history-date">{h.meeting_date}</span>
                   <ChangeKindBadge kind={h.change_kind} />

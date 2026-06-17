@@ -449,9 +449,7 @@ a:hover { text-decoration: underline; }
 .artifact-type.type-agent { background: #ede9fe; color: #5b21b6; }
 .artifact-type.type-skill { background: #ecfdf5; color: #065f46; }
 .artifact-type.type-hook { background: #fff7ed; color: #9a3412; }
-.artifact-type.type-workflow { background: #f0f9ff; color: #075985; }
-.artifact-type.type-eval { background: #fdf4ff; color: #701a75; }
-.artifact-type.type-context_file { background: #f0fdf4; color: #14532d; }
+.artifact-type.type-context { background: #f0fdf4; color: #14532d; }
 
 /* ---- Tabs ---- */
 .tabs {

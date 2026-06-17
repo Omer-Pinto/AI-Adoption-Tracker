@@ -7,21 +7,20 @@
 // the Vite `/api` proxy (see vite.config.ts).
 
 import type {
-  ActionItem,
   Artifact,
-  ArtifactWithHistory,
+  ArtifactDetail,
   Champion,
   Domain,
   DomainPage,
   Report,
   ReportJson,
   SearchKey,
-  SearchValue,
+  SearchValuesResult,
   Task,
-  TaskWithHistory,
+  TaskDetail,
   Team,
-  TeamIndexEntry,
   TeamPage,
+  TeamPageIndexEntry,
 } from './types';
 
 export const API_BASE = '/api';
@@ -74,34 +73,35 @@ export const api = {
 
   // ---- Views & lists (backend routes/views.py — task_breakdown 1B) ----
   views: {
-    teamsIndex: (): Promise<TeamIndexEntry[]> => stub(),
+    // Landing teams index — `GET /api/team-pages` (one entry per team/champion).
+    teamsIndex: (): Promise<TeamPageIndexEntry[]> => stub(),
     teamPage: (championId: number): Promise<TeamPage> => stub(championId),
     domainPage: (domainId: number): Promise<DomainPage> => stub(domainId),
     tasks: (q?: string): Promise<Task[]> => stub(q),
-    task: (taskId: number): Promise<TaskWithHistory> => stub(taskId),
+    // `GET /api/tasks/{id}` → { task, history } wrapper.
+    task: (taskId: number): Promise<TaskDetail> => stub(taskId),
     artifacts: (q?: string): Promise<Artifact[]> => stub(q),
-    artifact: (artifactId: number): Promise<ArtifactWithHistory> => stub(artifactId),
+    // `GET /api/artifacts/{id}` → { artifact, history } wrapper.
+    artifact: (artifactId: number): Promise<ArtifactDetail> => stub(artifactId),
   },
 
   // ---- Reports (backend routes/reports.py — task_breakdown 1C) ----
   reports: {
     // raw notes → drafted structured report (NOT saved). The only create path (spec §4).
     draft: (notes: string, championId: number): Promise<ReportJson> => stub(notes, championId),
-    // confirm/save: fan out to tables in one transaction.
-    create: (body: ReportJson): Promise<Report> => stub(body),
-    get: (reportId: number): Promise<Report> => stub(reportId),
-    // edit a saved report → PATCH → replay.
-    update: (reportId: number, body: ReportJson): Promise<Report> => stub(reportId, body),
-  },
-
-  // ---- Action items ----
-  actionItems: {
-    resolve: (id: number, resolved: boolean): Promise<ActionItem> => stub(id, resolved),
+    // confirm/save: fan out to tables in one transaction. Returns { report } wrapper.
+    create: (body: ReportJson): Promise<{ report: Report }> => stub(body),
+    // `GET /api/reports/{id}` → { report } wrapper (binds the edit form).
+    get: (reportId: number): Promise<{ report: Report }> => stub(reportId),
+    // edit a saved report → PATCH → replay. Returns { report } wrapper.
+    update: (reportId: number, body: ReportJson): Promise<{ report: Report }> =>
+      stub(reportId, body),
   },
 
   // ---- Search autocomplete (backend routes/search.py — task_breakdown 1D) ----
   search: {
-    values: (key: SearchKey): Promise<SearchValue[]> => stub(key),
+    // `GET /api/search/values?key=...` → tagged { key, kind, values }.
+    values: (key: SearchKey): Promise<SearchValuesResult> => stub(key),
   },
 };
 
