@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 89% (42/47)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 96% (45/47)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 42 / 47 | 89% |
+| 🟢 Done | 45 / 47 | 96% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 5 | 11% |
+| ⬜ Pending | 2 | 4% |
 
 ---
 
@@ -24,7 +24,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 1 | Done | 4/4 | 4/4 | 0/14 | Backend merged + verified (18 routes; report fan-out/replay reads back; q-DSL + autocomplete live) |
 | 2 | Done | 3/3 | 3/3 | 0/10 | Merged + verified (air-gapped LLM adapter; report-engine corrections; backend fixes). Post-review fixes: LIKE ESCAPE single-char, prefill-echo tolerance, per-domain replay reset |
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
-| 4 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
+| 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + dev.sh + README + smoke; smoke 35/35 on merged tree |
 | 5 | Not Started | — | — | 2/2 | Decisions sign-off + live real-model draft test (1–2 via OpenAI API) |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -150,9 +150,9 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 4A: Seed + smoke (`seed.py`, `scripts/`, `README.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Seed script (via the report engine path) | ⬜ Pending | |
-| 2 | Run command + README (model-endpoint env var) | ⬜ Pending | |
-| 3 | Smoke pass (create→appears everywhere; search; modal; edit+replay) | ⬜ Pending | |
+| 1 | Seed script (via the report engine path) | 🟢 Done | `seed.py` fans out §6 Radar/Dana trace via real engine; + illustrative Platform/Eli |
+| 2 | Run command + README (model-endpoint env var) | 🟢 Done | `scripts/dev.sh` (one command, EXIT-trap cleanup); README documents 4 LLM env vars + `.env` not auto-loaded |
+| 3 | Smoke pass (create→appears everywhere; search; modal; edit+replay) | 🟢 Done | `scripts/smoke.py` 35/35: §6 read-back, search filters, edit/replay no-dup (domain-scoped) |
 
 ---
 
