@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜⬜] 65% (30/46)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 91% (42/46)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 30 / 46 | 65% |
+| 🟢 Done | 42 / 46 | 91% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 16 | 35% |
+| ⬜ Pending | 4 | 9% |
 
 ---
 
@@ -23,7 +23,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜�
 | 0 | Done | 2/2 | 2/2 | 0/6 | Setup complete — foundation merged, verified (schema applies, backend boots, frontend builds) |
 | 1 | Done | 4/4 | 4/4 | 0/14 | Backend merged + verified (18 routes; report fan-out/replay reads back; q-DSL + autocomplete live) |
 | 2 | Done | 3/3 | 3/3 | 0/10 | Merged + verified (air-gapped LLM adapter; report-engine corrections; backend fixes). Post-review fixes: LIKE ESCAPE single-char, prefill-echo tolerance, per-domain replay reset |
-| 3 | Not Started | 0/4 | 0/4 | 12/12 | Frontend (manage, team/domain, report flow + @/# mentions, artifacts/tasks+search) |
+| 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
 | 5 | Not Started | — | — | 1/1 | Decisions sign-off — resolve all open items in decisions.md |
 
@@ -118,30 +118,30 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜�
 ### Agent 3A: Management UI (`pages/manage/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Lists (teams/champions/domains, Add/Edit) | ⬜ Pending | |
-| 2 | Isolated edit modal form | ⬜ Pending | |
+| 1 | Lists (teams/champions/domains, Add/Edit) | 🟢 Done | Tabbed DataTables |
+| 2 | Isolated edit modal form | 🟢 Done | One modal per entity; submit try/catch/finally + visible error |
 
 ### Agent 3B: Team & Domain pages (`pages/team/`, `pages/domain/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Team page (portfolio + story + gutter + create report) | ⬜ Pending | |
-| 2 | Domain page (current + full story) | ⬜ Pending | |
-| 3 | Artifact detail modal usage | ⬜ Pending | |
+| 1 | Team page (portfolio + story + gutter + create report) | 🟢 Done | Champion portfolio; all-team gutter; Create-report nav |
+| 2 | Domain page (current + full story) | 🟢 Done | Current tables + week-by-week timeline |
+| 3 | Artifact detail modal usage | 🟢 Done | Single-fire click (stopPropagation) + error-handled fetch |
 
 ### Agent 3C: Report flow UI (`pages/report/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Create (notes → draft) | ⬜ Pending | |
-| 2 | Preview → confirm | ⬜ Pending | |
-| 3 | Edit saved report | ⬜ Pending | |
-| 4 | `@` task / `#` artifact mentions (fuzzy, all items, Jira-style; pick existing or type new) | ⬜ Pending | |
+| 1 | Create (notes → draft) | 🟢 Done | Champion (pre-selectable via `?champion=`) + notes → draft |
+| 2 | Preview → confirm | 🟢 Done | "Not saved" banner; Confirm/Discard; stable block keys |
+| 3 | Edit saved report | 🟢 Done | Structured form (PATCH/replay); stable block keys |
+| 4 | `@` task / `#` artifact mentions (fuzzy, all items, Jira-style; pick existing or type new) | 🟢 Done | Client-side fuzzy; dropdown keystroke bug fixed; name-only (backend resolves) |
 
 ### Agent 3D: Artifacts, Tasks & Search bar (`pages/artifacts/`, `pages/tasks/`, `search/`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Adapt chip search bar to React (autocomplete, URL round-trip) | ⬜ Pending | |
-| 2 | Artifacts page (filtered, modal) | ⬜ Pending | |
-| 3 | Tasks page (filtered, week-by-week expand) | ⬜ Pending | |
+| 1 | Adapt chip search bar to React (autocomplete, URL round-trip) | 🟢 Done | DSL verified vs backend parser; enum verbatim round-trip; single-date semantics |
+| 2 | Artifacts page (filtered, modal) | 🟢 Done | SearchBar-driven; modal error path retry-able |
+| 3 | Tasks page (filtered, week-by-week expand) | 🟢 Done | Expand→history; error-handled |
 
 ---
 
