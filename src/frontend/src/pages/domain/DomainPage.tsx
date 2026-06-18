@@ -21,6 +21,7 @@ export default function DomainPage() {
   // Artifact detail modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!domainId) return;
@@ -32,15 +33,22 @@ export default function DomainPage() {
   }, [domainId]);
 
   function openArtifactModal(artifactId: number) {
-    api.views.artifact(artifactId).then((detail) => {
-      setModalDetail(detail);
-      setModalOpen(true);
-    });
+    setModalError(null);
+    api.views
+      .artifact(artifactId)
+      .then((detail) => {
+        setModalDetail(detail);
+        setModalOpen(true);
+      })
+      .catch((e: unknown) => {
+        setModalError(String(e));
+      });
   }
 
   function closeModal() {
     setModalOpen(false);
     setModalDetail(null);
+    setModalError(null);
   }
 
   if (loading) {
@@ -182,6 +190,11 @@ export default function DomainPage() {
         />
       </div>
 
+      {modalError && (
+        <div className="blocker-banner" style={{ margin: '12px 0' }}>
+          Failed to load artifact: {modalError}
+        </div>
+      )}
       <ArtifactDetailModal open={modalOpen} onClose={closeModal} detail={modalDetail} />
     </>
   );
@@ -248,7 +261,7 @@ function ArtifactsTable({
       render: (a) => (
         <span
           style={{ color: '#4361ee', cursor: 'pointer' }}
-          onClick={() => onArtifactClick(a.id)}
+          onClick={(e) => { e.stopPropagation(); onArtifactClick(a.id); }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && onArtifactClick(a.id)}
