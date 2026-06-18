@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { DomainPage as DomainPageData, Artifact, Task, ArtifactDetail } from '@/types';
-import type { ArtifactChangeKind, TaskStatus } from '@/types';
-import { StatusBadge, ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
+import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
+import { DomainStory } from '@/components/DomainStory';
 
 // Route: "/domains/:domainId" — single domain: current tasks/artifacts + story. Wave-3 agent 3B.
 
@@ -187,6 +187,7 @@ export default function DomainPage() {
           taskHistory={task_history}
           artifactHistory={artifact_history}
           onArtifactClick={openArtifactModal}
+          connectors
         />
       </div>
 
@@ -301,151 +302,3 @@ function ArtifactsTable({
   );
 }
 
-// ---- Domain story ----
-
-type StoryEntry =
-  | {
-      kind: 'task';
-      date: string;
-      id: number;
-      taskId: number;
-      taskName: string;
-      status: TaskStatus;
-      note: string | null;
-    }
-  | {
-      kind: 'artifact';
-      date: string;
-      id: number;
-      artifactId: number;
-      artifactName: string;
-      changeKind: ArtifactChangeKind;
-      note: string | null;
-    };
-
-function DomainStory({
-  tasks,
-  artifacts,
-  taskHistory,
-  artifactHistory,
-  onArtifactClick,
-}: {
-  tasks: Task[];
-  artifacts: Artifact[];
-  taskHistory: DomainPageData['task_history'];
-  artifactHistory: DomainPageData['artifact_history'];
-  onArtifactClick: (id: number) => void;
-}) {
-  const taskNameMap = new Map<number, string>(tasks.map((t) => [t.id, t.name]));
-  const artifactNameMap = new Map<number, string>(
-    artifacts.map((a) => [a.id, a.name]),
-  );
-
-  const entries: StoryEntry[] = [
-    ...taskHistory.map((h) => ({
-      kind: 'task' as const,
-      date: h.meeting_date,
-      id: h.id,
-      taskId: h.task_id,
-      taskName: taskNameMap.get(h.task_id) ?? `Task #${h.task_id}`,
-      status: h.status_at_meeting,
-      note: h.change_note,
-    })),
-    ...artifactHistory.map((h) => ({
-      kind: 'artifact' as const,
-      date: h.meeting_date,
-      id: h.id,
-      artifactId: h.artifact_id,
-      artifactName: artifactNameMap.get(h.artifact_id) ?? `Artifact #${h.artifact_id}`,
-      changeKind: h.change_kind,
-      note: h.change_note,
-    })),
-  ].sort((a, b) => a.date.localeCompare(b.date));
-
-  // Group by date
-  const byDate = new Map<string, StoryEntry[]>();
-  for (const e of entries) {
-    const bucket = byDate.get(e.date) ?? [];
-    bucket.push(e);
-    byDate.set(e.date, bucket);
-  }
-  const sortedDates = Array.from(byDate.keys()).sort();
-
-  if (sortedDates.length === 0) {
-    return (
-      <div className="text-muted text-sm" style={{ padding: '8px 0' }}>
-        No history yet for this domain.
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {sortedDates.map((date) => {
-        const dayEntries = byDate.get(date)!;
-        return (
-          <div key={date} className="story-date-group" style={{ marginBottom: 28 }}>
-            <div className="story-date-heading">
-              <span className="story-date-label">{date}</span>
-              <div className="story-date-line" />
-            </div>
-
-            {dayEntries.map((entry, idx) => {
-              const isLast = idx === dayEntries.length - 1;
-              return (
-                <div key={`${entry.kind}-${entry.id}`} className="story-entry">
-                  <div className="story-dot-col">
-                    <div
-                      className={`story-dot ${
-                        entry.kind === 'artifact'
-                          ? 'dot-artifact'
-                          : entry.status === 'finished_successfully'
-                          ? 'dot-finished'
-                          : 'dot-task'
-                      }`}
-                    />
-                    {!isLast && <div className="story-connector" />}
-                  </div>
-                  <div className="story-content">
-                    {entry.kind === 'task' ? (
-                      <>
-                        <div className="story-what">
-                          <span className="story-entity-type type-task">task</span>
-                          {entry.taskName}
-                        </div>
-                        <div className="story-meta">
-                          <StatusBadge status={entry.status} />
-                        </div>
-                        {entry.note && <div className="story-note">{entry.note}</div>}
-                      </>
-                    ) : (
-                      <>
-                        <div className="story-what">
-                          <span className="story-entity-type type-artifact">artifact</span>
-                          <span
-                            style={{ color: '#4361ee', cursor: 'pointer' }}
-                            onClick={() => onArtifactClick(entry.artifactId)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) =>
-                              e.key === 'Enter' && onArtifactClick(entry.artifactId)
-                            }
-                          >
-                            {entry.artifactName}
-                          </span>
-                          {' — '}
-                          <ChangeKindBadge kind={entry.changeKind} />
-                        </div>
-                        {entry.note && <div className="story-note">{entry.note}</div>}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}

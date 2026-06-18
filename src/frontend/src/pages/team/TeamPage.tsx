@@ -7,6 +7,7 @@ import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
+import { DomainStory } from '@/components/DomainStory';
 
 // Route: "/teams/:championId" — one champion's portfolio, labeled by team. Wave-3 agent 3B.
 
@@ -336,140 +337,29 @@ function DomainCard({
 
         {/* Week-by-week story for this domain */}
         {(dp.task_history.length > 0 || dp.artifact_history.length > 0) && (
-          <DomainStory dp={dp} onArtifactClick={onArtifactClick} />
+          <div style={{ marginTop: 16, borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+                color: '#9ca3af',
+                marginBottom: 10,
+              }}
+            >
+              Story — Week by Week
+            </div>
+            <DomainStory
+              tasks={dp.tasks}
+              artifacts={dp.artifacts}
+              taskHistory={dp.task_history}
+              artifactHistory={dp.artifact_history}
+              onArtifactClick={onArtifactClick}
+            />
+          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ---- Domain story (week-by-week) embedded in team page ----
-
-type StoryEntry =
-  | { kind: 'task'; date: string; id: number; taskId: number; taskName: string; status: import('@/types').TaskStatus; note: string | null }
-  | { kind: 'artifact'; date: string; id: number; artifactId: number; artifactName: string; changeKind: import('@/types').ArtifactChangeKind; note: string | null };
-
-function DomainStory({
-  dp,
-  onArtifactClick,
-}: {
-  dp: DomainPage;
-  onArtifactClick: (id: number) => void;
-}) {
-  // Build a lookup of task names and artifact names from current state
-  const taskNameMap = new Map<number, string>(dp.tasks.map((t) => [t.id, t.name]));
-  const artifactNameMap = new Map<number, string>(dp.artifacts.map((a) => [a.id, a.name]));
-
-  const entries: StoryEntry[] = [
-    ...dp.task_history.map((h) => ({
-      kind: 'task' as const,
-      date: h.meeting_date,
-      id: h.id,
-      taskId: h.task_id,
-      taskName: taskNameMap.get(h.task_id) ?? `Task #${h.task_id}`,
-      status: h.status_at_meeting,
-      note: h.change_note,
-    })),
-    ...dp.artifact_history.map((h) => ({
-      kind: 'artifact' as const,
-      date: h.meeting_date,
-      id: h.id,
-      artifactId: h.artifact_id,
-      artifactName: artifactNameMap.get(h.artifact_id) ?? `Artifact #${h.artifact_id}`,
-      changeKind: h.change_kind,
-      note: h.change_note,
-    })),
-  ].sort((a, b) => a.date.localeCompare(b.date));
-
-  // Group by date
-  const byDate = new Map<string, StoryEntry[]>();
-  for (const e of entries) {
-    const bucket = byDate.get(e.date) ?? [];
-    bucket.push(e);
-    byDate.set(e.date, bucket);
-  }
-  const sortedDates = Array.from(byDate.keys()).sort();
-
-  if (sortedDates.length === 0) return null;
-
-  return (
-    <div style={{ marginTop: 16, borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
-      <div
-        style={{
-          fontSize: '10px',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.6px',
-          color: '#9ca3af',
-          marginBottom: 10,
-        }}
-      >
-        Story — Week by Week
-      </div>
-
-      {sortedDates.map((date) => {
-        const dayEntries = byDate.get(date)!;
-        return (
-          <div key={date} className="story-date-group" style={{ marginBottom: 20 }}>
-            <div className="story-date-heading">
-              <span className="story-date-label">{date}</span>
-              <div className="story-date-line" />
-            </div>
-
-            {dayEntries.map((entry) => (
-              <div key={`${entry.kind}-${entry.id}`} className="story-entry">
-                <div className="story-dot-col">
-                  <div
-                    className={`story-dot ${
-                      entry.kind === 'artifact'
-                        ? 'dot-artifact'
-                        : entry.status === 'finished_successfully'
-                        ? 'dot-finished'
-                        : 'dot-task'
-                    }`}
-                  />
-                </div>
-                <div className="story-content">
-                  {entry.kind === 'task' ? (
-                    <>
-                      <div className="story-what">
-                        <span className="story-entity-type type-task">task</span>
-                        {entry.taskName}
-                      </div>
-                      <div className="story-meta">
-                        <StatusBadge status={entry.status} />
-                      </div>
-                      {entry.note && <div className="story-note">{entry.note}</div>}
-                    </>
-                  ) : (
-                    <>
-                      <div className="story-what">
-                        <span className="story-entity-type type-artifact">artifact</span>
-                        <span
-                          style={{ cursor: 'pointer', color: '#4361ee' }}
-                          onClick={() => onArtifactClick(entry.artifactId)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) =>
-                            e.key === 'Enter' && onArtifactClick(entry.artifactId)
-                          }
-                        >
-                          {entry.artifactName}
-                        </span>
-                        {' — '}
-                        <span className={`change-kind ${entry.changeKind}`}>
-                          {entry.changeKind}
-                        </span>
-                      </div>
-                      {entry.note && <div className="story-note">{entry.note}</div>}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
     </div>
   );
 }
