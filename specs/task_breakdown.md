@@ -199,3 +199,60 @@ A final gate so no decision rots in `specs/decisions.md`. Contents are **TBD** �
 
 ### After Wave 5
 - `specs/decisions.md` has zero open items, and the real-model draft test has passed. Project done.
+
+---
+
+## Wave 6 — Raw-notes extraction depth (4 agents + 1 acceptance gate)
+
+Corrective wave on the feature's core purpose. The drafting path under-extracts from RAW messy notes: fed a CURATED note (≈40 min of manual human curation, done air-gapped) it produces a rich `ReportDocument`; fed the same meeting's RAW notes it drops whole categories (participants, artifacts, an entire domain, discussion, issues). The feature only earns its place if it extracts richly from RAW notes with little/no human curation. Three levers: (a) a prompt that **mines** the notes instead of timidly transcribing, leaning on the full `ReportDocument` field map; (b) **free-text inference** so data buried in prose becomes structured fields; (c) an **agentic DB-lookup tool** so referenced tasks/artifacts map onto their real existing rows (exact names, no duplicates) while genuinely-new ones are still created. 6A (`llm/interface.py` prompt + free-text rules) and 6B (`llm/` tool-use loop + new query helper) share the `llm/` tree, so 6B lands after 6A on the same file; 6C (`reports/engine.py` reconciliation) and 6D (acceptance gate, test-only) are disjoint and parallel-safe once 6A/6B merge. **No fan-out semantics change unless 6C's reconciliation decision requires it.**
+
+> **Read first (do not guess):** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths), `src/backend/models.py` (`ReportDocument` + nested models — the full field map), `src/backend/report_schema.json`, `src/backend/reports/engine.py` (`build_draft_context` + the fan-out name-resolution `_find_task_id` / `_find_artifact_id` / `_create_*`), `src/backend/routes/reports.py` (the `/draft` call + validate), and `src/backend/search/service.py` (`filter_tasks` / `filter_artifacts` — server-side, the reuse candidate for a lookup tool).
+
+> **The "new X" convention (shared by 6A/6B/6C — design in lockstep):** when the notes say **"new task" / "new skill" / "new agent" / "new <artifact-type>"** the mention is a NEW entity to **create**; any other mention is a **REFERENCE** that must be looked up in the DB so the exact existing name is reused. How an *unmarked, unknown* mention is handled (auto-create as today vs flag for human confirmation) is an **open decision for Omer** (below) — Wave 6 must not silently pick one.
+
+### Agent 6A: Extraction prompt rewrite + free-text mining
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT` and `_user_content` only — no provider-path or signature change here)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Rewrite the system prompt to EXTRACT, not transcribe | replace the conservative framing ("only include what's mentioned", "for fields with no value use null") with an active mining directive: read the whole note and populate every `ReportDocument` category the text supports | the timid framing is what drops categories; keep "never fabricate" but stop reading it as "omit when unsure" |
+| 2 | Lean on the Pydantic field map | enumerate the target fields in the prompt — `participants`, per-domain `tasks` (`status`/`owner`/`note`), `artifacts` (`type`/`tags`/`change_kind`/`note`), `action_items` (`owner`/`domain`/`due_date`), `domains[].changes`, `discussion`, `issues` — and instruct: fill each whenever the answer is present in the notes; do not leave it empty when the note supports it | mirror `models.ReportDocument` exactly; don't invent fields not in the schema |
+| 3 | Free-text inference rules | add explicit prose→structured examples mirrored on the failing note: "Meeting with Uri… I (Omer)" → participants `[Uri, Omer]`; "context md files in a router pattern" → a `context` artifact; "automatic test execution" → a `skill` artifact; marketplace / CR-gap prose → `issues` / `discussion` | infer structured values from buried prose; still never fabricate absent facts |
+| 4 | Date / champion / raw_notes rules preserved | keep the existing `champion`, `meeting_date` (partial-date resolution against today), and verbatim `raw_notes` rules intact through the rewrite | these already work — don't regress them |
+**Commit:** `Wave 6 Agent 6A: extraction-first prompt + free-text mining`
+
+### Agent 6B: Agentic DB-lookup tool + multi-turn loop (both providers)
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (both provider paths), plus a new internal query helper module under `src/backend/llm/` (e.g. `llm/lookup.py`)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Internal lookup helper (server-side, no HTTP) | a fuzzy name→rows query over existing tasks/artifacts returning `{id, name, type/status, domain}`; reuse `search.filter_tasks` / `filter_artifacts` or a thin direct-SQL helper (decision below) | air-gap-safe: in-process DB call, never an HTTP round-trip |
+| 2 | Expose it as an LLM tool on both providers | OpenAI `tools=[…]` function tool + Anthropic `tools=[…]` alongside the existing `submit_report` tool; the model calls `lookup_entities(kind, name)` when a note references a task/artifact | tool surface (exact signatures) is an open decision below |
+| 3 | Multi-turn tool-call loop | turn each provider path from single-shot into a loop: run → if the model calls `lookup_entities`, execute it server-side, append the tool result, re-run → until the model emits the final structured `ReportDocument`; cap the turns and surface overrun as `LLMRequestError` | changes the adapter's shape; both OpenAI and Anthropic must do the loop |
+| 4 | Wire the "new X" convention into the tool contract | the tool's description tells the model: "new task/skill/agent/<type>" ⇒ a NEW entity (do not look up, mint a fresh name); any other mention ⇒ look it up and reuse the exact returned name | prompt-only vs schema marker is an open decision below — implement whatever Omer chooses |
+**Commit:** `Wave 6 Agent 6B: agentic entity-lookup tool + tool-call loop (OpenAI + Anthropic)`
+
+### Agent 6C: Reconcile lookup with fan-out name-resolution
+**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (and `routes/reports.py` only if a preview/confirmation flag is needed)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Single source of name-resolution truth | ensure the draft-time lookup (6B) and the fan-out resolvers (`_find_task_id` / `_find_artifact_id`) agree on matching (same `_norm` casefold/trim, same team/domain scoping) so a name the model reused resolves to that exact row at save | don't duplicate matching logic — share or mirror `_norm` + the scope rules |
+| 2 | Handle the unmarked-unknown mention per Omer's decision | implement the chosen behaviour for a mention that is neither a DB match nor a "new X": auto-create silently (today's behavior) **or** flag it in the draft for human confirmation in preview | gated on the open decision below; do not pick unilaterally |
+**Commit:** `Wave 6 Agent 6C: reconcile draft lookup with fan-out resolution`
+
+### Agent 6D: Acceptance gate — raw-vs-curated parity (THE metric)
+**Type:** `test-automator` · **Scope:** `src/backend/tests/` (new test module; test-only — no app code)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Raw-vs-curated parity test | a recorded-or-live test that drafts the SAME meeting twice — once from the RAW messy note, once from the CURATED note — and asserts the RAW draft **approaches** the curated draft in richness: comparable participant count, all domains present (not one dropped), artifacts extracted (incl. `type`), and non-empty `discussion` / `issues` when the curated draft has them | this is the gate that decides whether the feature lives; richness is measured per-category, not by exact string match |
+| 2 | Category-coverage assertions | assert each schema category the curated draft populated is also populated by the raw draft (within a tolerance Omer sets), so a regression that re-drops a whole category fails loudly | tie thresholds to the categories that were being dropped: participants, artifacts, the missing domain, discussion, issues |
+**Commit:** `Wave 6 Agent 6D: raw-vs-curated extraction parity gate`
+
+### Open decisions for Omer (resolve before running Wave 6)
+*Do not let an agent pick these — each changes the adapter or the save path.*
+1. **Agentic loop vs single-shot.** 6B turns the adapter into a multi-turn tool-call loop (query DB → then emit the final structured `ReportDocument`) for **both** providers (OpenAI tools + Anthropic tools). This adds latency and N extra model calls per draft and changes the adapter's shape (no longer one call → one parse). Accept the multi-turn cost, or keep single-shot and feed candidate matches via `build_draft_context` only?
+2. **The "new X" convention — prompt-only or a schema/marker change?** Is "new task / new skill / new agent / new <type>" purely a prompt instruction the model honours, or do we add a marker (e.g. a `new: true` discriminator on the report entry / `ReportDocument`)? And for an **unmarked unknown** mention (no DB match, not flagged "new"): **auto-create** as today's fan-out does, or **flag for human confirmation** in the preview before save?
+3. **Tool surface.** Reuse the existing `search.filter_tasks` / `filter_artifacts` (server-side, in-process) directly, or add new internal query helpers in `llm/lookup.py`? Define the exact tool signature(s) — e.g. `lookup_entities(kind: "task"|"artifact", name: str)` returning `[{id, name, type|status, domain}]` (fuzzy by name) — and whether one tool covers both kinds or two tools split them.
+4. **Model choice.** If prompt tuning + the lookup tool still can't close the raw-vs-curated gap (6D fails), do we move off `gpt-4o` to a stronger extraction model? Decide the fallback model and whether the parity gate is allowed to gate on model choice.
+5. **Air-gap implications.** The system runs air-gapped against a self-hosted OpenAI/Anthropic-compatible server. Confirm that **tool use / function calling is supported by that server** for the chosen provider wire format — the loop in 6B is useless if the air-gapped endpoint can't return tool calls. The lookup helper itself stays in-process (no new outbound HTTP), but the tool-call protocol must work end-to-end against the self-hosted model.
+
+### After Wave 6
+- Cherry-pick 6A, 6B, 6C, then 6D. Verify: a RAW messy note drafts a report with participants, all its domains, artifacts (with `type`), and discussion/issues populated — not the stripped-down output seen before; referenced tasks/artifacts map onto existing rows (no duplicates), "new X" mentions create fresh entities; the unmarked-unknown path behaves per Omer's decision; **6D's raw-vs-curated parity gate passes** (the metric that says the feature lives). Air-gapped tool-use confirmed against the self-hosted endpoint.

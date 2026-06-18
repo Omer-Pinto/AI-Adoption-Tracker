@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 98% (46/47)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜] 78% (46/59)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 46 / 47 | 98% |
+| 🟢 Done | 46 / 59 | 78% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 1 | 2% |
+| ⬜ Pending | 13 | 22% |
 
 ---
 
@@ -26,6 +26,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
 | 5 | In Progress | — | — | 1/2 | Decisions signed off (5.1 — all verified in code); only live OpenAI draft test (5.2) left |
+| 6 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -163,3 +164,37 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 |---|------|--------|-------|
 | 1 | Every item in `specs/decisions.md` closed — nothing left TBD | 🟢 Done | Batched audit (LLM, report engine, search, mentions) + orchestrator spot-check of the code: all 15 logged decisions implemented & correct; zero open |
 | 2 | Live LLM test — 1–2 report drafts from notes via real OpenAI API (schema-valid, sensible output) | ⬜ Pending | Needs `.env` (OpenAI) + internet; only path not coverable offline. Rest of app live-verified in browser |
+
+---
+
+## Wave 6 — Raw-notes extraction depth
+
+> Open decisions for Omer (loop vs single-shot, the "new X" convention + unmarked-unknown handling, tool surface, model choice, air-gap tool-use) must be resolved before agents run — see `specs/task_breakdown.md` Wave 6.
+
+### Agent 6A: Extraction prompt rewrite + free-text mining (`llm/interface.py` — `_SYSTEM_PROMPT`/`_user_content`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Rewrite system prompt to EXTRACT, not transcribe (drop the timid "omit when unsure" framing) | ⬜ Pending | |
+| 2 | Lean on the `ReportDocument` field map — fill every category the notes support | ⬜ Pending | |
+| 3 | Free-text inference rules (prose→participants/artifacts/issues/discussion) | ⬜ Pending | |
+| 4 | Preserve champion / meeting_date / verbatim raw_notes rules through the rewrite | ⬜ Pending | |
+
+### Agent 6B: Agentic DB-lookup tool + multi-turn loop (`llm/interface.py` both providers + new `llm/lookup.py`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Internal lookup helper (server-side, no HTTP; reuse search or thin SQL) | ⬜ Pending | |
+| 2 | Expose `lookup_entities` as an LLM tool on both OpenAI and Anthropic | ⬜ Pending | |
+| 3 | Multi-turn tool-call loop (query DB → re-run → final `ReportDocument`); turn cap | ⬜ Pending | |
+| 4 | Wire the "new X" convention into the tool contract | ⬜ Pending | |
+
+### Agent 6C: Reconcile lookup with fan-out name-resolution (`reports/engine.py`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Single source of name-resolution truth (share `_norm` + scope rules with draft lookup) | ⬜ Pending | |
+| 2 | Handle the unmarked-unknown mention per Omer's decision (auto-create vs flag) | ⬜ Pending | |
+
+### Agent 6D: Acceptance gate — raw-vs-curated parity (`tests/` — test-only)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Raw-vs-curated parity test (RAW draft approaches CURATED in richness) | ⬜ Pending | The gate that decides whether the feature lives |
+| 2 | Category-coverage assertions (participants/artifacts/missing-domain/discussion/issues) | ⬜ Pending | |
