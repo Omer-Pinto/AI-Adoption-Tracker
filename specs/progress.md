@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 96% (45/47)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 98% (46/47)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 45 / 47 | 96% |
+| 🟢 Done | 46 / 47 | 98% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 2 | 4% |
+| ⬜ Pending | 1 | 2% |
 
 ---
 
@@ -24,8 +24,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 1 | Done | 4/4 | 4/4 | 0/14 | Backend merged + verified (18 routes; report fan-out/replay reads back; q-DSL + autocomplete live) |
 | 2 | Done | 3/3 | 3/3 | 0/10 | Merged + verified (air-gapped LLM adapter; report-engine corrections; backend fixes). Post-review fixes: LIKE ESCAPE single-char, prefill-echo tolerance, per-domain replay reset |
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
-| 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + dev.sh + README + smoke; smoke 35/35 on merged tree |
-| 5 | Not Started | — | — | 2/2 | Decisions sign-off + live real-model draft test (1–2 via OpenAI API) |
+| 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
+| 5 | In Progress | — | — | 1/2 | Decisions signed off (5.1 — all verified in code); only live OpenAI draft test (5.2) left |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -151,7 +151,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Seed script (via the report engine path) | 🟢 Done | `seed.py` fans out §6 Radar/Dana trace via real engine; + illustrative Platform/Eli |
-| 2 | Run command + README (model-endpoint env var) | 🟢 Done | `scripts/dev.sh` (one command, EXIT-trap cleanup); README documents 4 LLM env vars + `.env` not auto-loaded |
+| 2 | Run command + README (model-endpoint env var) | 🟢 Done | README documents run (backend + frontend, 2 terminals) + 4 LLM env vars + `.env` not auto-loaded. (dev.sh helper removed per Omer — dev-only convenience, not the app) |
 | 3 | Smoke pass (create→appears everywhere; search; modal; edit+replay) | 🟢 Done | `scripts/smoke.py` 35/35: §6 read-back, search filters, edit/replay no-dup (domain-scoped) |
 
 ---
@@ -161,5 +161,5 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Gate: resolve open decisions (orchestrator + Omer)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Every item in `specs/decisions.md` closed — nothing left TBD | ⬜ Pending | |
+| 1 | Every item in `specs/decisions.md` closed — nothing left TBD | 🟢 Done | Batched audit (LLM, report engine, search, mentions) + orchestrator spot-check of the code: all 15 logged decisions implemented & correct; zero open |
 | 2 | Live LLM test — 1–2 report drafts from notes via real OpenAI API (schema-valid, sensible output) | ⬜ Pending | Needs `.env` (OpenAI) + internet; only path not coverable offline. Rest of app live-verified in browser |

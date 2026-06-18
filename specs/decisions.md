@@ -36,4 +36,11 @@
 
 ## Open items
 
-None. (If any arise in later waves, they get added here AND as a task; Wave 5 confirms this list is empty.)
+None.
+
+## Wave 5.1 sign-off (2026-06-18)
+
+Every decision above was audited against the current code (LLM/drafting, report engine,
+search, and report mentions) and independently spot-checked — **all are implemented and
+correct; nothing is open.** The decisions gate is closed. The only remaining project item
+is the live real-model draft test (Wave 5.2), which needs a real OpenAI key + internet.

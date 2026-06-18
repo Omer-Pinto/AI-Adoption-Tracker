@@ -28,22 +28,7 @@ cd src/frontend && npm install
 
 ## Running the app
 
-The helper script works on Linux and macOS (bash 4+/5.x).
-
-### Option A — one command (backend + frontend together)
-
-```bash
-./scripts/dev.sh
-```
-
-Both servers start in the same process group. Press Ctrl-C once to stop both
-cleanly. If the shell was killed without the trap firing, reclaim the ports with:
-
-```bash
-fuser -k 8000/tcp 5173/tcp 2>/dev/null || true   # Linux
-```
-
-### Option B — separately
+Run the backend and frontend in two terminals.
 
 Backend (runs on `http://127.0.0.1:8000`):
 
@@ -156,7 +141,6 @@ src/
   frontend/          Vite + React + TypeScript
     src/             Page components, API client, search bar
 scripts/
-  dev.sh             Start backend + frontend together
   smoke.py           API smoke test (run after seeding + booting)
 specs/               Design spec, API contract, decisions, task breakdown
 ```
