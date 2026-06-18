@@ -191,5 +191,11 @@ A final gate so no decision rots in `specs/decisions.md`. Contents are **TBD** �
 |---|------|--------|-------|
 | 1 | Close every open item | walk `specs/decisions.md`; confirm each item is either accepted by Omer or completed as a task — **nothing left TBD**; any still-open item becomes a task here and is resolved before the project is called done | no silent defers |
 
+### Live LLM check: report extraction from notes (real OpenAI API)
+**Owner:** orchestrator + Omer · **Scope:** `.env` (OpenAI config) + manual run — no code change expected
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 2 | Real-model draft test | configure `.env` for the OpenAI wire format (provider/endpoint/key/model), then run **1–2** report drafts from raw notes on the Create Report screen and confirm the model returns a sensible, schema-valid structured report | the one path that can't be tested offline; needs internet; one clean note + optionally one messy = enough for MVP. Everything else (UI, save, fan-out, search, edit/replay) already live-verified end-to-end |
+
 ### After Wave 5
-- `specs/decisions.md` has zero open items. Project done.
+- `specs/decisions.md` has zero open items, and the real-model draft test has passed. Project done.

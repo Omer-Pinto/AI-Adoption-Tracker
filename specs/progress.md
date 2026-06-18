@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 91% (42/46)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 89% (42/47)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 42 / 46 | 91% |
+| 🟢 Done | 42 / 47 | 89% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 4 | 9% |
+| ⬜ Pending | 5 | 11% |
 
 ---
 
@@ -25,7 +25,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 2 | Done | 3/3 | 3/3 | 0/10 | Merged + verified (air-gapped LLM adapter; report-engine corrections; backend fixes). Post-review fixes: LIKE ESCAPE single-char, prefill-echo tolerance, per-domain replay reset |
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Not Started | 0/1 | 0/1 | 3/3 | Integration, seed, smoke, docs |
-| 5 | Not Started | — | — | 1/1 | Decisions sign-off — resolve all open items in decisions.md |
+| 5 | Not Started | — | — | 2/2 | Decisions sign-off + live real-model draft test (1–2 via OpenAI API) |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -162,3 +162,4 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Every item in `specs/decisions.md` closed — nothing left TBD | ⬜ Pending | |
+| 2 | Live LLM test — 1–2 report drafts from notes via real OpenAI API (schema-valid, sensible output) | ⬜ Pending | Needs `.env` (OpenAI) + internet; only path not coverable offline. Rest of app live-verified in browser |
