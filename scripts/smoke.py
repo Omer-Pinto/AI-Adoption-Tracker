@@ -214,8 +214,8 @@ def check_section6_readback(tasks: list | None) -> None:
         f"got {active_names}",
     )
 
-    cfar = next((t for t in tasks if t.get("name") == "CFAR tuning"), None)
-    check("CFAR tuning is on record", cfar is not None, "not found in task list")
+    cfar = next((t for t in sig_tasks if t.get("name") == "CFAR tuning"), None)
+    check("CFAR tuning is on record", cfar is not None, "not found in signal-processing task list")
     if cfar:
         check(
             "CFAR tuning status is abandoned",
@@ -346,15 +346,32 @@ def check_edit_replay() -> None:
             f"ended_on={cfar.get('ended_on')}",
         )
 
-    # Count active tasks after replay — should still be 2.
+    # Count active signal-processing tasks after replay — should still be exactly 2.
     terminal_statuses = {"finished_successfully", "finished_with_issues", "abandoned"}
-    active_after = [t for t in tasks_after if t.get("status") not in terminal_statuses]
-    active_names_after = {t["name"] for t in active_after}
-    check(
-        "active tasks still correct after replay",
-        active_names_after >= {"Clutter map", "Doppler check"},
-        f"active={active_names_after}",
-    )
+    # Resolve signal-processing domain_id for scoped assertion.
+    code_dom, domains_after = get("/api/domains")
+    sig_domain_id_after = None
+    if code_dom == 200 and isinstance(domains_after, list):
+        sig_after = next(
+            (d for d in domains_after if d.get("name") == "signal-processing"), None
+        )
+        sig_domain_id_after = sig_after["id"] if sig_after else None
+    if sig_domain_id_after is not None:
+        sig_tasks_after = [
+            t for t in tasks_after if t.get("domain_id") == sig_domain_id_after
+        ]
+        active_after = [
+            t for t in sig_tasks_after if t.get("status") not in terminal_statuses
+        ]
+        active_names_after = {t["name"] for t in active_after}
+        check(
+            "active signal-processing tasks still correct after replay",
+            active_names_after == {"Clutter map", "Doppler check"},
+            f"active={active_names_after}",
+        )
+    else:
+        check("active signal-processing tasks still correct after replay", False,
+              "signal-processing domain not resolved")
 
     # Check task_history count — fetch detail for CFAR to check no duplicates.
     code3, cfar_detail = get(f"/api/tasks/{cfar_rows[0]['id']}")

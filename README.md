@@ -77,8 +77,12 @@ Creating new reports requires a configured LLM endpoint. Editing saved reports
 and all other features (management CRUD, team/domain pages, search, tasks,
 artifacts) work without it.
 
-Set the following four variables in a `.env` file in the repo root (or export
-them before starting the backend). **`.env` is git-ignored — never commit it.**
+Set the following four required variables (plus one optional) before starting
+the backend. **`.env` is git-ignored — never commit it.**
+
+> **`.env` is NOT auto-loaded.** The backend reads `os.environ` directly; you
+> must export the variables yourself before starting uvicorn (see examples
+> below).
 
 ```dotenv
 TRACKER_LLM_PROVIDER=openai          # wire format: "openai" or "anthropic"
@@ -97,11 +101,21 @@ TRACKER_LLM_MODEL=your-model-name    # model name as the server expects it
 
 If any required variable is missing, the draft endpoint (`POST /api/reports/draft`)
 returns HTTP 503 with a clear message. The backend reads these from the process
-environment — load them with `python-dotenv` or `source .env` before starting
-uvicorn, or pass them directly:
+environment — you must export them before starting uvicorn. Three equivalent
+ways to do this:
 
 ```bash
+# Option 1 — source the file (variables persist in the current shell session)
+source .env && uvicorn app:app --reload --host 127.0.0.1 --port 8000
+
+# Option 2 — one-liner (variables scoped to the single command)
 env $(grep -v '^#' .env | xargs) src/backend/run.sh
+
+# Option 3 — export each variable explicitly
+export TRACKER_LLM_PROVIDER=openai
+export TRACKER_LLM_ENDPOINT=https://your-server/v1
+export TRACKER_LLM_API_KEY=sk-...
+export TRACKER_LLM_MODEL=your-model-name
 ```
 
 ---

@@ -19,7 +19,7 @@ BACKEND_DIR="$REPO_ROOT/src/backend"
 FRONTEND_DIR="$REPO_ROOT/src/frontend"
 
 # Trap Ctrl-C: kill the whole process group so both child processes exit.
-trap 'echo; echo "[dev] stopping..."; kill 0' INT TERM
+trap 'echo; echo "[dev] stopping..."; kill 0' INT TERM EXIT
 
 echo "[dev] starting backend  (http://127.0.0.1:8000) ..."
 cd "$BACKEND_DIR"
@@ -37,4 +37,3 @@ echo "[dev]   frontend PID=$FRONTEND_PID"
 
 # Wait for all background jobs to finish; trap above handles Ctrl-C cleanup.
 wait
-kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true

@@ -317,7 +317,7 @@ def seed_platform(conn) -> None:
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    seed_reset = os.environ.get("SEED_RESET", "1").strip() not in ("0", "false", "no")
+    seed_reset = os.environ.get("SEED_RESET", "1").strip().lower() not in ("0", "false", "no", "off")
 
     if seed_reset:
         _reset_db()
