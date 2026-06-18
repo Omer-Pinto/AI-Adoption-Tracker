@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type {
@@ -12,6 +12,12 @@ import type {
 } from '@/types';
 import { ArtifactTypeBadge, ChangeKindBadge, StatusBadge } from '@/components/Badge';
 import { makeArtifactLine, makeTaskLine } from './reportUtils';
+
+// Monotonic counter for stable block/item keys.
+let _keyCounter = 0;
+function nextKey(): string {
+  return String(++_keyCounter);
+}
 
 // Route: "/reports/:reportId/preview"
 // reportId === "draft"  →  draft carried in router state (not yet saved)
@@ -268,9 +274,13 @@ function EditableArtifactLine({
 
 function DomainSection({
   block,
+  taskKeys,
+  artifactKeys,
   onChange,
 }: {
   block: ReportDomainBlock;
+  taskKeys: string[];
+  artifactKeys: string[];
   onChange: (updated: ReportDomainBlock) => void;
 }) {
   function updateTask(idx: number, updated: ReportTaskLine) {
@@ -299,7 +309,7 @@ function DomainSection({
             <div className="subsection-label">Task changes</div>
             {(block.tasks ?? []).map((t, i) => (
               <EditableTaskLine
-                key={i}
+                key={taskKeys[i]}
                 line={t}
                 onChange={(updated) => updateTask(i, updated)}
               />
@@ -316,7 +326,7 @@ function DomainSection({
             </div>
             {(block.artifacts ?? []).map((a, i) => (
               <EditableArtifactLine
-                key={i}
+                key={artifactKeys[i]}
                 line={a}
                 onChange={(updated) => updateArtifact(i, updated)}
               />
@@ -341,6 +351,16 @@ export default function ReportPreviewPage() {
   const [report, setReport] = useState<ReportJson | null>(initialDraft);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Stable keys for domain task/artifact rows; initialised once from the draft.
+  const [domainTaskKeys] = useState<string[][]>(() =>
+    (initialDraft?.domains ?? []).map((d) => (d.tasks ?? []).map(() => nextKey())),
+  );
+  const [domainArtifactKeys] = useState<string[][]>(() =>
+    (initialDraft?.domains ?? []).map((d) => (d.artifacts ?? []).map(() => nextKey())),
+  );
+  const domainTaskKeysRef = useRef(domainTaskKeys);
+  const domainArtifactKeysRef = useRef(domainArtifactKeys);
 
   const isDraftMode = reportId === 'draft';
 
@@ -498,6 +518,8 @@ export default function ReportPreviewPage() {
           <DomainSection
             key={block.domain}
             block={block}
+            taskKeys={domainTaskKeysRef.current[i] ?? []}
+            artifactKeys={domainArtifactKeysRef.current[i] ?? []}
             onChange={(updated) => updateDomain(i, updated)}
           />
         ))}

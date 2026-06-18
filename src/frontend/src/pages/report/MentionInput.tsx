@@ -55,6 +55,10 @@ export function MentionInput({
   const [mention, setMention] = useState<MentionState | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  // Track the last value this component emitted via onValueChange so we can
+  // distinguish our own updates (which must NOT close the dropdown) from truly
+  // external value changes (parent resets the field programmatically).
+  const lastEmittedValue = useRef(value);
 
   const candidates = mention
     ? fuzzy(
@@ -63,9 +67,12 @@ export function MentionInput({
       )
     : [];
 
-  // When the input value changes externally, close the dropdown.
+  // Close the dropdown only when value changes externally (i.e. the parent
+  // sets a value that is different from the one we last emitted ourselves).
   useEffect(() => {
-    setMention(null);
+    if (value !== lastEmittedValue.current) {
+      setMention(null);
+    }
   }, [value]);
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -88,6 +95,7 @@ export function MentionInput({
     }
     setMention(found);
     setActiveIdx(0);
+    lastEmittedValue.current = next;
     onValueChange(next);
   }
 
@@ -95,7 +103,9 @@ export function MentionInput({
     if (!mention) return;
     const before = value.slice(0, mention.triggerIndex);
     const after = value.slice(mention.triggerIndex + 1 + mention.query.length);
-    onValueChange(before + name + after);
+    const next = before + name + after;
+    lastEmittedValue.current = next;
+    onValueChange(next);
     setMention(null);
     // Restore focus
     setTimeout(() => inputRef.current?.focus(), 0);

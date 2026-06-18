@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import type { Champion, ReportJson } from '@/types';
 
@@ -12,6 +12,7 @@ import type { Champion, ReportJson } from '@/types';
 
 export default function ReportCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [champions, setChampions] = useState<Champion[]>([]);
   const [championId, setChampionId] = useState<number | ''>('');
@@ -20,9 +21,21 @@ export default function ReportCreatePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.champions.list().then(setChampions).catch(() => {
+    api.champions.list().then((list) => {
+      setChampions(list);
+      // Pre-select champion from ?champion= query param when present and valid.
+      const paramId = searchParams.get('champion');
+      if (paramId) {
+        const parsed = Number(paramId);
+        if (!Number.isNaN(parsed) && list.some((c) => c.id === parsed)) {
+          setChampionId(parsed);
+        }
+      }
+    }).catch(() => {
       setError('Failed to load champions.');
     });
+    // searchParams is stable from useSearchParams and intentionally read once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedChampion = champions.find((c) => c.id === championId) ?? null;

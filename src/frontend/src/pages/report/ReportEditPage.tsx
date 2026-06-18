@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type {
@@ -20,6 +20,12 @@ import {
   setOptionalString,
   setParticipants,
 } from './reportUtils';
+
+// Monotonic counter for generating stable block/item keys within this module.
+let _keyCounter = 0;
+function nextKey(): string {
+  return String(++_keyCounter);
+}
 
 // Route: "/reports/:reportId/edit"
 // Loads saved report, binds to structured form (no raw notes), saves via PATCH.
@@ -231,49 +237,57 @@ function ArtifactEditBlock({
 
 function DomainEditSection({
   block,
+  taskKeys,
+  artifactKeys,
   taskNames,
   artifactNames,
   onChange,
   onRemove,
 }: {
   block: ReportDomainBlock;
+  taskKeys: string[];
+  artifactKeys: string[];
   taskNames: string[];
   artifactNames: string[];
-  onChange: (updated: ReportDomainBlock) => void;
+  onChange: (updated: ReportDomainBlock, updatedTaskKeys: string[], updatedArtifactKeys: string[]) => void;
   onRemove: () => void;
 }) {
   function addTask() {
     const tasks: ReportTaskLine[] = [...(block.tasks ?? []), { task: '', status: 'planned' }];
-    onChange({ ...block, tasks });
+    onChange({ ...block, tasks }, [...taskKeys, nextKey()], artifactKeys);
   }
 
   function addArtifact() {
     const artifacts: ReportArtifactLine[] = [...(block.artifacts ?? []), { artifact: '' }];
-    onChange({ ...block, artifacts });
+    onChange({ ...block, artifacts }, taskKeys, [...artifactKeys, nextKey()]);
   }
 
   function updateTask(idx: number, updated: ReportTaskLine) {
     const tasks = [...(block.tasks ?? [])];
     tasks[idx] = updated;
-    onChange({ ...block, tasks });
+    onChange({ ...block, tasks }, taskKeys, artifactKeys);
   }
 
   function removeTask(idx: number) {
     const tasks = [...(block.tasks ?? [])];
     tasks.splice(idx, 1);
-    onChange({ ...block, tasks });
+    const newTaskKeys = [...taskKeys];
+    newTaskKeys.splice(idx, 1);
+    onChange({ ...block, tasks }, newTaskKeys, artifactKeys);
   }
 
   function updateArtifact(idx: number, updated: ReportArtifactLine) {
     const artifacts = [...(block.artifacts ?? [])];
     artifacts[idx] = updated;
-    onChange({ ...block, artifacts });
+    onChange({ ...block, artifacts }, taskKeys, artifactKeys);
   }
 
   function removeArtifact(idx: number) {
     const artifacts = [...(block.artifacts ?? [])];
     artifacts.splice(idx, 1);
-    onChange({ ...block, artifacts });
+    const newArtifactKeys = [...artifactKeys];
+    newArtifactKeys.splice(idx, 1);
+    onChange({ ...block, artifacts }, taskKeys, newArtifactKeys);
   }
 
   return (
@@ -298,7 +312,7 @@ function DomainEditSection({
           type="text"
           className="form-input"
           value={block.domain}
-          onChange={(e) => onChange({ ...block, domain: e.target.value })}
+          onChange={(e) => onChange({ ...block, domain: e.target.value }, taskKeys, artifactKeys)}
         />
       </div>
 
@@ -307,7 +321,7 @@ function DomainEditSection({
       </div>
       {(block.tasks ?? []).map((t, i) => (
         <TaskEditBlock
-          key={i}
+          key={taskKeys[i]}
           line={t}
           taskNames={taskNames}
           artifactNames={artifactNames}
@@ -328,7 +342,7 @@ function DomainEditSection({
       </div>
       {(block.artifacts ?? []).map((a, i) => (
         <ArtifactEditBlock
-          key={i}
+          key={artifactKeys[i]}
           line={a}
           taskNames={taskNames}
           artifactNames={artifactNames}
@@ -357,6 +371,33 @@ export default function ReportEditPage() {
   const [taskNames, setTaskNames] = useState<string[]>([]);
   const [artifactNames, setArtifactNames] = useState<string[]>([]);
 
+  // Stable keys for domains and action items to avoid index-as-key corruption.
+  // domainTaskKeys[i] / domainArtifactKeys[i] hold the per-item key arrays for domain i.
+  const [domainKeys, setDomainKeys] = useState<string[]>([]);
+  const [domainTaskKeys, setDomainTaskKeys] = useState<string[][]>([]);
+  const [domainArtifactKeys, setDomainArtifactKeys] = useState<string[][]>([]);
+  const [actionItemKeys, setActionItemKeys] = useState<string[]>([]);
+
+  // Keep a ref so mutators can read current key state without stale closures.
+  const domainKeysRef = useRef<string[]>([]);
+  const domainTaskKeysRef = useRef<string[][]>([]);
+  const domainArtifactKeysRef = useRef<string[][]>([]);
+  const actionItemKeysRef = useRef<string[]>([]);
+
+  function syncDomainKeys(dk: string[], dtk: string[][], dak: string[][]) {
+    domainKeysRef.current = dk;
+    domainTaskKeysRef.current = dtk;
+    domainArtifactKeysRef.current = dak;
+    setDomainKeys(dk);
+    setDomainTaskKeys(dtk);
+    setDomainArtifactKeys(dak);
+  }
+
+  function syncActionItemKeys(aik: string[]) {
+    actionItemKeysRef.current = aik;
+    setActionItemKeys(aik);
+  }
+
   useEffect(() => {
     if (!reportId) return;
     Promise.all([
@@ -369,9 +410,17 @@ export default function ReportEditPage() {
         Task[],
         Artifact[],
       ]) => {
-        setReport(JSON.parse(saved.report_json) as ReportJson);
+        const parsed = JSON.parse(saved.report_json) as ReportJson;
+        setReport(parsed);
         setTaskNames(tasks.map((t) => t.name));
         setArtifactNames(artifacts.map((a) => a.name));
+        // Assign stable keys for all existing blocks/items.
+        const dk = (parsed.domains ?? []).map(() => nextKey());
+        const dtk = (parsed.domains ?? []).map((d) => (d.tasks ?? []).map(() => nextKey()));
+        const dak = (parsed.domains ?? []).map((d) => (d.artifacts ?? []).map(() => nextKey()));
+        const aik = (parsed.action_items ?? []).map(() => nextKey());
+        syncDomainKeys(dk, dtk, dak);
+        syncActionItemKeys(aik);
       })
       .catch(() => setError('Failed to load report.'))
       .finally(() => setLoading(false));
@@ -392,6 +441,12 @@ export default function ReportEditPage() {
   }
 
   function addDomain() {
+    const newDomainKey = nextKey();
+    syncDomainKeys(
+      [...domainKeysRef.current, newDomainKey],
+      [...domainTaskKeysRef.current, []],
+      [...domainArtifactKeysRef.current, []],
+    );
     setReport((prev) => {
       if (!prev) return prev;
       return {
@@ -401,7 +456,12 @@ export default function ReportEditPage() {
     });
   }
 
-  function updateDomain(idx: number, updated: ReportDomainBlock) {
+  function updateDomain(idx: number, updated: ReportDomainBlock, updatedTaskKeys: string[], updatedArtifactKeys: string[]) {
+    const newDtk = [...domainTaskKeysRef.current];
+    newDtk[idx] = updatedTaskKeys;
+    const newDak = [...domainArtifactKeysRef.current];
+    newDak[idx] = updatedArtifactKeys;
+    syncDomainKeys(domainKeysRef.current, newDtk, newDak);
     setReport((prev) => {
       if (!prev) return prev;
       const domains = [...(prev.domains ?? [])];
@@ -411,6 +471,13 @@ export default function ReportEditPage() {
   }
 
   function removeDomain(idx: number) {
+    const newDk = [...domainKeysRef.current];
+    newDk.splice(idx, 1);
+    const newDtk = [...domainTaskKeysRef.current];
+    newDtk.splice(idx, 1);
+    const newDak = [...domainArtifactKeysRef.current];
+    newDak.splice(idx, 1);
+    syncDomainKeys(newDk, newDtk, newDak);
     setReport((prev) => {
       if (!prev) return prev;
       const domains = [...(prev.domains ?? [])];
@@ -420,6 +487,7 @@ export default function ReportEditPage() {
   }
 
   function addActionItem() {
+    syncActionItemKeys([...actionItemKeysRef.current, nextKey()]);
     setReport((prev) => {
       if (!prev) return prev;
       return {
@@ -450,6 +518,9 @@ export default function ReportEditPage() {
   }
 
   function removeActionItem(idx: number) {
+    const newAik = [...actionItemKeysRef.current];
+    newAik.splice(idx, 1);
+    syncActionItemKeys(newAik);
     setReport((prev) => {
       if (!prev) return prev;
       const action_items = [...(prev.action_items ?? [])];
@@ -581,11 +652,13 @@ export default function ReportEditPage() {
           {/* Domain blocks */}
           {(report.domains ?? []).map((block, i) => (
             <DomainEditSection
-              key={i}
+              key={domainKeys[i]}
               block={block}
+              taskKeys={domainTaskKeys[i] ?? []}
+              artifactKeys={domainArtifactKeys[i] ?? []}
               taskNames={taskNames}
               artifactNames={artifactNames}
-              onChange={(updated) => updateDomain(i, updated)}
+              onChange={(updated, updatedTaskKeys, updatedArtifactKeys) => updateDomain(i, updated, updatedTaskKeys, updatedArtifactKeys)}
               onRemove={() => removeDomain(i)}
             />
           ))}
@@ -601,7 +674,7 @@ export default function ReportEditPage() {
             <div className="form-section-title">Action items</div>
 
             {(report.action_items ?? []).map((item, i) => (
-              <div key={i} className="action-edit-row">
+              <div key={actionItemKeys[i]} className="action-edit-row">
                 <div style={{ flex: 1 }}>
                   <label className="form-label">Action</label>
                   <input
