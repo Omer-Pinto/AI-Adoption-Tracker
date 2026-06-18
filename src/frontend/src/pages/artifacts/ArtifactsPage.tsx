@@ -19,6 +19,7 @@ export default function ArtifactsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detail, setDetail] = useState<ArtifactDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   // Fetch artifacts list when query changes
   useEffect(() => {
@@ -46,13 +47,18 @@ export default function ArtifactsPage() {
     setModalOpen(true);
     setDetail(null);
     setDetailLoading(true);
+    setDetailError(null);
     api.views
       .artifact(artifact.id)
       .then((d) => {
         setDetail(d);
         setDetailLoading(false);
       })
-      .catch(() => setDetailLoading(false));
+      .catch((err: unknown) => {
+        setDetailLoading(false);
+        setModalOpen(false);
+        setDetailError(err instanceof Error ? err.message : 'Failed to load artifact detail');
+      });
   }, []);
 
   const columns: Column<Artifact>[] = [
@@ -105,6 +111,10 @@ export default function ArtifactsPage() {
           <div className="warning-banner" style={{ marginBottom: 16 }}>{error}</div>
         )}
 
+        {detailError && (
+          <div className="warning-banner" style={{ marginBottom: 16 }}>{detailError}</div>
+        )}
+
         {loading ? (
           <div className="text-muted text-sm">Loading artifacts…</div>
         ) : (
@@ -122,7 +132,7 @@ export default function ArtifactsPage() {
 
       <ArtifactDetailModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setDetailError(null); }}
         detail={detailLoading ? null : detail}
       />
     </>

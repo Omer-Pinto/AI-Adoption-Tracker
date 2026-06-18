@@ -60,6 +60,13 @@ export default function TasksPage() {
           }
           return updated;
         });
+      }).catch((err: unknown) => {
+        setExpandedMap((m) => {
+          const updated = new Map(m);
+          updated.delete(task.id);
+          return updated;
+        });
+        setError(err instanceof Error ? err.message : 'Failed to load task history');
       });
       return next;
     });
