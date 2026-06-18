@@ -17,24 +17,31 @@ export function ChampionForm({ open, editing, teams, onClose, onSaved }: Champio
   const [startDate, setStartDate] = useState(editing?.start_date ?? '');
   const [endDate, setEndDate] = useState(editing?.end_date ?? '');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const title = editing ? `Edit Champion: ${editing.name}` : 'Add Champion';
 
   async function handleSubmit() {
     setSaving(true);
+    setSubmitError(null);
     const body = {
       name,
       team_id: Number(teamId),
       start_date: startDate || null,
       end_date: endDate || null,
     };
-    if (editing) {
-      await api.champions.update(editing.id, body);
-    } else {
-      await api.champions.create(body);
+    try {
+      if (editing) {
+        await api.champions.update(editing.id, body);
+      } else {
+        await api.champions.create(body);
+      }
+      onSaved();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Save failed. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onSaved();
   }
 
   return (
@@ -53,6 +60,11 @@ export function ChampionForm({ open, editing, teams, onClose, onSaved }: Champio
         </>
       }
     >
+      {submitError && (
+        <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px', marginTop: '0' }}>
+          {submitError}
+        </p>
+      )}
       <div className="form-row">
         <label className="form-label form-label-required">Name</label>
         <input
