@@ -10,7 +10,8 @@
 #
 # Stop: press Ctrl-C once; both processes share the same process group so the
 # shell trap below kills them together.  If you killed only the shell, run:
-#   kill $(lsof -ti:8000) $(lsof -ti:5173) 2>/dev/null || true
+#   fuser -k 8000/tcp 5173/tcp 2>/dev/null || true   # Linux
+#   kill $(lsof -ti:8000) $(lsof -ti:5173) 2>/dev/null || true  # macOS / lsof available
 
 set -euo pipefail
 

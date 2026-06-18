@@ -28,21 +28,27 @@ cd src/frontend && npm install
 
 ## Running the app
 
+The helper script works on Linux and macOS (bash 4+/5.x).
+
 ### Option A — one command (backend + frontend together)
 
 ```bash
 ./scripts/dev.sh
 ```
 
-Press Ctrl-C to stop both processes.
+Both servers start in the same process group. Press Ctrl-C once to stop both
+cleanly. If the shell was killed without the trap firing, reclaim the ports with:
+
+```bash
+fuser -k 8000/tcp 5173/tcp 2>/dev/null || true   # Linux
+```
 
 ### Option B — separately
 
 Backend (runs on `http://127.0.0.1:8000`):
 
 ```bash
-src/backend/run.sh
-# or: cd src/backend && uvicorn app:app --reload --host 127.0.0.1 --port 8000
+cd src/backend && uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Frontend (runs on `http://localhost:5173`, proxies `/api` to the backend):
