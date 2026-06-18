@@ -35,6 +35,6 @@ echo "[dev] both processes running — press Ctrl-C to stop"
 echo "[dev]   backend  PID=$BACKEND_PID"
 echo "[dev]   frontend PID=$FRONTEND_PID"
 
-# Wait for either process to exit (e.g. crash), then clean up the other.
-wait -n 2>/dev/null || wait
+# Wait for all background jobs to finish; trap above handles Ctrl-C cleanup.
+wait
 kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true

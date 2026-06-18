@@ -58,6 +58,8 @@ cd src/frontend && npm run dev
 To populate the database with the canonical sample from spec §6 (team Radar /
 champion Dana / domain signal-processing, plus team Platform / champion Eli):
 
+> Note: the Platform / Eli (ci-cd) data is illustrative breadth data to demonstrate multi-team seeding — it is NOT part of the spec §6 canonical trace (only Radar / Dana / signal-processing is canonical).
+
 ```bash
 python src/backend/seed.py
 ```
