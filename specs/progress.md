@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-18 | **Branch:** `mvp-spec`
+> **Last updated:** 2026-06-21 | **Branch:** `mvp-spec`
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜] 78% (46/59)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 78% (60/77)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 46 / 59 | 78% |
+| 🟢 Done | 60 / 77 | 78% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 13 | 22% |
+| ⬜ Pending | 17 | 22% |
 
 ---
 
@@ -25,7 +25,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 2 | Done | 3/3 | 3/3 | 0/10 | Merged + verified (air-gapped LLM adapter; report-engine corrections; backend fixes). Post-review fixes: LIKE ESCAPE single-char, prefill-echo tolerance, per-domain replay reset |
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
-| 5 | In Progress | — | — | 1/2 | Decisions signed off (5.1 — all verified in code); only live OpenAI draft test (5.2) left |
+| 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
+| 5.5 | In Progress | 3/5 | 3/5 | 5/18 | Core done + verified (5.5A–C). New: 5.5D nav/preview-clarity (sidebar New Report done) + 5.5E domains=tech-stacks-only & team-wide artifacts slot & artifact grouping (the "Claude Code is not a domain" rule) — pending |
 | 6 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -163,7 +164,51 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Every item in `specs/decisions.md` closed — nothing left TBD | 🟢 Done | Batched audit (LLM, report engine, search, mentions) + orchestrator spot-check of the code: all 15 logged decisions implemented & correct; zero open |
-| 2 | Live LLM test — 1–2 report drafts from notes via real OpenAI API (schema-valid, sensible output) | ⬜ Pending | Needs `.env` (OpenAI) + internet; only path not coverable offline. Rest of app live-verified in browser |
+| 2 | Live LLM test — 1–2 report drafts from notes via real OpenAI API (schema-valid, sensible output) | 🟢 Done | Ran raw + curated notes through real gpt-4o → schema-valid `ReportDocument` both times; rendered in the Create Report preview. Extraction *quality* gaps (dropped items on messy notes) tracked in Wave 5.5/6 |
+
+---
+
+## Wave 5.5 — Stabilization (bugs + edit/save UX)
+
+> Reproduced live before planning (see `specs/task_breakdown.md` Wave 5.5). `@`/`#` mentions were verified WORKING — not in scope.
+
+### Agent 5.5A: Backend correctness fixes (`routes/views.py`, `routes/management.py`, `routes/reports.py`, `reports/engine.py`, `schema.sql`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Domain ordering: NULL priority sorts last | 🟢 Done | `ORDER BY priority IS NULL, priority, id`; live-verified priority-1 before NULL |
+| 2 | Reject duplicate `(champion, meeting_date)` → 422 | 🟢 Done | UNIQUE + engine guard (PATCH-self excluded); live 422 with clear msg |
+| 3 | Cross-team champion on domain → 422 | 🟢 Done | create+patch validated; live 422 with clear msg |
+| 4 | Surface fan-out validation errors (UI-consumable body) | 🟢 Done | typeless-artifact → 422 `detail`; surfaced in UI |
+| 5 | Typed `response_model` on report endpoints | 🟢 Done | `ReportResponse`; OpenAPI now typed (verified) |
+| 6 | Auto-create domains from the report (no manual pre-define) | 🟢 Done | live: report naming new "Platform Tooling" → 201, domain created w/ scope+priority; replay still correct |
+
+### Agent 5.5B: LLM extraction safety-net (`llm/interface.py` — `_SYSTEM_PROMPT`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | No note line dropped (overflow to discussion/issues; raw_notes verbatim) | 🟢 Done | live: off-schema lines → discussion/issues, nothing dropped |
+| 2 | New artifacts always typed (never emit a typeless new artifact) | 🟢 Done | live: `radar-helper`→`skill` (inferred) |
+
+### Agent 5.5C: Report-flow + manage UX (`pages/report/*`, `pages/manage/*`, edit links on tasks/artifacts/team)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Preview parity — action items/discussion/issues editable in preview | 🟢 Done | live: action items Edit/×/+Add inline; discussion/issues textareas |
+| 2 | Require artifact type + surface backend 422 on save | 🟢 Done | guard + error banner (build clean; api.ts surfaces `detail`) |
+| 3 | Edit discoverability — link to owning report's edit page | 🟢 Done | `report_id` present on tasks/artifact-modal/team; links wired |
+| 4 | CC Baseline as multi-line textarea | 🟢 Done | live: textarea on team add/edit form |
+
+### Agent 5.5D: Navigation & preview clarity (`components/AppShell.tsx`, `pages/report/*`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Sidebar "＋ New Report" → /reports/new | 🟢 Done | top of Main nav; unblocks Manage-only users |
+| 2 | Label domain sections "Domain: X" in preview/edit | ⬜ Pending | reduce the "artifacts under Claude Code" confusion |
+| 3 | Render team-wide artifacts block in preview/edit | ⬜ Pending | depends on 5.5E #1 |
+
+### Agent 5.5E: Domain semantics + team-wide artifacts (`models.py`, `report_schema.json`, `reports/engine.py`, `llm/interface.py`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Top-level team-wide `artifacts` slot in `ReportDocument` (fan-out/replay → domain_id NULL) | ⬜ Pending | DB+views already support the all-team gutter |
+| 2 | Prompt: domains = team tech/stacks only; never invent "Claude Code"/heading domains | ⬜ Pending | Omer's rule |
+| 3 | Prompt: group don't explode (md files → one context artifact); only concrete artifacts | ⬜ Pending | reproduced: 4 artifacts from one description |
 
 ---
 

@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS report (
     champion_id    INTEGER NOT NULL REFERENCES champion(id),
     meeting_date   TEXT NOT NULL,
     report_json    TEXT NOT NULL,   -- the full structured report (JSON text)
-    schema_version INTEGER NOT NULL
+    schema_version INTEGER NOT NULL,
+    UNIQUE(champion_id, meeting_date)
 );
 
 -- ── task (current state) ─────────────────────────────────────────────────────

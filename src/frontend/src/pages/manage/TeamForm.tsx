@@ -74,11 +74,12 @@ export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
       </div>
       <div className="form-row">
         <label className="form-label">CC Baseline</label>
-        <input
-          className="form-input"
+        <textarea
+          className="form-textarea"
+          rows={4}
           value={ccBaseline}
           onChange={(e) => setCcBaseline(e.target.value)}
-          placeholder="e.g. 2024-Q1"
+          placeholder="e.g. 2024-Q1 — describe the baseline in as much detail as needed"
         />
       </div>
     </Modal>

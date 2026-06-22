@@ -97,6 +97,31 @@ def _fetch(conn, table: str, row_id: int):
     return conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
 
 
+def _assert_champion_belongs_to_team(
+    conn, champion_id: int, team_id: int
+) -> None:
+    """Raise 422 if the champion's team_id does not match `team_id`.
+
+    Call AFTER the individual FK existence checks so callers already know both
+    the champion and team rows exist.
+    """
+    row = conn.execute(
+        "SELECT team_id FROM champion WHERE id = ?", (champion_id,)
+    ).fetchone()
+    if row is None:
+        # Shouldn't happen — caller already checked — but be defensive.
+        raise HTTPException(status_code=404, detail="Champion not found")
+    if row["team_id"] != team_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Champion {champion_id} belongs to team {row['team_id']}, "
+                f"not team {team_id}. A domain's champion must belong to the "
+                "same team as the domain."
+            ),
+        )
+
+
 # ── teams ────────────────────────────────────────────────────────────────────
 
 @router.get("/teams", response_model=list[Team])
@@ -249,6 +274,7 @@ def create_domain(body: DomainCreate) -> Domain:
     if _fetch(conn, "champion", body.champion_id) is None:
         conn.close()
         raise HTTPException(status_code=404, detail="Champion not found")
+    _assert_champion_belongs_to_team(conn, body.champion_id, body.team_id)
     new_id = _insert(conn, "domain", body.model_dump())
     conn.commit()
     row = _fetch(conn, "domain", new_id)
@@ -259,7 +285,8 @@ def create_domain(body: DomainCreate) -> Domain:
 @router.patch("/domains/{domain_id}", response_model=Domain)
 def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
     conn = get_connection()
-    if _fetch(conn, "domain", domain_id) is None:
+    existing_row = _fetch(conn, "domain", domain_id)
+    if existing_row is None:
         conn.close()
         raise HTTPException(status_code=404, detail="Domain not found")
     changes = body.model_dump(exclude_unset=True)
@@ -273,6 +300,12 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
     if "champion_id" in changes and _fetch(conn, "champion", changes["champion_id"]) is None:
         conn.close()
         raise HTTPException(status_code=404, detail="Champion not found")
+    # Cross-team guard: if either team_id or champion_id is being changed,
+    # ensure the effective (post-patch) champion belongs to the effective team.
+    if "team_id" in changes or "champion_id" in changes:
+        effective_team_id = changes.get("team_id", existing_row["team_id"])
+        effective_champion_id = changes.get("champion_id", existing_row["champion_id"])
+        _assert_champion_belongs_to_team(conn, effective_champion_id, effective_team_id)
     if changes:
         _update(conn, "domain", domain_id, changes)
         conn.commit()

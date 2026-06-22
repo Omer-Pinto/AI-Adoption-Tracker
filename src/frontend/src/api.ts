@@ -40,7 +40,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    throw new ApiError(res.status, `${init?.method ?? 'GET'} ${path} → ${res.status}`);
+    // Try to read FastAPI's `{"detail": "..."}` body for a user-facing message.
+    let detail: string | undefined;
+    try {
+      const body = (await res.json()) as { detail?: unknown };
+      if (typeof body.detail === 'string') detail = body.detail;
+      else if (body.detail !== undefined) detail = JSON.stringify(body.detail);
+    } catch {
+      // ignore JSON parse failures
+    }
+    throw new ApiError(
+      res.status,
+      detail ?? `${init?.method ?? 'GET'} ${path} → ${res.status}`,
+    );
   }
   return res.json() as Promise<T>;
 }

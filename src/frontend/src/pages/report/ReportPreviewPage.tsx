@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type {
+  ReportActionItemLine,
   ReportArtifactLine,
   ReportDomainBlock,
   ReportJson,
@@ -11,7 +12,7 @@ import type {
   ArtifactChangeKind,
 } from '@/types';
 import { ArtifactTypeBadge, ChangeKindBadge, StatusBadge } from '@/components/Badge';
-import { makeArtifactLine, makeTaskLine } from './reportUtils';
+import { makeActionItemLine, makeArtifactLine, makeTaskLine, setOptionalString } from './reportUtils';
 
 // Monotonic counter for stable block/item keys.
 let _keyCounter = 0;
@@ -162,6 +163,8 @@ function EditableArtifactLine({
   const [changeKind, setChangeKind] = useState(line.change_kind ?? '');
   const [tagsRaw, setTagsRaw] = useState((line.tags ?? []).join(', '));
   const [note, setNote] = useState(line.note ?? '');
+  // Inline validation: type is required for new artifacts (no existing type on the line)
+  const [typeError, setTypeError] = useState<string | null>(null);
 
   function openEdit() {
     setArtifactName(line.artifact);
@@ -169,10 +172,16 @@ function EditableArtifactLine({
     setChangeKind(line.change_kind ?? '');
     setTagsRaw((line.tags ?? []).join(', '));
     setNote(line.note ?? '');
+    setTypeError(null);
     setEditing(true);
   }
 
   function save() {
+    if (!type) {
+      setTypeError('Type is required before saving this artifact.');
+      return;
+    }
+    setTypeError(null);
     onChange(makeArtifactLine(artifactName, type, changeKind, tagsRaw, note));
     setEditing(false);
   }
@@ -185,6 +194,11 @@ function EditableArtifactLine({
           {line.note && <div className="preview-task-note">&ldquo;{line.note}&rdquo;</div>}
           <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
             {line.type && <ArtifactTypeBadge type={line.type} />}
+            {!line.type && (
+              <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+                No type — edit required
+              </span>
+            )}
             {(line.tags ?? []).map((t) => (
               <span key={t} className="tag-chip" style={{ fontSize: 11 }}>{t}</span>
             ))}
@@ -215,17 +229,21 @@ function EditableArtifactLine({
           />
         </div>
         <div className="form-row" style={{ marginBottom: 0 }}>
-          <label className="form-label">Type</label>
+          <label className="form-label form-label-required">Type</label>
           <select
             className="form-select"
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => { setType(e.target.value); if (e.target.value) setTypeError(null); }}
+            style={typeError ? { borderColor: '#dc2626' } : undefined}
           >
             <option value="">— type —</option>
             {ARTIFACT_TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
+          {typeError && (
+            <span style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>{typeError}</span>
+          )}
         </div>
       </div>
       <div className="form-grid-2" style={{ marginBottom: 10 }}>
@@ -263,6 +281,106 @@ function EditableArtifactLine({
         />
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary btn-sm" onClick={save}>Save</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Inline-editable action item row ----
+
+function EditableActionItemLine({
+  item,
+  onChange,
+  onRemove,
+}: {
+  item: ReportActionItemLine;
+  onChange: (updated: ReportActionItemLine) => void;
+  onRemove: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(item.text);
+  const [owner, setOwner] = useState(item.owner ?? '');
+  const [dueDate, setDueDate] = useState(item.due_date ?? '');
+
+  function openEdit() {
+    setText(item.text);
+    setOwner(item.owner ?? '');
+    setDueDate(item.due_date ?? '');
+    setEditing(true);
+  }
+
+  function save() {
+    onChange(makeActionItemLine(text, owner, dueDate, item.domain));
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div className="action-item-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="action-item-text">{item.text}</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+            {item.owner && <span className="action-item-owner">{item.owner}</span>}
+            {item.due_date && (
+              <span className="text-xs text-muted">{item.due_date}</span>
+            )}
+            {item.domain && (
+              <span className="text-xs text-muted">domain: {item.domain}</span>
+            )}
+          </div>
+        </div>
+        <button
+          className="btn btn-sm btn-outline"
+          style={{ flexShrink: 0 }}
+          onClick={openEdit}
+        >
+          Edit
+        </button>
+        <button
+          className="btn btn-sm btn-danger-outline"
+          style={{ flexShrink: 0 }}
+          onClick={onRemove}
+        >
+          &times;
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="action-edit-row" style={{ margin: '8px 0' }}>
+      <div style={{ flex: 1 }}>
+        <label className="form-label">Action</label>
+        <input
+          type="text"
+          className="form-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Action text…"
+        />
+      </div>
+      <div style={{ width: 140 }}>
+        <label className="form-label">Owner</label>
+        <input
+          type="text"
+          className="form-input"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          placeholder="optional"
+        />
+      </div>
+      <div style={{ width: 130 }}>
+        <label className="form-label">Due date</label>
+        <input
+          type="date"
+          className="form-input"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
+      </div>
+      <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 6, paddingBottom: 0 }}>
         <button className="btn btn-primary btn-sm" onClick={save}>Save</button>
         <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>Cancel</button>
       </div>
@@ -338,6 +456,18 @@ function DomainSection({
   );
 }
 
+// ---- Validation: check for artifacts missing a type ----
+
+function findMissingTypes(report: ReportJson): string[] {
+  const missing: string[] = [];
+  for (const domain of report.domains ?? []) {
+    for (const a of domain.artifacts ?? []) {
+      if (!a.type) missing.push(a.artifact || '(unnamed artifact)');
+    }
+  }
+  return missing;
+}
+
 // ---- Main page ----
 
 export default function ReportPreviewPage() {
@@ -361,6 +491,17 @@ export default function ReportPreviewPage() {
   );
   const domainTaskKeysRef = useRef(domainTaskKeys);
   const domainArtifactKeysRef = useRef(domainArtifactKeys);
+
+  // Stable keys for action items
+  const [actionItemKeys, setActionItemKeys] = useState<string[]>(() =>
+    (initialDraft?.action_items ?? []).map(() => nextKey()),
+  );
+  const actionItemKeysRef = useRef(actionItemKeys);
+
+  function syncActionItemKeys(keys: string[]) {
+    actionItemKeysRef.current = keys;
+    setActionItemKeys(keys);
+  }
 
   const isDraftMode = reportId === 'draft';
 
@@ -391,15 +532,64 @@ export default function ReportPreviewPage() {
     });
   }
 
+  function updateActionItem(idx: number, updated: ReportActionItemLine) {
+    setReport((prev) => {
+      if (!prev) return prev;
+      const action_items = [...(prev.action_items ?? [])];
+      action_items[idx] = updated;
+      return { ...prev, action_items };
+    });
+  }
+
+  function addActionItem() {
+    syncActionItemKeys([...actionItemKeysRef.current, nextKey()]);
+    setReport((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        action_items: [...(prev.action_items ?? []), { text: '' }],
+      };
+    });
+  }
+
+  function removeActionItem(idx: number) {
+    const newKeys = [...actionItemKeysRef.current];
+    newKeys.splice(idx, 1);
+    syncActionItemKeys(newKeys);
+    setReport((prev) => {
+      if (!prev) return prev;
+      const action_items = [...(prev.action_items ?? [])];
+      action_items.splice(idx, 1);
+      return { ...prev, action_items };
+    });
+  }
+
   async function handleConfirm() {
     if (!report) return;
+
+    // Fix 2a: block save if any artifact is missing a type
+    const missingTypes = findMissingTypes(report);
+    if (missingTypes.length > 0) {
+      setError(
+        `Cannot save: the following artifact(s) have no type selected — please edit them first: ${missingTypes.join(', ')}`,
+      );
+      return;
+    }
+
     setConfirming(true);
     setError(null);
     try {
+      // The report state object (which includes any edits to action_items,
+      // discussion, issues, domains) is sent directly as the POST body.
       const result = await api.reports.create(report);
       navigate(`/teams/${result.report.champion_id}`);
-    } catch {
-      setError('Failed to save report. Please try again.');
+    } catch (err) {
+      // Fix 2b: surface backend detail message (ApiError.message is the parsed detail)
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to save report. Please try again.',
+      );
     } finally {
       setConfirming(false);
     }
@@ -524,45 +714,71 @@ export default function ReportPreviewPage() {
           />
         ))}
 
-        {/* Action items */}
-        {(report.action_items ?? []).length > 0 && (
-          <div className="report-card">
-            <div className="report-card-header">
-              <div className="report-card-title">Action items</div>
-            </div>
-            <div style={{ padding: 0 }}>
-              {(report.action_items ?? []).map((item, i) => (
-                <div key={i} className="action-item-row">
-                  <div className="action-item-text">{item.text}</div>
-                  {item.owner && <span className="action-item-owner">{item.owner}</span>}
-                  {item.due_date && (
-                    <span className="text-xs text-muted">{item.due_date}</span>
-                  )}
-                </div>
-              ))}
-            </div>
+        {/* Action items — editable */}
+        <div className="report-card">
+          <div className="report-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="report-card-title">Action items</div>
+            <button className="btn btn-sm btn-secondary" onClick={addActionItem}>
+              + Add
+            </button>
           </div>
-        )}
+          <div style={{ padding: '0 0 8px 0' }}>
+            {(report.action_items ?? []).length === 0 ? (
+              <div className="text-muted text-sm" style={{ padding: '8px 20px' }}>
+                No action items. Use &ldquo;+ Add&rdquo; to add one.
+              </div>
+            ) : (
+              (report.action_items ?? []).map((item, i) => (
+                <EditableActionItemLine
+                  key={actionItemKeys[i]}
+                  item={item}
+                  onChange={(updated) => updateActionItem(i, updated)}
+                  onRemove={() => removeActionItem(i)}
+                />
+              ))
+            )}
+          </div>
+        </div>
 
-        {/* Discussion */}
-        {report.discussion && (
-          <div className="report-card">
-            <div className="report-card-header">
-              <div className="report-card-title">Discussion</div>
-            </div>
-            <div className="free-text-block">{report.discussion}</div>
+        {/* Discussion — inline editable textarea */}
+        <div className="report-card">
+          <div className="report-card-header">
+            <div className="report-card-title">Discussion</div>
           </div>
-        )}
+          <div style={{ padding: '8px 20px 16px' }}>
+            <textarea
+              className="form-textarea"
+              style={{ minHeight: 80, width: '100%', boxSizing: 'border-box' }}
+              value={report.discussion ?? ''}
+              onChange={(e) =>
+                setReport((prev) =>
+                  prev ? setOptionalString(prev, 'discussion', e.target.value) : prev,
+                )
+              }
+              placeholder="Free-text discussion notes (optional)"
+            />
+          </div>
+        </div>
 
-        {/* Issues */}
-        {report.issues && (
-          <div className="report-card">
-            <div className="report-card-header">
-              <div className="report-card-title">Issues flagged</div>
-            </div>
-            <div className="free-text-block">{report.issues}</div>
+        {/* Issues — inline editable textarea */}
+        <div className="report-card">
+          <div className="report-card-header">
+            <div className="report-card-title">Issues flagged</div>
           </div>
-        )}
+          <div style={{ padding: '8px 20px 16px' }}>
+            <textarea
+              className="form-textarea"
+              style={{ minHeight: 80, width: '100%', boxSizing: 'border-box' }}
+              value={report.issues ?? ''}
+              onChange={(e) =>
+                setReport((prev) =>
+                  prev ? setOptionalString(prev, 'issues', e.target.value) : prev,
+                )
+              }
+              placeholder="Issues or blockers mentioned (optional)"
+            />
+          </div>
+        </div>
 
         {/* Confirm bar (bottom) */}
         <div className="confirm-bar">

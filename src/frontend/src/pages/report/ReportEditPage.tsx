@@ -426,15 +426,40 @@ export default function ReportEditPage() {
       .finally(() => setLoading(false));
   }, [reportId]);
 
+  // Validate: any artifact line missing a type blocks save.
+  function findMissingTypes(r: ReportJson): string[] {
+    const missing: string[] = [];
+    for (const domain of r.domains ?? []) {
+      for (const a of domain.artifacts ?? []) {
+        if (!a.type) missing.push(a.artifact || '(unnamed artifact)');
+      }
+    }
+    return missing;
+  }
+
   async function handleSave() {
     if (!report || !reportId) return;
+
+    const missingTypes = findMissingTypes(report);
+    if (missingTypes.length > 0) {
+      setError(
+        `Cannot save: the following artifact(s) have no type selected — please edit them first: ${missingTypes.join(', ')}`,
+      );
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
       const { report: saved } = await api.reports.update(Number(reportId), report);
       navigate(`/teams/${saved.champion_id}`);
-    } catch {
-      setError('Failed to save report. Please try again.');
+    } catch (err) {
+      // Surface the backend detail message (ApiError.message is the parsed detail).
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to save report. Please try again.',
+      );
     } finally {
       setSaving(false);
     }

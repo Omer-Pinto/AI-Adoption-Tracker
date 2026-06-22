@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { Task, TaskHistoryEntry, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
@@ -206,6 +207,15 @@ function JourneyTimeline({ history }: { history: TaskHistoryEntry[] }) {
           <div className="journey-step-header">
             <span className="journey-step-date">{entry.meeting_date}</span>
             <StatusBadge status={entry.status_at_meeting} />
+            {/* report_id is present on TaskHistoryEntry — link to the owning report's edit page */}
+            <Link
+              to={`/reports/${entry.report_id}/edit`}
+              className="btn btn-sm btn-outline"
+              style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+              title="Edit the report that recorded this entry"
+            >
+              Edit report
+            </Link>
           </div>
           {entry.change_note && (
             <p className="journey-step-note">{entry.change_note}</p>

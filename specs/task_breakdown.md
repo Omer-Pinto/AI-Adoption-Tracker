@@ -202,6 +202,68 @@ A final gate so no decision rots in `specs/decisions.md`. Contents are **TBD** �
 
 ---
 
+## Wave 5.5 — Stabilization (bugs + edit/save UX before extraction depth)
+
+Corrective wave from a full live walkaround + backend sweep + targeted reproduction. The app *runs* (every screen renders; all 25 endpoints respond, no 500s) but it is not yet trustworthy to operate. This wave fixes the **reproduced** defects so Wave 6 builds on a stable base. Each item below was reproduced live — not assumed. 5.5A (`src/backend/` routes/engine/schema), 5.5B (`src/backend/llm/interface.py`), and 5.5C (`src/frontend/`) own disjoint trees → safe in parallel.
+
+> **Reproduction evidence (do not re-litigate):** (#2 save) `POST /api/reports` with a new artifact lacking `type` → **HTTP 422 "artifact 'X' is new but has no type"**; (#3 edit) the report **edit page** edits & persists everything (action-item edit confirmed in DB), but the **preview** only inline-edits tasks/artifacts — action items / discussion / issues are read-only there; (#4 mentions) `@`/`#` live search **works** (verified `@clu`→Clutter map, `#clu`→clutter-review) — **no fix needed**; (#5) domain ordering puts NULL-priority first, duplicate `(champion, meeting_date)` is accepted, cross-team champion assignment is accepted.
+
+> **Forward note (Omer):** post-5.5 the team expects to move from waves to issue-based **tasks / bugs / features**; Wave 6 may be the last "wave". 5.5B partially overlaps Wave 6 §6A (extraction) — it adds only the *safety-net* (nothing dropped, artifacts always typed); when Wave 6 runs, fold 5.5B into 6A rather than duplicating.
+
+### Agent 5.5A: Backend correctness fixes
+**Type:** `backend-developer` · **Scope:** `src/backend/routes/views.py`, `src/backend/routes/management.py`, `src/backend/routes/reports.py`, `src/backend/reports/engine.py`, `src/backend/schema.sql`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Domain ordering: NULL priority **last** | team-page + domain queries `ORDER BY priority IS NULL, priority, id` (or CASE) so a set priority sorts above unprioritized | reproduced: NULL floats to top, buries priority-1 |
+| 2 | Reject duplicate report date | `POST /api/reports`: a second report for the same `(champion_id, meeting_date)` → **422** (engine guard + `UNIQUE(champion_id, meeting_date)` in schema) | reproduced: dup accepted → replay corrupts history |
+| 3 | Cross-team champion → 422 | `POST`/`PATCH /api/domains`: reject when `champion.team_id != domain.team_id` with a clear 4xx | reproduced: orphan domain in no portfolio |
+| 4 | Surface fan-out validation errors | the typeless-artifact 422 (and siblings) must return a structured, UI-consumable error body | pairs with 5.5C #2 |
+| 5 | Typed `response_model` on report endpoints | `POST`/`GET`/`PATCH /api/reports` use the `Report` model so OpenAPI isn't `any` | minor; contract hygiene |
+| 6 | **Auto-create domains from the report** | the first report that names a domain introduces it — fan-out + replay create the domain (name + any `changes`: scope/priority/description) instead of 422'ing; same model as tasks/artifacts. No manual domain pre-definition | Omer: "the domain is covered in the first report — I don't want to define it manually" |
+**Commit:** `Wave 5.5 Agent 5.5A: backend fixes (ordering, dup-date, cross-team, typed reports, auto-create domains)`
+
+### Agent 5.5B: LLM extraction safety-net
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT` only)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | No note line dropped | prompt rule: every line of the notes must land somewhere — if it can't be placed in a structured field, it goes to `discussion`/`issues` (and `raw_notes` always verbatim). NO item silently ignored | reproduced: messy notes dropped categories |
+| 2 | New artifacts always typed | prompt must assign a `type` (agent/skill/hook/context) to every new artifact; if genuinely unknown, pick the best-fit and note uncertainty — never emit a typeless new artifact | removes the #2 save-blocker at the source |
+**Commit:** `Wave 5.5 Agent 5.5B: extraction safety-net (no-drop + always-typed artifacts)`
+
+### Agent 5.5C: Report-flow + manage UX fixes
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/report/ReportPreviewPage.tsx`, `ReportEditPage.tsx`, `src/frontend/src/pages/manage/*`, plus edit-affordance links on `pages/tasks/*` / `pages/artifacts/*` / `pages/team/*`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Preview parity | make **action items, discussion, issues editable in the preview** (create flow), matching the edit page — not just tasks/artifacts | the real "can't edit action items" |
+| 2 | Require type + surface save errors | block save when a new artifact has no `type` (inline error); show the backend 422 message instead of a silent failure | pairs with 5.5A #4 |
+| 3 | Edit discoverability | clear affordance/link to the owning report's edit page from task / artifact / action-item context (rows or detail) | editing works; it just isn't findable |
+| 4 | CC Baseline as textarea | team add/edit form: CC Baseline is a multi-line **textarea** (multiple sentences), not a short single-line textbox | Omer request |
+**Commit:** `Wave 5.5 Agent 5.5C: report-flow preview parity + save errors + discoverability + CC textarea`
+
+### Agent 5.5D: Navigation & preview clarity (frontend)
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/components/AppShell.tsx`, `src/frontend/src/pages/report/ReportPreviewPage.tsx`, `ReportEditPage.tsx`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Sidebar "＋ New Report" | top of Main nav → `/reports/new` (champion dropdown on the page) | **Done** — Manage-only users had no report entry point |
+| 2 | Label domain sections clearly | preview/edit: render each block as "Domain: X" so it's obvious artifacts/tasks are grouped *under a domain* | reproduced confusion: artifacts appeared under a bare "Claude Code" header |
+| 3 | Render team-wide artifacts section | preview/edit show the top-level (un-domained) artifacts from 5.5E as their own "Team-wide artifacts" block | depends on 5.5E |
+**Commit:** `Wave 5.5 Agent 5.5D: sidebar New Report + preview domain/team-wide clarity`
+
+### Agent 5.5E: Domain semantics + team-wide artifacts (backend + prompt)
+**Type:** `ai-engineer` · **Scope:** `src/backend/models.py`, `src/backend/report_schema.json`, `src/backend/reports/engine.py`, `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`)
+**Rule (Omer):** a **domain = a team technology/stack area** (Backend, Web, Deployment, Monitor & Debug) only. "Claude Code", meeting headings, and adoption-meta are **never** domains. The model currently invents a "Claude Code" domain because a report has nowhere else to put CC-adoption artifacts (context md files, the test-exec skill) — `ReportDomainSection.domain` is required and there is no top-level artifacts slot, even though the DB supports un-domained team artifacts (the all-team gutter).
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Team-wide artifacts slot in the report | add top-level `artifacts: list[ReportArtifactEntry]` to `ReportDocument` (models + `report_schema.json`); fan-out + replay create/update them as `artifact` rows with `domain_id NULL` (the all-team gutter) | DB + views already support domain-null artifacts |
+| 2 | Prompt: domains are tech stacks only | `_SYSTEM_PROMPT`: never invent a domain from "Claude Code"/headings/adoption-meta; use only real team tech/stack domains; CC-adoption artifacts that fit no tech domain go in the top-level team-wide artifacts list | the rule above |
+| 3 | Prompt: group, don't explode | one described thing = one artifact (e.g. "context md files in a router pattern (architecture, conventions, index, deep-dives)" → ONE `context` artifact, not four); only concrete named tools/skills/agents/hooks/context become artifacts | reproduced: 4 artifacts from one md-file description |
+**Commit:** `Wave 5.5 Agent 5.5E: domains=tech-stacks-only + team-wide artifacts slot + artifact grouping`
+
+### After Wave 5.5
+- Cherry-pick 5.5A–5.5E. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
+
+---
+
 ## Wave 6 — Raw-notes extraction depth (4 agents + 1 acceptance gate)
 
 Corrective wave on the feature's core purpose. The drafting path under-extracts from RAW messy notes: fed a CURATED note (≈40 min of manual human curation, done air-gapped) it produces a rich `ReportDocument`; fed the same meeting's RAW notes it drops whole categories (participants, artifacts, an entire domain, discussion, issues). The feature only earns its place if it extracts richly from RAW notes with little/no human curation. Three levers: (a) a prompt that **mines** the notes instead of timidly transcribing, leaning on the full `ReportDocument` field map; (b) **free-text inference** so data buried in prose becomes structured fields; (c) an **agentic DB-lookup tool** so referenced tasks/artifacts map onto their real existing rows (exact names, no duplicates) while genuinely-new ones are still created. 6A (`llm/interface.py` prompt + free-text rules) and 6B (`llm/` tool-use loop + new query helper) share the `llm/` tree, so 6B lands after 6A on the same file; 6C (`reports/engine.py` reconciliation) and 6D (acceptance gate, test-only) are disjoint and parallel-safe once 6A/6B merge. **No fan-out semantics change unless 6C's reconciliation decision requires it.**

@@ -228,6 +228,11 @@ class ReportDocument(BaseModel):
     participants: list[str] = Field(default_factory=list)
     raw_notes: str
     domains: list[ReportDomainSection] = Field(default_factory=list)
+    # Team-wide artifacts not tied to any tech-stack domain (e.g. cross-cutting
+    # Claude Code adoption: context packs, team-wide skills). Saved with
+    # domain_id NULL → shown in the team's all-team gutter. "Claude Code" is
+    # never a domain; such artifacts live here instead.
+    artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
     action_items: list[ReportActionItem] = Field(default_factory=list)
     discussion: str | None = None
     issues: str | None = None

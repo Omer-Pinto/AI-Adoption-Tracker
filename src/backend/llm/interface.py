@@ -164,7 +164,7 @@ Rules:
 partial date (e.g. "June 16th" with no year), resolve it against the provided \
 current date — pick the year that makes the meeting date on or before today. If \
 the notes state no date at all, use the provided current date.
-- raw_notes: copy the notes verbatim.
+- raw_notes: copy the notes verbatim — always, in full, unaltered.
 - For tasks: record each task by name in the "task" field, exactly as it appears \
 in the notes. Do not decide or mark whether a task is new or already existing — \
 that is resolved by the backend against the database.
@@ -172,8 +172,63 @@ that is resolved by the backend against the database.
 exactly as it appears in the notes. Do not decide or mark whether an artifact is \
 new or already existing — that is resolved by the backend against the database.
 - Only include domain sections that are actually mentioned in the notes.
+
+DOMAINS vs TEAM-WIDE ARTIFACTS (important):
+- A "domain" is ONLY a team technology / work-stack area (e.g. Backend, Web, \
+Deployment, Monitor & Debug, Data). NEVER invent a domain from "Claude Code", a \
+meeting heading (e.g. "Current Claude Code status"), the adoption process itself, \
+or any non-stack topic. If the notes list the team's domains, use those names.
+- Put a task or artifact under a domain section ONLY when it clearly belongs to \
+that tech/stack area. Cross-cutting Claude Code adoption artifacts that do not \
+belong to a specific tech domain — e.g. a context/documentation pack, a team-wide \
+skill/agent/hook — go in the TOP-LEVEL "artifacts" list (team-wide, no domain), \
+NOT under an invented domain.
+
+GROUPING — one described thing is ONE artifact (do not explode):
+- A single item is ONE artifact even when described with several parts. Example: \
+"a group of context md files in a router pattern (architecture decisions, \
+conventions, a file index, deep-dives)" is ONE artifact of type "context" — NOT \
+four; capture the parts in its "note", not as separate artifacts.
+- Only a concrete, named tool/skill/agent/hook/context becomes an artifact. Do \
+not turn generic mentions, individual file names, or descriptive sub-bullets into \
+separate artifacts.
+
+COMPLETENESS — capture every piece of information (do not drop note lines):
+- EVERY piece of information in the notes must land somewhere in the output. \
+Account for every line. Do not silently drop any item, category, or detail.
+- Map each item to the structured field that fits it: a task/status/owner/finish \
+date → a "tasks" entry under its domain; a tool/artifact (with its type/tags/ \
+change) → an "artifacts" entry under its domain, OR the top-level team-wide \
+"artifacts" list when it belongs to no tech-stack domain; a follow-up or to-do → an \
+"action_items" entry (text, and owner/domain/due_date when stated); a person \
+present → "participants"; a domain mentioned → a domain section; a domain \
+attribute change (description/scope/priority/cross_domain) → that domain's \
+"changes".
+- If a line genuinely does not fit any structured field, it MUST STILL be \
+captured: put general talking points, context, or progress narrative in \
+"discussion", and problems, risks, blockers, or concerns in "issues" — \
+whichever fits. Never omit it.
+- Do not discard any item. If you are unsure where something belongs, place it \
+in "discussion" or "issues" rather than leaving it out.
+
+ARTIFACT TYPE — every artifact entry must have a type:
+- Whenever you record an artifact entry, you MUST set its "type" to the best-fit \
+value from {agent, skill, hook, context}. A new artifact saved without a type \
+fails the backend (422), so an artifact entry must NEVER be emitted without a \
+type.
+- If the notes state the type, use it. If the notes do NOT state it, infer the \
+most likely type from the artifact's name and how it is described, and add a \
+short note of that assumption in the entry's "note" field (e.g. "type inferred \
+as skill"). Still always set "type" — never leave it null for a new artifact.
+
+NO FABRICATION (reconciled with completeness):
 - For fields with no value, use null (or an empty list for list fields) rather \
-than inventing data. Never fabricate domains, tasks, artifacts, owners, or dates.\
+than inventing data. Never fabricate domains, tasks, artifacts, owners, dates, \
+or any fact that is not in the notes.
+- "Never fabricate" does NOT mean "omit when unsure". Do not invent facts, but \
+also do not drop facts that ARE in the notes: an uncertain PLACEMENT goes to \
+"discussion" or "issues" (never the bin), and an uncertain artifact TYPE gets a \
+best-fit guess noted in "note" (never omitted). Both rules hold at once.\
 """
 
 

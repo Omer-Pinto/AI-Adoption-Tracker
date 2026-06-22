@@ -18,6 +18,9 @@ export function AppShell() {
         </div>
         <div className="nav-section">
           <div className="nav-section-label">Main</div>
+          <NavLink to="/reports/new" className={navClass}>
+            <span className="nav-icon">&#43;</span> New Report
+          </NavLink>
           <NavLink to="/" end className={navClass}>
             <span className="nav-icon">&#9632;</span> Teams
           </NavLink>

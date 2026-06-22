@@ -246,7 +246,7 @@ def team_page(id: int) -> TeamPage:
         team = _team(team_row)
 
         domain_rows = conn.execute(
-            "SELECT * FROM domain WHERE champion_id = ? ORDER BY priority, id",
+            "SELECT * FROM domain WHERE champion_id = ? ORDER BY priority IS NULL, priority, id",
             (id,),
         ).fetchall()
         domains: list[DomainBlock] = []

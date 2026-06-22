@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Modal } from '@/components/Modal';
 import { ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
 import type { ArtifactDetail } from '@/types';
@@ -64,6 +65,15 @@ export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailMod
                   <span className="history-date">{h.meeting_date}</span>
                   <ChangeKindBadge kind={h.change_kind} />
                   <span className="history-note">{h.change_note || '—'}</span>
+                  {/* report_id is present on ArtifactHistoryEntry — link to the owning report */}
+                  <Link
+                    to={`/reports/${h.report_id}/edit`}
+                    className="btn btn-sm btn-outline"
+                    style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+                    title="Edit the report that recorded this change"
+                  >
+                    Edit report
+                  </Link>
                 </div>
               ))
             )}

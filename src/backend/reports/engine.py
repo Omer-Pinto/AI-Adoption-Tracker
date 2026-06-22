@@ -72,6 +72,38 @@ class ReportNotFoundError(EngineError):
     """No ``report`` row with the given id."""
 
 
+# ── duplicate-date guard ─────────────────────────────────────────────────────
+
+def _check_duplicate_date(
+    conn: sqlite3.Connection,
+    champion_id: int,
+    meeting_date: str,
+    exclude_report_id: int | None = None,
+) -> None:
+    """Raise EngineError if (champion_id, meeting_date) already exists.
+
+    Pass ``exclude_report_id`` on edits so a report can keep its own date
+    without triggering a false conflict.
+    """
+    if exclude_report_id is None:
+        row = conn.execute(
+            "SELECT id FROM report WHERE champion_id = ? AND meeting_date = ?",
+            (champion_id, meeting_date),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT id FROM report "
+            "WHERE champion_id = ? AND meeting_date = ? AND id != ?",
+            (champion_id, meeting_date, exclude_report_id),
+        ).fetchone()
+    if row is not None:
+        raise EngineError(
+            f"A report for this champion on {meeting_date} already exists "
+            f"(report id {row['id']}). Each champion can have at most one "
+            "report per meeting date."
+        )
+
+
 # ── small helpers ─────────────────────────────────────────────────────────────
 
 def _norm(name: str) -> str:
@@ -118,6 +150,26 @@ def _resolve_domain_id(
     raise EngineError(
         f"Champion {champion_id} has no domain named {domain_name!r}"
     )
+
+
+def _resolve_or_create_domain_id(
+    conn: sqlite3.Connection, champion_id: int, team_id: int, domain_name: str
+) -> int:
+    """Match a report section's domain name within this champion's domains, or
+    create it if absent. The first report that mentions a domain introduces it —
+    domains are not defined manually up front (same model as tasks/artifacts).
+    Scope/priority/description are filled separately from the section's `changes`."""
+    target = _norm(domain_name)
+    for row in conn.execute(
+        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+    ).fetchall():
+        if _norm(row["name"]) == target:
+            return row["id"]
+    cur = conn.execute(
+        "INSERT INTO domain (team_id, champion_id, name) VALUES (?, ?, ?)",
+        (team_id, champion_id, domain_name),
+    )
+    return cur.lastrowid
 
 
 def _find_task_id(
@@ -265,10 +317,21 @@ def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row
         champion_id = _resolve_champion_id(conn, doc.champion)
         team_id = _champion_team_id(conn, champion_id)
 
-        report_id = _insert_report_row(conn, champion_id, doc)
+        _check_duplicate_date(conn, champion_id, doc.meeting_date)
+        try:
+            report_id = _insert_report_row(conn, champion_id, doc)
+        except sqlite3.IntegrityError as exc:
+            if "UNIQUE" in str(exc).upper():
+                raise EngineError(
+                    f"A report for this champion on {doc.meeting_date} already exists. "
+                    "Each champion can have at most one report per meeting date."
+                ) from exc
+            raise
 
         for section in doc.domains:
-            domain_id = _resolve_domain_id(conn, champion_id, section.domain)
+            domain_id = _resolve_or_create_domain_id(
+                conn, champion_id, team_id, section.domain
+            )
             _apply_domain_changes(conn, domain_id, section)
             for entry in section.tasks:
                 _apply_task_entry(
@@ -284,9 +347,15 @@ def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row
                     entry,
                 )
 
+        # Team-wide artifacts (no domain) — the all-team gutter (domain_id NULL).
+        for entry in doc.artifacts:
+            _apply_artifact_entry(
+                conn, report_id, doc.meeting_date, team_id, None, entry
+            )
+
         for item in doc.action_items:
             item_domain_id = (
-                _resolve_domain_id(conn, champion_id, item.domain)
+                _resolve_or_create_domain_id(conn, champion_id, team_id, item.domain)
                 if item.domain
                 else None
             )
@@ -598,17 +667,35 @@ def replay_report_edit(
         # 2. swap the stored document. The edited doc must stay the same report
         #    (same id/champion); we trust its meeting_date for re-ordering.
         new_champion_id = _resolve_champion_id(conn, doc.champion)
-        conn.execute(
-            "UPDATE report SET champion_id = ?, meeting_date = ?, report_json = ?, "
-            "schema_version = ? WHERE id = ?",
-            (
-                new_champion_id,
-                doc.meeting_date,
-                doc.model_dump_json(by_alias=True, exclude_none=True),
-                SCHEMA_VERSION,
-                report_id,
-            ),
-        )
+
+        # Guard: reject a date that is already in use by a *different* report
+        # for this champion. Exclude the current report_id so that keeping or
+        # re-submitting the same date is accepted (PATCH-self-date case).
+        _check_duplicate_date(conn, new_champion_id, doc.meeting_date, exclude_report_id=report_id)
+        if new_champion_id != existing["champion_id"]:
+            # Champion is changing — also guard against a clash on the old champion.
+            pass  # date conflict checked against new champion above; old champion
+                  # loses this report entirely so no clash possible there.
+
+        try:
+            conn.execute(
+                "UPDATE report SET champion_id = ?, meeting_date = ?, report_json = ?, "
+                "schema_version = ? WHERE id = ?",
+                (
+                    new_champion_id,
+                    doc.meeting_date,
+                    doc.model_dump_json(by_alias=True, exclude_none=True),
+                    SCHEMA_VERSION,
+                    report_id,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            if "UNIQUE" in str(exc).upper():
+                raise EngineError(
+                    f"A report for this champion on {doc.meeting_date} already exists. "
+                    "Each champion can have at most one report per meeting date."
+                ) from exc
+            raise
 
         # 3. replay this champion's whole timeline.
         _replay_champion(conn, new_champion_id)
@@ -707,10 +794,9 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
         doc = ReportDocument.model_validate_json(rep["report_json"])
         team_id = _champion_team_id(conn, champion_id)
         for section in doc.domains:
-            try:
-                domain_id = _resolve_domain_id(conn, champion_id, section.domain)
-            except EngineError:
-                continue
+            domain_id = _resolve_or_create_domain_id(
+                conn, champion_id, team_id, section.domain
+            )
             _apply_domain_changes(conn, domain_id, section)
             for entry in section.tasks:
                 task_id = _find_task_id(conn, domain_id, entry.task)
@@ -733,15 +819,16 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
                     entry,
                     seen_artifacts,
                 )
+        for entry in doc.artifacts:
+            _replay_artifact_entry(
+                conn, rep["id"], rep["meeting_date"], team_id, None, entry, seen_artifacts
+            )
         for item in doc.action_items:
-            try:
-                item_domain_id = (
-                    _resolve_domain_id(conn, champion_id, item.domain)
-                    if item.domain
-                    else None
-                )
-            except EngineError:
-                continue  # mirror replay loop: skip unresolvable domain sections
+            item_domain_id = (
+                _resolve_or_create_domain_id(conn, champion_id, team_id, item.domain)
+                if item.domain
+                else None
+            )
             _insert_action_item(conn, rep["id"], item_domain_id, item)
 
     for task_id in touched_tasks:

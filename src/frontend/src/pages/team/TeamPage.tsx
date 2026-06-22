@@ -441,6 +441,15 @@ function ActionItemsList({
               {item.owner && <>Owner: {item.owner} &bull; </>}
               {item.due_date && <>Due: {item.due_date} &bull; </>}
               {item.resolved ? 'Resolved' : 'Open'}
+              {/* report_id is present on ActionItem — link to the owning report's edit page */}
+              &nbsp;&bull;&nbsp;
+              <Link
+                to={`/reports/${item.report_id}/edit`}
+                style={{ fontSize: 11, color: '#4361ee' }}
+                title="Edit the report this action item came from"
+              >
+                Edit report
+              </Link>
             </div>
           </div>
         </div>

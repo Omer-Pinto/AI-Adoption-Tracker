@@ -33,10 +33,21 @@ class DraftRequest(BaseModel):
     notes: str
 
 
-def _report_payload(row) -> dict:
+class ReportResponse(BaseModel):
+    """Typed envelope for all single-report responses: `{ "report": Report }`.
+
+    Using a wrapper model (rather than returning a bare ``Report``) matches the
+    existing runtime JSON shape so the frontend contract is unchanged. The
+    OpenAPI spec will now show a typed schema instead of ``additionalProperties``.
+    """
+
+    report: Report
+
+
+def _report_payload(row) -> ReportResponse:
     """Wrap a `report` row in the `{ "report": {...} }` envelope (report_json
     stays a JSON-encoded string, per `models.Report`)."""
-    return {"report": Report.model_validate(dict(row)).model_dump()}
+    return ReportResponse(report=Report.model_validate(dict(row)))
 
 
 @router.post("/draft")
@@ -62,8 +73,8 @@ def draft(req: DraftRequest) -> ReportDocument:
     return ReportDocument.model_validate(drafted)
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def save(doc: ReportDocument) -> dict:
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=ReportResponse)
+def save(doc: ReportDocument) -> ReportResponse:
     """Confirm a previewed draft -> fan out to the tables in one transaction."""
     conn = get_connection()
     try:
@@ -76,8 +87,8 @@ def save(doc: ReportDocument) -> dict:
         conn.close()
 
 
-@router.get("/{report_id}")
-def get_one(report_id: int) -> dict:
+@router.get("/{report_id}", response_model=ReportResponse)
+def get_one(report_id: int) -> ReportResponse:
     """Fetch one saved report (report_json kept as a JSON string)."""
     conn = get_connection()
     try:
@@ -90,8 +101,8 @@ def get_one(report_id: int) -> dict:
         conn.close()
 
 
-@router.patch("/{report_id}")
-def edit(report_id: int, doc: ReportDocument) -> dict:
+@router.patch("/{report_id}", response_model=ReportResponse)
+def edit(report_id: int, doc: ReportDocument) -> ReportResponse:
     """Edit a saved report + replay the champion's timeline (no LLM needed)."""
     conn = get_connection()
     try:
