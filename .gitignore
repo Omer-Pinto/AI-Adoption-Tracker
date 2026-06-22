@@ -12,3 +12,6 @@ node_modules/
 dist/
 # secrets
 .env
+
+# Playwright MCP browser artifacts (throwaway)
+.playwright-mcp/
