@@ -145,6 +145,8 @@ export interface ReportJson {
   participants?: string[];
   raw_notes: string;
   domains?: ReportDomainBlock[];
+  /** Top-level team-wide artifacts (not assigned to any domain). */
+  artifacts?: ReportArtifactLine[];
   action_items?: ReportActionItemLine[];
   discussion?: string;
   issues?: string;

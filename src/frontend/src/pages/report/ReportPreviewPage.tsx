@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type {
@@ -26,6 +26,8 @@ function nextKey(): string {
 
 interface PreviewLocationState {
   draft?: ReportJson;
+  /** champion_id forwarded from ReportCreatePage so we can fetch domain names. */
+  championId?: number;
 }
 
 const TASK_STATUSES: TaskStatus[] = [
@@ -40,14 +42,49 @@ const TASK_STATUSES: TaskStatus[] = [
 const CHANGE_KINDS: ArtifactChangeKind[] = ['added', 'updated', 'retired', 'moved'];
 const ARTIFACT_TYPES: ArtifactType[] = ['agent', 'skill', 'hook', 'context'];
 
+// ---- Domain picker (inline select) ----
+
+function DomainPicker({
+  currentDomain,
+  availableDomains,
+  onChange,
+}: {
+  currentDomain: string;
+  availableDomains: string[];
+  onChange: (newDomain: string) => void;
+}) {
+  if (availableDomains.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <label style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>Domain:</label>
+      <select
+        className="form-select"
+        style={{ fontSize: 12, padding: '2px 6px', height: 26, minWidth: 100 }}
+        value={currentDomain}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {availableDomains.map((d) => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 // ---- Inline-editable task row ----
 
 function EditableTaskLine({
   line,
+  availableDomains,
+  currentDomain,
   onChange,
+  onMoveToDomain,
 }: {
   line: ReportTaskLine;
+  availableDomains: string[];
+  currentDomain: string;
   onChange: (updated: ReportTaskLine) => void;
+  onMoveToDomain: (targetDomain: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   // Local mutable state for the inline form; uses plain strings, converted on save.
@@ -82,6 +119,11 @@ function EditableTaskLine({
           )}
         </div>
         <StatusBadge status={line.status} />
+        <DomainPicker
+          currentDomain={currentDomain}
+          availableDomains={availableDomains}
+          onChange={onMoveToDomain}
+        />
         <button
           className="btn btn-sm btn-outline"
           style={{ marginLeft: 8, flexShrink: 0 }}
@@ -152,10 +194,16 @@ function EditableTaskLine({
 
 function EditableArtifactLine({
   line,
+  availableDomains,
+  currentDomain,
   onChange,
+  onMoveToDomain,
 }: {
   line: ReportArtifactLine;
+  availableDomains: string[];
+  currentDomain: string;
   onChange: (updated: ReportArtifactLine) => void;
+  onMoveToDomain: (targetDomain: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [artifactName, setArtifactName] = useState(line.artifact);
@@ -205,6 +253,11 @@ function EditableArtifactLine({
           </div>
         </div>
         {line.change_kind && <ChangeKindBadge kind={line.change_kind} />}
+        <DomainPicker
+          currentDomain={currentDomain}
+          availableDomains={availableDomains}
+          onChange={onMoveToDomain}
+        />
         <button
           className="btn btn-sm btn-outline"
           style={{ marginLeft: 8, flexShrink: 0 }}
@@ -394,12 +447,18 @@ function DomainSection({
   block,
   taskKeys,
   artifactKeys,
+  availableDomains,
   onChange,
+  onMoveTask,
+  onMoveArtifact,
 }: {
   block: ReportDomainBlock;
   taskKeys: string[];
   artifactKeys: string[];
+  availableDomains: string[];
   onChange: (updated: ReportDomainBlock) => void;
+  onMoveTask: (taskIdx: number, targetDomain: string) => void;
+  onMoveArtifact: (artifactIdx: number, targetDomain: string) => void;
 }) {
   function updateTask(idx: number, updated: ReportTaskLine) {
     const tasks = [...(block.tasks ?? [])];
@@ -419,7 +478,7 @@ function DomainSection({
   return (
     <div className="domain-section">
       <div className="domain-section-header">
-        <div className="domain-section-name">{block.domain}</div>
+        <div className="domain-section-name">Domain: {block.domain}</div>
       </div>
       <div>
         {hasTasks && (
@@ -429,7 +488,10 @@ function DomainSection({
               <EditableTaskLine
                 key={taskKeys[i]}
                 line={t}
+                availableDomains={availableDomains}
+                currentDomain={block.domain}
                 onChange={(updated) => updateTask(i, updated)}
+                onMoveToDomain={(targetDomain) => onMoveTask(i, targetDomain)}
               />
             ))}
           </>
@@ -446,7 +508,10 @@ function DomainSection({
               <EditableArtifactLine
                 key={artifactKeys[i]}
                 line={a}
+                availableDomains={availableDomains}
+                currentDomain={block.domain}
                 onChange={(updated) => updateArtifact(i, updated)}
+                onMoveToDomain={(targetDomain) => onMoveArtifact(i, targetDomain)}
               />
             ))}
           </>
@@ -465,7 +530,100 @@ function findMissingTypes(report: ReportJson): string[] {
       if (!a.type) missing.push(a.artifact || '(unnamed artifact)');
     }
   }
+  for (const a of report.artifacts ?? []) {
+    if (!a.type) missing.push(a.artifact || '(unnamed artifact)');
+  }
   return missing;
+}
+
+// ---- Move helpers: pure functions that produce updated ReportJson ----
+
+/**
+ * Move a task at `taskIdx` inside domain `domainIdx` to `targetDomain`.
+ * Creates the target domain block if it doesn't exist.
+ */
+function moveTask(
+  report: ReportJson,
+  domainIdx: number,
+  taskIdx: number,
+  targetDomain: string,
+): ReportJson {
+  const domains = (report.domains ?? []).map((d) => ({ ...d, tasks: [...(d.tasks ?? [])], artifacts: [...(d.artifacts ?? [])] }));
+  const sourceDomain = domains[domainIdx];
+  if (!sourceDomain) return report;
+  const task = sourceDomain.tasks[taskIdx];
+  if (!task) return report;
+  // Remove from source
+  sourceDomain.tasks.splice(taskIdx, 1);
+  // Find or create target domain block
+  const targetIdx = domains.findIndex((d) => d.domain === targetDomain);
+  const targetBlock = targetIdx >= 0 ? domains[targetIdx] : null;
+  if (targetBlock) {
+    targetBlock.tasks.push(task);
+  } else {
+    domains.push({ domain: targetDomain, tasks: [task], artifacts: [] });
+  }
+  return { ...report, domains };
+}
+
+/**
+ * Move an artifact at `artifactIdx` inside domain `domainIdx` to `targetDomain`.
+ * Creates the target domain block if it doesn't exist.
+ */
+function moveArtifactInDomain(
+  report: ReportJson,
+  domainIdx: number,
+  artifactIdx: number,
+  targetDomain: string,
+): ReportJson {
+  const domains = (report.domains ?? []).map((d) => ({ ...d, tasks: [...(d.tasks ?? [])], artifacts: [...(d.artifacts ?? [])] }));
+  const sourceDomain = domains[domainIdx];
+  if (!sourceDomain) return report;
+  const artifact = sourceDomain.artifacts[artifactIdx];
+  if (!artifact) return report;
+  // Remove from source
+  sourceDomain.artifacts.splice(artifactIdx, 1);
+  // Find or create target domain block
+  const targetIdx = domains.findIndex((d) => d.domain === targetDomain);
+  const targetBlock = targetIdx >= 0 ? domains[targetIdx] : null;
+  if (targetBlock) {
+    targetBlock.artifacts.push(artifact);
+  } else {
+    domains.push({ domain: targetDomain, tasks: [], artifacts: [artifact] });
+  }
+  return { ...report, domains };
+}
+
+/**
+ * Move a top-level (team-wide) artifact at `artifactIdx` to a domain block.
+ * Removes it from `report.artifacts` and adds it to the target domain block.
+ * If targetDomain is the sentinel "Team-wide" it stays in report.artifacts.
+ */
+function moveTopLevelArtifact(
+  report: ReportJson,
+  artifactIdx: number,
+  targetDomain: string,
+): ReportJson {
+  const topArtifacts = [...(report.artifacts ?? [])];
+  const artifact = topArtifacts[artifactIdx];
+  if (!artifact) return report;
+  // Remove from top-level
+  topArtifacts.splice(artifactIdx, 1);
+  const domains = (report.domains ?? []).map((d) => ({ ...d, tasks: [...(d.tasks ?? [])], artifacts: [...(d.artifacts ?? [])] }));
+  const targetIdx = domains.findIndex((d) => d.domain === targetDomain);
+  const targetBlock = targetIdx >= 0 ? domains[targetIdx] : null;
+  if (targetBlock) {
+    targetBlock.artifacts.push(artifact);
+  } else {
+    domains.push({ domain: targetDomain, tasks: [], artifacts: [artifact] });
+  }
+  const next: ReportJson = { ...report, domains };
+  if (topArtifacts.length > 0) {
+    next.artifacts = topArtifacts;
+  } else {
+    delete next.artifacts;
+  }
+  return next;
 }
 
 // ---- Main page ----
@@ -477,10 +635,22 @@ export default function ReportPreviewPage() {
 
   const locationState = location.state as PreviewLocationState | null;
   const initialDraft = locationState?.draft ?? null;
+  const stateChampionId = locationState?.championId ?? null;
 
   const [report, setReport] = useState<ReportJson | null>(initialDraft);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
+
+  // Fetch champion domains for the picker.
+  useEffect(() => {
+    if (!stateChampionId) return;
+    api.domains.listByChampion(stateChampionId)
+      .then((domains) => setAvailableDomains(domains.map((d) => d.name)))
+      .catch(() => {
+        // Non-fatal: picker just won't show if domains can't be loaded.
+      });
+  }, [stateChampionId]);
 
   // Stable keys for domain task/artifact rows; initialised once from the draft.
   const [domainTaskKeys] = useState<string[][]>(() =>
@@ -491,6 +661,12 @@ export default function ReportPreviewPage() {
   );
   const domainTaskKeysRef = useRef(domainTaskKeys);
   const domainArtifactKeysRef = useRef(domainArtifactKeys);
+
+  // Stable keys for top-level artifacts
+  const [topArtifactKeys, setTopArtifactKeys] = useState<string[]>(() =>
+    (initialDraft?.artifacts ?? []).map(() => nextKey()),
+  );
+  const topArtifactKeysRef = useRef(topArtifactKeys);
 
   // Stable keys for action items
   const [actionItemKeys, setActionItemKeys] = useState<string[]>(() =>
@@ -530,6 +706,97 @@ export default function ReportPreviewPage() {
       domains[idx] = updated;
       return { ...prev, domains };
     });
+  }
+
+  // Move a task from domain[domainIdx][taskIdx] → targetDomain.
+  // Keys: remove the task's key from old domain; append a new key to target domain.
+  function handleMoveTask(domainIdx: number, taskIdx: number, targetDomain: string) {
+    // report is non-null here (null-guarded above); capture to satisfy TS closure analysis.
+    const currentDomains = report?.domains ?? [];
+    if (targetDomain === currentDomains[domainIdx]?.domain) return;
+
+    setReport((prev) => {
+      if (!prev) return prev;
+      return moveTask(prev, domainIdx, taskIdx, targetDomain);
+    });
+
+    // Mutate key arrays directly (stable refs pattern, matching existing code)
+    const newDtk = domainTaskKeysRef.current.map((arr) => [...arr]);
+    const removedKey = newDtk[domainIdx]?.splice(taskIdx, 1)?.[0] ?? nextKey();
+
+    const targetDomainIdx = currentDomains.findIndex((d) => d.domain === targetDomain);
+    if (targetDomainIdx >= 0) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      newDtk[targetDomainIdx]!.push(removedKey);
+    } else {
+      // target domain will be appended as new block
+      newDtk.push([removedKey]);
+    }
+    domainTaskKeysRef.current = newDtk;
+    // Also need to keep artifact keys arrays aligned if a new domain block was added
+    if (targetDomainIdx < 0) {
+      const newDak = domainArtifactKeysRef.current.map((arr) => [...arr]);
+      newDak.push([]);
+      domainArtifactKeysRef.current = newDak;
+    }
+  }
+
+  // Move an artifact from domain[domainIdx][artifactIdx] → targetDomain.
+  function handleMoveArtifactInDomain(domainIdx: number, artifactIdx: number, targetDomain: string) {
+    const currentDomains = report?.domains ?? [];
+    if (targetDomain === currentDomains[domainIdx]?.domain) return;
+
+    setReport((prev) => {
+      if (!prev) return prev;
+      return moveArtifactInDomain(prev, domainIdx, artifactIdx, targetDomain);
+    });
+
+    const newDak = domainArtifactKeysRef.current.map((arr) => [...arr]);
+    const removedKey = newDak[domainIdx]?.splice(artifactIdx, 1)?.[0] ?? nextKey();
+
+    const targetDomainIdx = currentDomains.findIndex((d) => d.domain === targetDomain);
+    if (targetDomainIdx >= 0) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      newDak[targetDomainIdx]!.push(removedKey);
+    } else {
+      newDak.push([removedKey]);
+    }
+    domainArtifactKeysRef.current = newDak;
+    if (targetDomainIdx < 0) {
+      const newDtk = domainTaskKeysRef.current.map((arr) => [...arr]);
+      newDtk.push([]);
+      domainTaskKeysRef.current = newDtk;
+    }
+  }
+
+  // Move a top-level artifact to a domain.
+  function handleMoveTopLevelArtifact(artifactIdx: number, targetDomain: string) {
+    const currentDomains = report?.domains ?? [];
+    const newTopKeys = [...topArtifactKeysRef.current];
+    newTopKeys.splice(artifactIdx, 1);
+    topArtifactKeysRef.current = newTopKeys;
+    setTopArtifactKeys(newTopKeys);
+
+    setReport((prev) => {
+      if (!prev) return prev;
+      return moveTopLevelArtifact(prev, artifactIdx, targetDomain);
+    });
+
+    // Ensure domain artifact key arrays stay aligned
+    const targetDomainIdx = currentDomains.findIndex((d) => d.domain === targetDomain);
+    if (targetDomainIdx >= 0) {
+      const newDak = domainArtifactKeysRef.current.map((arr) => [...arr]);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      newDak[targetDomainIdx]!.push(nextKey());
+      domainArtifactKeysRef.current = newDak;
+    } else {
+      const newDak = domainArtifactKeysRef.current.map((arr) => [...arr]);
+      newDak.push([nextKey()]);
+      domainArtifactKeysRef.current = newDak;
+      const newDtk = domainTaskKeysRef.current.map((arr) => [...arr]);
+      newDtk.push([]);
+      domainTaskKeysRef.current = newDtk;
+    }
   }
 
   function updateActionItem(idx: number, updated: ReportActionItemLine) {
@@ -613,6 +880,8 @@ export default function ReportPreviewPage() {
       </button>
     </>
   );
+
+  const topArtifacts = report.artifacts ?? [];
 
   return (
     <>
@@ -703,6 +972,38 @@ export default function ReportPreviewPage() {
           </div>
         </div>
 
+        {/* Top-level team-wide artifacts */}
+        {topArtifacts.length > 0 && (
+          <div className="domain-section">
+            <div className="domain-section-header">
+              <div className="domain-section-name">Team-wide artifacts</div>
+              {availableDomains.length > 0 && (
+                <div style={{ fontSize: 11, color: '#6b7280' }}>
+                  Use the domain picker on each artifact to assign it to a domain.
+                </div>
+              )}
+            </div>
+            <div className="subsection-label">Artifact changes</div>
+            {topArtifacts.map((a, i) => (
+              <EditableArtifactLine
+                key={topArtifactKeys[i]}
+                line={a}
+                availableDomains={availableDomains}
+                currentDomain="Team-wide"
+                onChange={(updated) => {
+                  setReport((prev) => {
+                    if (!prev) return prev;
+                    const artifacts = [...(prev.artifacts ?? [])];
+                    artifacts[i] = updated;
+                    return { ...prev, artifacts };
+                  });
+                }}
+                onMoveToDomain={(targetDomain) => handleMoveTopLevelArtifact(i, targetDomain)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Domain blocks */}
         {(report.domains ?? []).map((block, i) => (
           <DomainSection
@@ -710,7 +1011,10 @@ export default function ReportPreviewPage() {
             block={block}
             taskKeys={domainTaskKeysRef.current[i] ?? []}
             artifactKeys={domainArtifactKeysRef.current[i] ?? []}
+            availableDomains={availableDomains}
             onChange={(updated) => updateDomain(i, updated)}
+            onMoveTask={(taskIdx, targetDomain) => handleMoveTask(i, taskIdx, targetDomain)}
+            onMoveArtifact={(artifactIdx, targetDomain) => handleMoveArtifactInDomain(i, artifactIdx, targetDomain)}
           />
         ))}
 

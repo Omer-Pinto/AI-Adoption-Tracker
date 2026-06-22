@@ -54,7 +54,7 @@ export default function ReportCreatePage() {
       // is no real reportId; we use the sentinel "draft". ReportPreviewPage
       // checks useParams().reportId === 'draft' and reads the ReportJson from
       // location.state.draft rather than fetching from the API.
-      navigate('/reports/draft/preview', { state: { draft } });
+      navigate('/reports/draft/preview', { state: { draft, championId } });
     } catch {
       setError('Draft failed. Check that the backend is running and try again.');
     } finally {

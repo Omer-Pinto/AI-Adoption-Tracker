@@ -75,6 +75,9 @@ export const api = {
   },
   domains: {
     list: (): Promise<Domain[]> => request('/domains'),
+    /** Filter domains by champion — `GET /api/domains?champion_id=<id>` */
+    listByChampion: (championId: number): Promise<Domain[]> =>
+      request(`/domains?champion_id=${encodeURIComponent(String(championId))}`),
     create: (body: Omit<Domain, 'id'>): Promise<Domain> =>
       request('/domains', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: number, body: Partial<Omit<Domain, 'id'>>): Promise<Domain> =>

@@ -152,6 +152,29 @@ def _resolve_domain_id(
     )
 
 
+_GENERAL_DOMAIN_NAME = "General"
+
+
+def _ensure_general_domain(conn: sqlite3.Connection, champion_id: int, team_id: int) -> int:
+    """Ensure a per-champion 'General' catch-all domain exists; return its id.
+
+    Domains are tech/stack areas the user defines manually. 'General' is the one
+    system-provided bucket: the model parks tasks/artifacts it cannot confidently
+    place here, and the user reassigns them to a real domain in the UI."""
+    target = _norm(_GENERAL_DOMAIN_NAME)
+    for row in conn.execute(
+        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+    ).fetchall():
+        if _norm(row["name"]) == target:
+            return row["id"]
+    cur = conn.execute(
+        "INSERT INTO domain (team_id, champion_id, name, description) VALUES (?, ?, ?, ?)",
+        (team_id, champion_id, _GENERAL_DOMAIN_NAME,
+         "Catch-all for items not yet assigned to a specific domain."),
+    )
+    return cur.lastrowid
+
+
 def _resolve_or_create_domain_id(
     conn: sqlite3.Connection, champion_id: int, team_id: int, domain_name: str
 ) -> int:
@@ -232,6 +255,11 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
     team = conn.execute(
         "SELECT id, name FROM team WHERE id = ?", (champ["team_id"],)
     ).fetchone()
+
+    # Guarantee the 'General' catch-all domain exists so it is offered to the
+    # model (as a fallback bucket) and to the UI domain picker.
+    _ensure_general_domain(conn, champion_id, champ["team_id"])
+    conn.commit()
 
     def _artifact_summary(row: sqlite3.Row) -> dict:
         return {

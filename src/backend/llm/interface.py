@@ -173,16 +173,25 @@ exactly as it appears in the notes. Do not decide or mark whether an artifact is
 new or already existing — that is resolved by the backend against the database.
 - Only include domain sections that are actually mentioned in the notes.
 
-DOMAINS vs TEAM-WIDE ARTIFACTS (important):
-- A "domain" is ONLY a team technology / work-stack area (e.g. Backend, Web, \
-Deployment, Monitor & Debug, Data). NEVER invent a domain from "Claude Code", a \
-meeting heading (e.g. "Current Claude Code status"), the adoption process itself, \
-or any non-stack topic. If the notes list the team's domains, use those names.
-- Put a task or artifact under a domain section ONLY when it clearly belongs to \
-that tech/stack area. Cross-cutting Claude Code adoption artifacts that do not \
-belong to a specific tech domain — e.g. a context/documentation pack, a team-wide \
-skill/agent/hook — go in the TOP-LEVEL "artifacts" list (team-wide, no domain), \
-NOT under an invented domain.
+DOMAINS — use ONLY the ones provided in the context (do not invent):
+- The context lists the champion's existing domains (their tech/stack work areas, \
+e.g. Backend, Web, Deployment, Monitor & Debug). Use ONLY those domain names. \
+NEVER invent a new domain, and NEVER make a domain out of "Claude Code", a meeting \
+heading (e.g. "Current Claude Code status"), or the adoption process itself.
+- Assign every task and artifact to the existing domain it best fits. If you \
+cannot confidently place one, put it in the domain named "General" (always present \
+in the context as a catch-all) — the human will reassign it. Do not drop it.
+
+EXISTING vs NEW (tasks & artifacts — the context is the source of truth):
+- The context lists the champion's existing tasks and artifacts (with their \
+domains). For each task/artifact mentioned in the notes, ASSUME it refers to the \
+matching EXISTING one and use that entity's EXACT existing name, so it links to \
+the real record instead of creating a duplicate.
+- Treat a task/artifact as NEW only when the notes explicitly say so (e.g. "new \
+task …", "new skill …", "created a …", "started a new …") OR when nothing in the \
+context plausibly matches it. For a new artifact, set its "type".
+- Match generously on meaning, not just exact spelling (e.g. "the clutter map" → \
+existing task "Clutter map").
 
 GROUPING — one described thing is ONE artifact (do not explode):
 - A single item is ONE artifact even when described with several parts. Example: \
@@ -198,8 +207,8 @@ COMPLETENESS — capture every piece of information (do not drop note lines):
 Account for every line. Do not silently drop any item, category, or detail.
 - Map each item to the structured field that fits it: a task/status/owner/finish \
 date → a "tasks" entry under its domain; a tool/artifact (with its type/tags/ \
-change) → an "artifacts" entry under its domain, OR the top-level team-wide \
-"artifacts" list when it belongs to no tech-stack domain; a follow-up or to-do → an \
+change) → an "artifacts" entry under its best-fit existing domain (or "General" if \
+unsure); a follow-up or to-do → an \
 "action_items" entry (text, and owner/domain/due_date when stated); a person \
 present → "participants"; a domain mentioned → a domain section; a domain \
 attribute change (description/scope/priority/cross_domain) → that domain's \

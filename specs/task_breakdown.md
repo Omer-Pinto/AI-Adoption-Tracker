@@ -259,8 +259,18 @@ Corrective wave from a full live walkaround + backend sweep + targeted reproduct
 | 3 | Prompt: group, don't explode | one described thing = one artifact (e.g. "context md files in a router pattern (architecture, conventions, index, deep-dives)" → ONE `context` artifact, not four); only concrete named tools/skills/agents/hooks/context become artifacts | reproduced: 4 artifacts from one md-file description |
 **Commit:** `Wave 5.5 Agent 5.5E: domains=tech-stacks-only + team-wide artifacts slot + artifact grouping`
 
+### Agent 5.5F: Context-driven assignment + General domain + domain picker (the agreed model)
+**Decisions (Omer):** domains are **manual** (created in Manage first); tasks & artifacts are **report-driven** (mention existing → referenced; write "new …" → created). The model does the real work using the DB context; the UI is the **fix-handle** for its errors (more errors expected on a local/air-gap model).
+| # | Task | Target | Status |
+|---|------|--------|--------|
+| 1 | Prompt: use ONLY provided (existing) domains; assign each task/artifact to its best-fit existing domain; **"General"** catch-all when unsure; never invent a domain | `llm/interface.py` `_SYSTEM_PROMPT` | 🟢 verified |
+| 2 | Prompt: existing-vs-new — reference the matching existing task/artifact by exact name unless notes say "new …"; match on meaning | `llm/interface.py` | 🟢 verified (temp-DB: "Auth service"/"ci-runner" referenced, "rate limiting" new, Claude-Code→discussion) |
+| 3 | Per-champion **"General"** catch-all domain, ensured at draft + offered in context/UI | `reports/engine.py` `_ensure_general_domain` + `build_draft_context` | 🟢 verified |
+| 4 | UI **domain picker** per task/artifact (preview + edit) — moves item between the champion's domains; "Domain: X" labels | `pages/report/*`, `api.ts` `domains.listByChampion` | 🟢 verified (live: moved context pack General→Backend) |
+**Commit:** `Wave 5.5 Agent 5.5F: context-driven domain assignment + General catch-all + per-item domain picker`
+
 ### After Wave 5.5
-- Cherry-pick 5.5A–5.5E. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
+- Cherry-pick 5.5A–5.5F. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
 
 ---
 

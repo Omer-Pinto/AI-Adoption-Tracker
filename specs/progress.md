@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 78% (60/77)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 85% (69/81)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 60 / 77 | 78% |
+| 🟢 Done | 69 / 81 | 85% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 17 | 22% |
+| ⬜ Pending | 12 (Wave 6) | 15% |
 
 ---
 
@@ -26,7 +26,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
 | 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
-| 5.5 | In Progress | 3/5 | 3/5 | 5/18 | Core done + verified (5.5A–C). New: 5.5D nav/preview-clarity (sidebar New Report done) + 5.5E domains=tech-stacks-only & team-wide artifacts slot & artifact grouping (the "Claude Code is not a domain" rule) — pending |
+| 5.5 | Done | 6/6 | 6/6 | 0/22 | Stabilization complete + live-verified. 5.5A–C (backend/extraction/UX), 5.5D nav+preview clarity, 5.5E team-wide slot + grouping, 5.5F context-driven domain assignment + General catch-all + per-item domain picker. Model now references existing entities, never invents a "Claude Code" domain, groups artifacts; UI is the fix-handle |
 | 6 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -200,15 +200,23 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Sidebar "＋ New Report" → /reports/new | 🟢 Done | top of Main nav; unblocks Manage-only users |
-| 2 | Label domain sections "Domain: X" in preview/edit | ⬜ Pending | reduce the "artifacts under Claude Code" confusion |
-| 3 | Render team-wide artifacts block in preview/edit | ⬜ Pending | depends on 5.5E #1 |
+| 2 | Label domain sections "Domain: X" in preview/edit | 🟢 Done | live-verified |
+| 3 | Render team-wide artifacts block in preview/edit | 🟢 Done | top-level artifacts block + domain picker |
 
 ### Agent 5.5E: Domain semantics + team-wide artifacts (`models.py`, `report_schema.json`, `reports/engine.py`, `llm/interface.py`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Top-level team-wide `artifacts` slot in `ReportDocument` (fan-out/replay → domain_id NULL) | ⬜ Pending | DB+views already support the all-team gutter |
-| 2 | Prompt: domains = team tech/stacks only; never invent "Claude Code"/heading domains | ⬜ Pending | Omer's rule |
-| 3 | Prompt: group don't explode (md files → one context artifact); only concrete artifacts | ⬜ Pending | reproduced: 4 artifacts from one description |
+| 1 | Top-level team-wide `artifacts` slot in `ReportDocument` (fan-out/replay → domain_id NULL) | 🟢 Done | engine fan-out+replay handle it |
+| 2 | Prompt: domains = team tech/stacks only; never invent "Claude Code"/heading domains | 🟢 Done | superseded by 5.5F (use only existing domains) |
+| 3 | Prompt: group don't explode (md files → one context artifact); only concrete artifacts | 🟢 Done | live: md-files pack → ONE context artifact |
+
+### Agent 5.5F: Context-driven assignment + General domain + domain picker
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Prompt: use only existing domains; assign best-fit; "General" fallback; never invent | 🟢 Done | live: auth→Backend, context pack→General, no Claude-Code domain |
+| 2 | Prompt: existing-vs-new via context + "new" convention | 🟢 Done | temp-DB verified: existing referenced, "new" created |
+| 3 | Per-champion "General" catch-all domain (ensured at draft) | 🟢 Done | `_ensure_general_domain`; in context+UI |
+| 4 | UI domain picker per task/artifact (preview+edit), moves between domains | 🟢 Done | live: moved context pack General→Backend |
 
 ---
 
