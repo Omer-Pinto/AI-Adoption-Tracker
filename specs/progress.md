@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (81/97)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 88% (85/97)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 81 / 97 | 84% |
+| 🟢 Done | 85 / 97 | 88% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 16 (6 = Wave 8 · 4 = Wave 9 · 3 = Wave 10 · 3 = Wave 11) | 16% |
+| ⬜ Pending | 12 (2 = Wave 8 gates · 4 = Wave 9 · 3 = Wave 10 · 3 = Wave 11) | 12% |
 
 ---
 
@@ -29,7 +29,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
-| 8 | Not Started | 0/1 | 0/1 | 6/6 | Report schema + mining prompt + both-provider structured output (1 agent on llm/+models+report_schema) + 2 Omer gates (prompt+schema; structured-output audit). The contract downstream depends on. Omer tests live |
+| 8 | Build done · gates pending | 1/1 | 1/1 | 2/6 | 8A built + cherry-picked (`396d50b`): existing-domains-only (changes/domain-creation dropped), mining prompt rewrite, optional `id` match-signal on task/artifact entries, both-provider structured output intact. Verified offline (models/schema/imports + OpenAI strict + matched/new validate). **G1 (prompt+schema approval) + G2 (structured-output audit) pending — Omer/ai-engineer** |
 | 9 | Not Started | 0/1 | 0/1 | 4/4 | Report engine — team-scoped context + id-based save + new-in-preview (one agent owns `reports/engine.py`). Builds against Wave 8's approved schema |
 | 10 | Not Started | 0/1 | 0/1 | 3/3 | Report editor (frontend) — JIRA-style links (matched id → chip), team-scoped `@`/`#` picker, NEW label for unmatched. Consumes Wave 9 |
 | 11 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 11A explore+design; then implement (11B+). See `task_breakdown.md` Wave 11 |
@@ -269,10 +269,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 8A: Simplify schema + mining prompt + both-provider structured output (`llm/interface.py`, `models.py`, `report_schema.json`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Simplify report — existing domains only (+General); drop domain create + per-domain `changes` (priority/description) | ⬜ Pending | reverses 5.5A#6 |
-| 2 | Rewrite `_SYSTEM_PROMPT` to MINE every supported category + free-text inference (single-shot) | ⬜ Pending | keep champion/date/verbatim raw_notes |
-| 3 | Per-entity matching: `{id,name}` if matched else `{name,(type),suggested fields}` | ⬜ Pending | team-scoped existing entities |
-| 4 | Structured output for BOTH providers (OpenAI response_format + Anthropic tool), validated | ⬜ Pending | mirror `extract_domains` |
+| 1 | Simplify report — existing domains only (+General); drop domain create + per-domain `changes` (priority/description) | 🟢 Done | `ReportDomainChanges` removed; section now `{domain,tasks,artifacts}`; schema twin matches |
+| 2 | Rewrite `_SYSTEM_PROMPT` to MINE every supported category + free-text inference (single-shot) | 🟢 Done | mining framing; champion/date-resolution/verbatim raw_notes kept; no-invent + General + grouping + completeness preserved |
+| 3 | Per-entity matching: `{id,name}` if matched else `{name,(type),suggested fields}` | 🟢 Done | optional `id` on task+artifact entries; matched→id+exact name (artifact+type), no-match/"new"→no id+suggested |
+| 4 | Structured output for BOTH providers (OpenAI response_format + Anthropic tool), validated | 🟢 Done | both paths derive from `ReportDocument`; OpenAI strict puts `id` in required-nullable; matched/new validate |
 
 ### Wave 8 gates — Omer authorization (orchestrator-run; not parallel agents)
 | # | Gate | Status | Notes |
