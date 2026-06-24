@@ -225,8 +225,7 @@ is ALSO domain_id null. Do not drop the item — it still lives in the flat list
 - CRITICAL ASYMMETRY between the two null id semantics:
   * a null ENTITY "id" MEANS "create a NEW task/artifact".
   * a null "domain_id" does NOT mean "create a new domain" — it means \
-unplaced/team-wide. NEVER invent a domain. Never read domain_id null as "make a \
-domain".
+unplaced/team-wide.
 - NEVER invent a domain, and NEVER make a domain out of "Claude Code", a meeting \
 heading (e.g. "Current Claude Code status"), or the adoption process itself — \
 those are never domains.
