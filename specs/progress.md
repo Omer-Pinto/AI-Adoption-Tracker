@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 87% (81/93)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (81/96)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 81 / 93 | 87% |
+| 🟢 Done | 81 / 96 | 84% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 12 (12 = Wave 8) | 13% |
+| ⬜ Pending | 15 (12 = Wave 8 · 3 = Wave 9) | 16% |
 
 ---
 
@@ -30,7 +30,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
 | 8 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
-| 9 | Needs design | — | — | — | Search bar + DSL on domain/team/champion pages — needs further design and/or decisions (not counted); see `task_breakdown.md` Wave 9 |
+| 9 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 9A explore+design (which pages, DSL keys, grouped-view filtering); design sign-off then implement (9B+). See `task_breakdown.md` Wave 9 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -291,3 +291,16 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 |---|------|--------|-------|
 | 1 | Raw-vs-curated parity test (RAW draft approaches CURATED in richness) | ⬜ Pending | The gate that decides whether the feature lives |
 | 2 | Category-coverage assertions (participants/artifacts/missing-domain/discussion/issues) | ⬜ Pending | |
+
+---
+
+## Wave 9 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (9A → `specs/search_integration.md`); implementation (9B+) is scoped from the approved spec. See `task_breakdown.md` Wave 9.
+
+### Agent 9A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |
+| 2 | Define the DSL keys per surface (reuse team/domain/type/tag/status/date; flag any new key + backend support) | ⬜ Pending | no invented backend |
+| 3 | Decide grouped-view filtering (filter within team groups? collapse empties?) | ⬜ Pending | resolve with Omer |

@@ -378,6 +378,18 @@ Corrective wave on the feature's core purpose. The drafting path under-extracts 
 
 ---
 
-## Wave 9 — Search bar + DSL on entity pages (needs further design and/or decisions)
+## Wave 9 — Search bar + DSL on entity pages (design first, then implement)
 
-> Captured 2026-06-24 so it isn't forgotten — **needs further design and/or decisions before it's actionable.** Consider integrating the existing chip **SearchBar + DSL** (already built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. Open questions to settle with Omer first: which pages actually benefit, which DSL keys map there, and whether grouped views need filtering at all. Decide scope with Omer before any work.
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (9A); implementation (9B+) is scoped from that spec once Omer approves it.
+
+### Agent 9A: Explore + design SearchBar/DSL integration
+**Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
+| 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
+| 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
+**Commit:** `Wave 9 Agent 9A: SearchBar/DSL integration design spec`
+
+### After Wave 9 (9A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (9B+) from the approved spec.
