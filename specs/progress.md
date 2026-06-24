@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-21 | **Branch:** `mvp-spec`
+> **Last updated:** 2026-06-24 | **Branch:** `mvp-spec`
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 85% (69/81)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 83% (74/89)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 69 / 81 | 85% |
+| 🟢 Done | 74 / 89 | 83% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 12 (Wave 6) | 15% |
+| ⬜ Pending | 15 (3 = Wave 5.5H · 12 = Wave 6) | 17% |
 
 ---
 
@@ -26,7 +26,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
 | 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
-| 5.5 | Done | 6/6 | 6/6 | 0/22 | Stabilization complete + live-verified. 5.5A–C (backend/extraction/UX), 5.5D nav+preview clarity, 5.5E team-wide slot + grouping, 5.5F context-driven domain assignment + General catch-all + per-item domain picker. Model now references existing entities, never invents a "Claude Code" domain, groups artifacts; UI is the fix-handle |
+| 5.5 | In Progress | 7/8 | 7/8 | 3/30 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). **5.5H PENDING** — consolidate the two confusing domain-add buttons into one "Add Domain(s)" box + fix modal-vs-page inconsistency |
 | 6 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -217,6 +217,22 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 2 | Prompt: existing-vs-new via context + "new" convention | 🟢 Done | temp-DB verified: existing referenced, "new" created |
 | 3 | Per-champion "General" catch-all domain (ensured at draft) | 🟢 Done | `_ensure_general_domain`; in context+UI |
 | 4 | UI domain picker per task/artifact (preview+edit), moves between domains | 🟢 Done | live: moved context pack General→Backend |
+
+### Agent 5.5G: Domain setup redesign — text→domains extraction + symmetric links (BUILT, commit b336eaf)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | `POST /api/domains/extract` (text → domain proposals) via SDK + Pydantic | 🟢 Done | live: 4 domains, priority ranked from "1→4→3→2" |
+| 2 | Remove `scope` everywhere; `priority` → free TEXT | 🟢 Done | schema/models/report_schema/engine/routes/frontend |
+| 3 | Symmetric `domain_link` cross-domains across ALL teams ("Team: Domain") | 🟢 Done | live: add+remove propagate both ways |
+| 4 | Shared `DomainForm` (edit + approve-extracted) + "Set up domains" flow | 🟢 Done | live setup flow; champion auto when sole |
+| 5 | CC Baseline relabeled "Current Claude Code status" + real placeholder | 🟢 Done | |
+
+### Agent 5.5H: Domain-add UX consolidation (⬜ PENDING — next session)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Merge the two domain buttons ("Set up domains" grey + "+ Add Domain" purple) into ONE "Add Domain(s)" | ⬜ Pending | confusing duplicate, different colors |
+| 2 | One box, two flavours: manual single-domain + multi-domain LLM extraction | ⬜ Pending | reuse DomainForm + extract flow |
+| 3 | Consistent surface — domain-add same kind (modal) as team/champion/edit, NOT a separate page; retire `/domains/setup` page | ⬜ Pending | sidebar item already removed |
 
 ---
 

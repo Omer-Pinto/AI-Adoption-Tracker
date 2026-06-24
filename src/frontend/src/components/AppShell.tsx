@@ -36,9 +36,6 @@ export function AppShell() {
           <NavLink to="/manage" className={navClass}>
             <span className="nav-icon">&#9881;</span> Manage
           </NavLink>
-          <NavLink to="/domains/setup" className={navClass}>
-            <span className="nav-icon">&#9670;</span> Set up domains
-          </NavLink>
         </div>
       </nav>
 

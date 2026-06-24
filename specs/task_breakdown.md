@@ -269,6 +269,26 @@ Corrective wave from a full live walkaround + backend sweep + targeted reproduct
 | 4 | UI **domain picker** per task/artifact (preview + edit) — moves item between the champion's domains; "Domain: X" labels | `pages/report/*`, `api.ts` `domains.listByChampion` | 🟢 verified (live: moved context pack General→Backend) |
 **Commit:** `Wave 5.5 Agent 5.5F: context-driven domain assignment + General catch-all + per-item domain picker`
 
+### Agent 5.5G: Domain setup redesign — text→domains extraction + symmetric links (BUILT)
+**Decisions (Omer):** manual per-field domain entry was unacceptable. A second, simpler LLM call turns one text block into MANY domains. `scope` is redundant with `description` → removed. `priority` is free text. `cross_domain` free-text → symmetric multi-select of domains across ALL teams.
+| # | Task | Target | Status |
+|---|------|--------|--------|
+| 1 | `POST /api/domains/extract` — text → `{domains:[{name, description, priority}]}` proposals (not saved). New `extract_domains()` + `DomainExtraction`/`DomainProposal` (OpenAI/Anthropic SDK + Pydantic) | `llm/interface.py`, `routes/management.py` | 🟢 verified (live: 4 domains, priority ranked from "1→4→3→2") |
+| 2 | Remove `scope` everywhere; `priority` → free TEXT | `schema.sql`, `models.py`, `report_schema.json`, `reports/engine.py`, `routes/*`, frontend | 🟢 verified |
+| 3 | `cross_domain` → symmetric `domain_link` table; domain → multi-select of domains across ALL teams ("Team: Domain"); add/remove propagate both ways; `Domain` returns `team_name` + `cross_domains[]` | `schema.sql`, `models.py`, `routes/management.py`, `domain_helpers.py` | 🟢 verified (live: add+remove symmetry) |
+| 4 | Shared `DomainForm` used identically for edit-existing AND approve-extracted; "Set up domains" flow (pick team → champion auto when sole → paste text → extract → approve each) | `pages/manage/DomainForm.tsx`, `pages/domain/DomainSetupPage.tsx` | 🟢 verified (live setup flow) |
+| 5 | CC Baseline relabeled "Current Claude Code status" + real placeholder | `pages/manage/TeamForm.tsx` | 🟢 done |
+**Commit:** `Domain redesign: text->domains LLM extraction, symmetric cross-links, drop scope` (b336eaf)
+
+### Agent 5.5H: Domain-add UX consolidation (⬜ PENDING — next session)
+**Bug + reframe (Omer):** the Manage → domains tab now shows TWO confusing buttons — **"Set up domains"** (grey/secondary `btn-secondary`, opens a SEPARATE PAGE `/domains/setup`) and **"+ Add Domain"** (purple/primary `btn-primary`, opens a MODAL for one domain). Different colors, duplicated-seeming purpose. Worse: add team / champion / single-domain are **modals (popups)** but multi-domain is a **separate page** — inconsistent, feels unconsidered.
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | **Merge the two buttons into ONE "Add Domain(s)"** button | `pages/manage/ManagePage.tsx` | remove the duplicate/colored second button |
+| 2 | One box with **two flavours**: (a) manual single-domain insert (used rarely), (b) multi-domain LLM extraction (paste text → propose → approve) | reuse `DomainForm` + the extract flow inside the box | both reachable from the one button |
+| 3 | **Consistent surface:** match the rest of management — the domain-add box should be the SAME kind of surface (modal/popup) as add-team / add-champion / edit, NOT a separate page. Decide modal vs page once and apply uniformly; retire the standalone `/domains/setup` page (or fold it into the modal) | `pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx` | the sidebar item was already removed |
+**Commit:** `Wave 5.5 Agent 5.5H: unify domain-add into one "Add Domain(s)" box (manual + LLM), consistent modal surface`
+
 ### After Wave 5.5
 - Cherry-pick 5.5A–5.5F. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
 
