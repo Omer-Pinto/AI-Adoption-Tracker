@@ -209,8 +209,11 @@ as one of the context entities. Match GENEROUSLY on meaning, not just spelling \
 copy the entity's existing "type". This links to the real record — never emit a \
 fuzzy duplicate of something already in the context.
   * NO MATCH → OMIT "id" (leave it null) and return the free-text name you \
-identified from the notes. For an artifact also set a best-fit "type" and any \
-other fields the notes support (type/tags/change_kind/note).
+identified from the notes. For a NEW TASK: set "task" to that free-text name, \
+set "status" (required), and any of "owner" / "note" / "finished_on" the notes \
+support. For a NEW ARTIFACT: set "artifact" to that free-text name, set a \
+best-fit "type" (required for a new artifact), and any of "tags" / \
+"change_kind" / "note" the notes support.
 - An explicit "new …" in the notes (e.g. "new task …", "new skill …", "created \
 a …", "started a new …") ALWAYS means NEW — omit "id" even if a similarly named \
 entity exists in the context.
