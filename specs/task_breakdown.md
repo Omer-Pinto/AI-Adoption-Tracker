@@ -321,81 +321,84 @@ Builds exactly what the approved `specs/domain_add_ux.md` defines: **two clearly
 
 ---
 
-## Wave 8 — Report extraction: simplify, mine, team-scoped entity matching (backend)
+## Wave 8 — Report schema + mining prompt + both-provider structured output (1 agent + 2 gates)
 
-The report draft (a) under-extracts from RAW notes vs a curated note and (b) still carries domain-management baggage that now belongs to the Smart-extract flow. Wave 8 makes the report **reference existing domains only** (drops domain creation + the per-domain `changes` priority/description), **mines** raw notes into every supported `ReportDocument` category, and gives the model the **team's existing tasks & artifacts (full fields + id)** so it reuses a real row by **id** or proposes a new one. **Single-shot** (no live tool loop), **both providers**, structured outputs each in its own form. Two **Omer-authorization gates** (prompt+schema; both-provider structured-output quality) — like the domain-extraction round. **No automated parity test — Omer tests live (statistical, by feel).** The JIRA-style mention/link UI is the separate **Wave 9** (consumes Wave 8's id output).
+**This is the contract everything downstream depends on, so it is its own wave.** Simplify the report and make it mine raw notes: the report references **existing domains only** (drops domain creation + the per-domain `changes` priority/description — domains are owned by the Smart-extract flow); the prompt **mines** every supported `ReportDocument` category (single-shot); per-entity matching returns `{id, name}` when a mention matches an existing entity, else `{name, type (artifacts), …suggested fields}`; structured output for **both** providers, each its own form. Two Omer-authorization gates close the wave. **No automated test — Omer tests live.** Single build agent on `llm/`+`models.py`+`report_schema.json`; the engine that consumes this is the next wave (it edits a different file, `reports/engine.py`).
 
-> **Read first:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths, the `extract_domains` / `draft_report` patterns), `src/backend/models.py` (`ReportDocument` + nested), `src/backend/report_schema.json`, `src/backend/reports/engine.py` (`build_draft_context` + fan-out save path), `src/backend/routes/reports.py`.
+> **Read first:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths, `extract_domains` / `draft_report`), `src/backend/models.py` (`ReportDocument`), `src/backend/report_schema.json`.
 
-> **Entity matching contract (Omer's design):** context passes ONLY the **team's** tasks & artifacts, each as key-value JSON **+ id**. For each task/artifact the note mentions: **match → return its `id` + name** (artifacts also `type`); **no match → return the free text identified as the task/artifact + name** (artifacts: + `type`) **+ any other fields the note suggests.** IDs are **globally unique across all teams** (like JIRA) — the existing integer primary keys already satisfy this and serve as the link/match id.
+> **Entity-matching contract (Omer's design):** the context (built in Wave 9) passes ONLY the **team's** tasks & artifacts, each as key-value JSON **+ id**. Match → return `id` + name (artifacts also `type`); no match → return the free text identified as the task/artifact + name (artifacts: + `type`) + any other suggested fields. IDs are globally unique across teams (existing integer PKs) and serve as the link/match id.
 
-### Agent 8A: Simplify schema + rewrite mining prompt + both-provider structured output — Omer-gated
-**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths), `src/backend/models.py`, `src/backend/report_schema.json`
+### Agent 8A: Simplify schema + rewrite mining prompt + both-provider structured output
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py`, `src/backend/models.py`, `src/backend/report_schema.json`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Simplify the report | `ReportDocument` + `report_schema.json`: report references **existing domains only** (+ "General"); **remove domain creation and the per-domain `changes` (priority/description)** — domains are owned by the Smart-extract flow now | Q-A; reverses 5.5A#6 auto-create |
-| 2 | Rewrite `_SYSTEM_PROMPT` to MINE, not transcribe | fill every `ReportDocument` category the notes support; free-text inference (prose → participants/artifacts/issues/discussion); keep champion / meeting_date / verbatim raw_notes | single-shot; never fabricate, but never drop |
-| 3 | Per-entity matching contract | each task/artifact entry returns `{id, name}` when it matches a passed-in existing entity, else `{name (as identified), type (artifacts), …suggested fields}`; explicit "new …" stays new | see the entity-matching contract above |
-| 4 | Structured output for BOTH providers (each its own form) | OpenAI `response_format` (strict) + Anthropic forced-tool `input_schema`, both from the same Pydantic model; validated | mirror `extract_domains` |
+| 1 | Simplify the report | existing domains only (+ "General"); remove domain creation + the per-domain `changes` (priority/description) | Q-A; reverses 5.5A#6 |
+| 2 | Rewrite `_SYSTEM_PROMPT` to MINE, not transcribe | fill every `ReportDocument` category the notes support; free-text inference; keep champion / meeting_date / verbatim raw_notes | single-shot; never fabricate, never drop |
+| 3 | Per-entity matching contract | `{id, name}` if matched else `{name, type (artifacts), …suggested fields}`; explicit "new …" stays new | per the contract above |
+| 4 | Structured output for BOTH providers | OpenAI `response_format` (strict) + Anthropic forced-tool `input_schema`, same Pydantic model, validated | mirror `extract_domains` |
 **Commit:** `Wave 8 Agent 8A: simplify report schema + mining prompt + both-provider structured output`
 
-### Agent 8B: Team-scoped entity context
-**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (`build_draft_context`)
-| # | Task | Target | Notes |
-|---|------|--------|-------|
-| 1 | Pass ONLY the team's tasks & artifacts | full fields as key-value JSON **+ id**, scoped to the report's **team** (not just the champion) | single-shot context, no live lookup tool |
-| 2 | Trim domain baggage from context | carry existing domains by name only (for placement) — no domain-attribute payload | aligns with the simplified schema |
-**Commit:** `Wave 8 Agent 8B: team-scoped task/artifact context (id + full fields)`
-
-### Agent 8C: Save path uses returned ids; new entries surfaced in preview
-**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (fan-out save), `src/backend/routes/reports.py` (only if a preview flag is needed)
-| # | Task | Target | Notes |
-|---|------|--------|-------|
-| 1 | Matched entry → resolve by `id` | a returned `id` saves to that exact existing row (no fuzzy re-match, no duplicate) | ids are globally-unique PKs |
-| 2 | New/unmarked entry → surface in preview as NEW | per Q2: a mention with no id and not "new" is shown in the preview **as a new task/artifact**; Omer accepts/edits/rejects; created on confirm | not auto-created silently |
-**Commit:** `Wave 8 Agent 8C: id-based save resolution + new entries surfaced in preview`
-
-### Wave 8 gates — Omer authorization (required)
+### Wave 8 gates — Omer authorization (orchestrator-run; not parallel agents)
 | # | Gate | Owner | Notes |
 |---|------|-------|-------|
-| G1 | **Omer reviews & approves the rewritten prompt + simplified `ReportDocument` schema** before 8B/8C are called done | Omer + orchestrator | the prompt and the structured-output schema, verbatim — like the domains review |
-| G2 | **Both-provider structured-output quality check** — `ai-engineer` confirms OpenAI + Anthropic structured outputs are each implemented correctly (its own form) and validated; Omer signs off | Omer + `ai-engineer` | same audit as the domain-extraction round |
+| G1 | **Omer reviews & approves the rewritten prompt + simplified `ReportDocument` schema** (verbatim) before Wave 9 starts | Omer + orchestrator | like the domains review |
+| G2 | **Both-provider structured-output audit** — `ai-engineer` confirms OpenAI + Anthropic structured outputs each implemented correctly (its own form) + validated; Omer signs off | Omer + `ai-engineer` | same audit as domain extraction |
 
 ### After Wave 8
-- G1 + G2 passed. A raw note drafts a rich report that references existing domains, matches the team's existing tasks/artifacts by `id` (no duplicates), and proposes new ones as NEW in the preview for Omer to accept. Both providers' structured outputs verified. Omer validates live — no automated test.
+- 8A cherry-picked; **G1 + G2 passed.** The prompt + simplified schema are frozen — Wave 9 builds the engine against them.
 
 ---
 
-## Wave 9 — Report editor: JIRA-style entity links + team-scoped @/# mentions (frontend)
+## Wave 9 — Report engine: team-scoped context + id-based save (1 agent)
 
-Consumes Wave 8's id-returning draft. When the model matched a mention to an existing task/artifact (returned an `id`), the report **preview/edit renders it as a JIRA-style linked chip** (the "rename" link). On edit, **`@` (task) / `#` (artifact) opens a list of the team's relevant tasks/artifacts** to pick; selecting links by id. (Reworks the Wave-3C global mentions into team-scoped, id-linked.)
+Builds the engine against Wave 8's **approved** schema/prompt. **One agent** — it owns `reports/engine.py` (both the draft-context and the save path), so it cannot be split into parallel agents on the same file.
 
-### Agent 9A: JIRA-style entity links + team-scoped mention picker
+### Agent 9A: Team-scoped context + id-based save + new-in-preview
+**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py`, `src/backend/routes/reports.py`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Team-scoped context | `build_draft_context` passes ONLY the team's tasks & artifacts (full fields + id), scoped to the report's **team** | single-shot; no live lookup tool |
+| 2 | Trim domain baggage from context | existing domain names only (for placement) | aligns with the simplified schema |
+| 3 | Matched entry → resolve by `id` | a returned `id` saves to that exact existing row (no fuzzy, no duplicate) | ids globally-unique PKs |
+| 4 | New/unmarked entry → surface as NEW in preview | per Q2: shown as a new task/artifact for Omer to accept/edit/reject; created on confirm | not auto-created silently |
+**Commit:** `Wave 9 Agent 9A: team-scoped context + id-based save + new-in-preview`
+
+### After Wave 9
+- A raw note drafts a rich report referencing existing domains, matching the team's tasks/artifacts by `id` (no duplicates), and proposing new ones as NEW in the preview. Omer validates live — no automated test.
+
+---
+
+## Wave 10 — Report editor: JIRA-style links + team-scoped @/# mentions + NEW markers (1 agent)
+
+Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style linked chips; new ones as a "new"-flagged variant of the same chip; `@`/`#` opens a team-scoped picker that links by id.
+
+### Agent 10A: JIRA-style entity links + team-scoped mention picker + NEW markers
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/report/*`, `src/frontend/src/api.ts`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Render matched entries (with `id`) as JIRA-style linked chips | preview + edit; click → the entity | depends on Wave 8's id output |
-| 2 | `@`/`#` opens a **team-scoped** list of tasks/artifacts; select links by id | reworks the Wave-3C global mention list | team scope, not all-teams |
+| 1 | Matched entries (with `id`) → JIRA-style linked chips | preview + edit; click → the entity | depends on Wave 9 id output |
+| 2 | `@`/`#` opens a **team-scoped** list of tasks/artifacts; select links by id | reworks the Wave-3C global mentions | team scope, not all-teams |
 | 3 | Mark **NEW** (unmatched) tasks/artifacts with a clear "NEW" label/badge | preview + edit; visually distinct from the matched linked chips (new = no `id`) | exact visual is the frontend agent's call — badge / label / grouped "new" list |
-**Commit:** `Wave 9 Agent 9A: JIRA-style entity links + team-scoped @/# mentions + NEW markers`
+**Commit:** `Wave 10 Agent 10A: JIRA-style entity links + team-scoped @/# mentions + NEW markers`
 
-### After Wave 9
-- In the report editor, matched entities show as linked chips, **new (unmatched) entities are clearly labelled NEW**, and `@`/`#` lists the team's tasks/artifacts and links by id.
+### After Wave 10
+- Matched entities show as linked chips, new ones as NEW-flagged, and `@`/`#` lists the team's tasks/artifacts and links by id.
 
 ---
 
-## Wave 10 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 11 — Search bar + DSL on entity pages (design first, then implement)
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (10A); implementation (10B+) is scoped from that spec once Omer approves it.
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (11A); implementation (11B+) is scoped from that spec once Omer approves it.
 
-### Agent 10A: Explore + design SearchBar/DSL integration
+### Agent 11A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 10 Agent 10A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 11 Agent 11A: SearchBar/DSL integration design spec`
 
-### After Wave 10 (10A)
-- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (10B+) from the approved spec.
+### After Wave 11 (11A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (11B+) from the approved spec.
