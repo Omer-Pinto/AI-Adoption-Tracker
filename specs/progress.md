@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 88% (85/97)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 94% (91/97)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 85 / 97 | 88% |
+| 🟢 Done | 91 / 97 | 94% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 12 (2 = Wave 8 gates · 4 = Wave 9 · 3 = Wave 10 · 3 = Wave 11) | 12% |
+| ⬜ Pending | 6 (3 = Wave 10 · 3 = Wave 11) | 6% |
 
 ---
 
@@ -29,8 +29,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
-| 8 | Build done · gates pending | 1/1 | 1/1 | 2/6 | 8A built + cherry-picked (`194fef0`, +cleanup `2d559ef`). **REDESIGNED per Omer**: report is now FLAT (top-level `tasks`/`artifacts`, no domain tree); each entry id-matches its ENTITY (`id`) AND its DOMAIN (`domain_id`+`domain`, null=unplaced, never mints a domain); `report_schema.json` DELETED (Pydantic = sole source); `extra="forbid"`; `summary` added to artifacts; action-items no-overlap + discussion/issues catch-all defined. Verified offline (flat schema, OpenAI strict builds, extra=forbid rejects unknown/old-shape). G2 structured-output audit ran → **PASS**. **G1 (Omer approves new prompt+schema) + G2 sign-off pending. Not live-testable until Wave 9 (engine) + likely Wave 10 (editor UI).** |
-| 9 | Not Started | 0/1 | 0/1 | 4/4 | Report engine — team-scoped context + id-based save + new-in-preview (one agent owns `reports/engine.py`). Builds against Wave 8's approved schema |
+| 8 | Done | 1/1 | 1/1 | 0/6 | 8A FLAT redesign (`194fef0`+`2d559ef`): top-level `tasks`/`artifacts`, entity `id` + domain `domain_id`/`domain` matching, `report_schema.json` deleted, `extra="forbid"`, `summary`. **G1 APPROVED by Omer**; G2 structured-output audit **PASS**. |
+| 9 | Done | 1/1 | 1/1 | 0/4 | Flat id-based engine (`d696420` + dup-fix `2554a35` + cleanup `c6f584a`). Team-scoped id-bearing `build_draft_context`; id-matched save with **id back-fill**; replay back-fills too so an entity added on EDIT can't duplicate (CRITICAL review catch, fixed+proven); domain-changes machinery removed; `summary`/`note` split; `seed.py` reseeded flat (§6 intact). Verified in worktree throwaway DB (no-dup across save/edit-add/re-edit; §6 trace); `import app` clean on mvp. Full live test needs Wave 10 editor UI. |
 | 10 | Not Started | 0/1 | 0/1 | 3/3 | Report editor (frontend) — JIRA-style links (matched id → chip), team-scoped `@`/`#` picker, NEW label for unmatched. Consumes Wave 9 |
 | 11 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 11A explore+design; then implement (11B+). See `task_breakdown.md` Wave 11 |
 
@@ -277,8 +277,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Wave 8 gates — Omer authorization (orchestrator-run; not parallel agents)
 | # | Gate | Status | Notes |
 |---|------|--------|-------|
-| G1 | Omer reviews & approves rewritten prompt + flat `ReportDocument` schema (verbatim) before Wave 9 | ⬜ Pending | new flat id-matched design; Omer will test live (needs Wave 9/10) |
-| G2 | `ai-engineer` confirms both providers' structured outputs implemented + validated; Omer signs off | ⬜ Pending | **ai-engineer audit ran → PASS** (OpenAI strict + Anthropic forced-tool, extra=forbid aligns both); awaiting Omer sign-off |
+| G1 | Omer reviews & approves rewritten prompt + flat `ReportDocument` schema | 🟢 Done | **APPROVED by Omer**; greenlit Wave 9. Live-feel test deferred to Wave 10 UI |
+| G2 | `ai-engineer` confirms both providers' structured outputs implemented + validated | 🟢 Done | ai-engineer audit **PASS** (OpenAI strict + Anthropic forced-tool, extra=forbid aligns both) |
 
 ---
 
@@ -289,10 +289,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 9A: Team-scoped context + id-based save + new-in-preview (`reports/engine.py`, `routes/reports.py`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Team-scoped context — `build_draft_context` passes only the team's tasks/artifacts (full fields + id) | ⬜ Pending | scoped to team, not champion |
-| 2 | Trim domain baggage from context (existing domain names only) | ⬜ Pending | aligns with simplified schema |
-| 3 | Matched entry → resolve by `id` to that exact row (no fuzzy, no duplicate) | ⬜ Pending | ids globally unique PKs |
-| 4 | New/unmarked entry → shown as NEW in preview; Omer accepts/edits/rejects (Q2) | ⬜ Pending | not auto-created silently |
+| 1 | Team-scoped context — `build_draft_context` passes the team's tasks/artifacts/domains, each with `id` | 🟢 Done | team-scoped; tasks `{id,name,status,owner,domain_id,domain}`, artifacts `{id,...,domain_id,domain}`, domains `{id,name,description}`; `champion_name` key kept; General ensured |
+| 2 | Domains for placement (existing only); `domain_id`+`domain` per entry; null=unplaced (General/team-wide), never mints a domain | 🟢 Done | resolve-only domain helper; domain-changes machinery removed from save+replay |
+| 3 | Matched entry → resolve by `id` to that exact row (no fuzzy, no duplicate); **id back-fill** on save AND replay | 🟢 Done | foreign-id rejected (team-scope verify→422); back-fill persists resolved ids so edit-added entities can't duplicate (CRITICAL review catch, fixed) |
+| 4 | New (id-None) entry → created on confirm; surfaced as NEW for the editor (Wave 10) | 🟢 Done | engine creates on save; `summary`/`note` split fixed; `seed.py` flat (§6 intact). Worktree throwaway-DB proof: no dup across save/edit-add/re-edit |
 
 ---
 
