@@ -95,11 +95,6 @@ export default function ManagePage() {
       render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
     },
     {
-      key: 'team',
-      header: 'Team',
-      render: (row) => <span className="text-muted">{teamById(row.team_id)}</span>,
-    },
-    {
       key: 'start_date',
       header: 'Start',
       render: (row) => <span className="text-muted">{row.start_date ?? '—'}</span>,
@@ -132,27 +127,23 @@ export default function ManagePage() {
 
   // Sort by numeric priority ascending (lower number = higher priority),
   // rows with no/blank/non-numeric priority sort to the bottom.
-  const sortedDomains = [...domains].sort((a, b) => {
-    const pa = Number(a.priority);
-    const pb = Number(b.priority);
-    const aValid = a.priority != null && a.priority.trim() !== '' && Number.isFinite(pa);
-    const bValid = b.priority != null && b.priority.trim() !== '' && Number.isFinite(pb);
-    if (aValid && bValid) return pa - pb;
-    if (aValid) return -1;
-    if (bValid) return 1;
-    return 0;
-  });
+  const sortByPriority = (rows: Domain[]) =>
+    [...rows].sort((a, b) => {
+      const pa = Number(a.priority);
+      const pb = Number(b.priority);
+      const aValid = a.priority != null && a.priority.trim() !== '' && Number.isFinite(pa);
+      const bValid = b.priority != null && b.priority.trim() !== '' && Number.isFinite(pb);
+      if (aValid && bValid) return pa - pb;
+      if (aValid) return -1;
+      if (bValid) return 1;
+      return 0;
+    });
 
   const domainColumns: Column<Domain>[] = [
     {
       key: 'name',
       header: 'Name',
       render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
-    },
-    {
-      key: 'team',
-      header: 'Team',
-      render: (row) => <span className="text-muted">{row.team_name || teamById(row.team_id)}</span>,
     },
     {
       key: 'champion',
@@ -210,6 +201,40 @@ export default function ManagePage() {
       ),
     },
   ];
+
+  // Group rows by team_id, ordered by the teams list, then any leftover teams.
+  function groupByTeam<Row extends { team_id: number }>(rows: Row[]) {
+    const byTeam = new Map<number, Row[]>();
+    for (const r of rows) {
+      const list = byTeam.get(r.team_id);
+      if (list) list.push(r);
+      else byTeam.set(r.team_id, [r]);
+    }
+    const orderedIds = [
+      ...teams.map((t) => t.id).filter((id) => byTeam.has(id)),
+      ...[...byTeam.keys()].filter((id) => !teams.some((t) => t.id === id)),
+    ];
+    return orderedIds.map((id) => ({
+      teamId: id,
+      teamName: teamById(id),
+      rows: byTeam.get(id) ?? [],
+    }));
+  }
+
+  function TeamGroupHeader({ name }: { name: string }) {
+    return (
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: '#374151',
+          padding: '14px 0 8px',
+        }}
+      >
+        {name}
+      </div>
+    );
+  }
 
   const tabLabels: { id: ActiveTab; label: string; count: number }[] = [
     { id: 'teams', label: 'Teams', count: teams.length },
@@ -301,22 +326,40 @@ export default function ManagePage() {
               empty="No teams yet. Click + Add Team to create one."
             />
           )}
-          {tab === 'champions' && (
-            <DataTable
-              columns={championColumns}
-              rows={champions}
-              rowKey={(r) => r.id}
-              empty="No champions yet. Click + Add Champion to create one."
-            />
-          )}
-          {tab === 'domains' && (
-            <DataTable
-              columns={domainColumns}
-              rows={sortedDomains}
-              rowKey={(r) => r.id}
-              empty="No domains yet. Click + Add Domain to create one."
-            />
-          )}
+          {tab === 'champions' &&
+            (champions.length === 0 ? (
+              <div className="page-body text-muted text-sm">
+                No champions yet. Click + Add Champion to create one.
+              </div>
+            ) : (
+              groupByTeam(champions).map((group) => (
+                <div key={group.teamId}>
+                  <TeamGroupHeader name={group.teamName} />
+                  <DataTable
+                    columns={championColumns}
+                    rows={group.rows}
+                    rowKey={(r) => r.id}
+                  />
+                </div>
+              ))
+            ))}
+          {tab === 'domains' &&
+            (domains.length === 0 ? (
+              <div className="page-body text-muted text-sm">
+                No domains yet. Click + Add Domain to create one.
+              </div>
+            ) : (
+              groupByTeam(domains).map((group) => (
+                <div key={group.teamId}>
+                  <TeamGroupHeader name={group.teamName} />
+                  <DataTable
+                    columns={domainColumns}
+                    rows={sortByPriority(group.rows)}
+                    rowKey={(r) => r.id}
+                  />
+                </div>
+              ))
+            ))}
         </div>
       </div>
 

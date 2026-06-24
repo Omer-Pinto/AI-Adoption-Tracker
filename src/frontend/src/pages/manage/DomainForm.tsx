@@ -225,6 +225,15 @@ export function DomainForm({
   const filteredChampions =
     teamId ? champions.filter((c) => c.team_id === Number(teamId)) : champions;
 
+  // When the selected team has exactly one champion, auto-select it silently
+  // (but the dropdown is still always shown below).
+  useEffect(() => {
+    if (filteredChampions.length === 1 && filteredChampions[0]) {
+      const soleId = String(filteredChampions[0].id);
+      if (championId !== soleId) setChampionId(soleId);
+    }
+  }, [filteredChampions, championId]);
+
   const title = editing ? `Edit Domain: ${editing.name}` : 'Add Domain';
 
   async function handleSubmit() {

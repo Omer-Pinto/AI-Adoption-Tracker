@@ -208,8 +208,6 @@ export default function DomainSetupPage() {
     });
   }, [selectedTeamId]);
 
-  const singleChampion = champions.length === 1;
-
   async function handleExtract() {
     if (!text.trim()) return;
     // 5B — warn before discarding unsaved edited (dirty, not-yet-saved) proposals.
@@ -306,45 +304,21 @@ export default function DomainSetupPage() {
                 </div>
 
                 {selectedTeamId && (
-                  <>
-                    {singleChampion && champions[0] ? (
-                      <div className="form-row">
-                        <label className="form-label">Champion</label>
-                        <div
-                          className="form-input prefilled"
-                          style={{ display: 'flex', alignItems: 'center' }}
-                        >
-                          {champions[0].name}
-                          <span
-                            style={{
-                              marginLeft: 8,
-                              fontSize: 11,
-                              color: '#6b7280',
-                              fontWeight: 400,
-                            }}
-                          >
-                            (auto-selected — only champion for this team)
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="form-row">
-                        <label className="form-label form-label-required">Champion</label>
-                        <select
-                          className="form-select"
-                          value={selectedChampionId}
-                          onChange={(e) => setSelectedChampionId(e.target.value)}
-                        >
-                          <option value="">Select champion…</option>
-                          {champions.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </>
+                  <div className="form-row">
+                    <label className="form-label form-label-required">Champion</label>
+                    <select
+                      className="form-select"
+                      value={selectedChampionId}
+                      onChange={(e) => setSelectedChampionId(e.target.value)}
+                    >
+                      <option value="">Select champion…</option>
+                      {champions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </>
             )}

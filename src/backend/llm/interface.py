@@ -415,11 +415,27 @@ Rules:
 - name: a short, clear domain name (2-5 words max).
 - description: the tech/scope words that describe what this domain covers \
 (key technologies, systems, responsibilities). Keep it concise.
-- priority: a plain integer rank (1, 2, 3, …) — 1 being highest priority — \
-whenever the text states or implies an ordering (e.g. \
-"Priority Order: 1 -> 4 -> 3 -> 2", or domains simply listed in priority order). \
-If the text gives no ordering for a domain, use null. NEVER output words or \
-labels such as "high", "P1", or "medium"; priority is ALWAYS an integer or null.
+- priority: a plain integer rank — 1 = highest priority, 2 = next, etc. \
+Determine it as follows:
+  * If the text has an explicit ordering line like \
+"Priority Order: a -> b -> c -> …": the arrow sequence is a ranking over the \
+domains' LIST POSITIONS (1 = the first domain listed above, 2 = the second, …). \
+The i-th element of the sequence is the list-position of the domain whose \
+priority rank is i. So assign: the domain at the position named by the 1st \
+sequence element gets priority 1, the domain at the position named by the 2nd \
+element gets priority 2, and so on. \
+WORKED EXAMPLE — domains listed in order [1=Backend, 2=Web, 3=Deployment, \
+4=Monitor], with "Priority Order: 1 -> 4 -> 3 -> 2": sequence elem 1 is `1` so \
+list-position 1 (Backend) → priority 1; elem 2 is `4` so list-position 4 \
+(Monitor) → priority 2; elem 3 is `3` so list-position 3 (Deployment) → \
+priority 3; elem 4 is `2` so list-position 2 (Web) → priority 4. Result: \
+Backend=1, Web=4, Deployment=3, Monitor=2. (Do NOT just number domains \
+top-to-bottom in list order when such a line is present.)
+  * If domains are simply listed in priority order with NO explicit ordering \
+line, the list order IS the priority: first listed → 1, second → 2, etc.
+  * If there is no ordering at all, use null.
+NEVER output words or labels such as "high", "P1", or "medium"; priority is \
+ALWAYS a plain integer or null.
 - Do NOT invent domains not evidenced in the text.
 - Do NOT make "Claude Code", "AI Adoption", or the adoption process itself a domain.
 - Return only concrete technical/product work areas the team owns.
