@@ -2,7 +2,7 @@
 
 > **Created:** 2026-06-17 | **Status:** Draft | **Branch:** `mvp-spec`
 > **Spec:** `specs/spec.md` (authoritative). `mvp/` HTML = visual reference only.
-> **Execution:** Sonnet agents by default (per user); escalate only if a task stalls. The orchestrator (main session) **never writes code** — it only plans, dispatches agents, verifies, and cherry-picks. **Every** build task — sequential Wave-0 setup and integration fixes included — is done by an expert agent. The sole orchestrator hands-on action is the `cp` in 0.4, to guarantee the SoccerSmartBet read-only boundary.
+> **Execution:** **Opus** expert agents (per user — never Sonnet). The orchestrator (main session) **never writes code** — it only plans, dispatches agents, verifies, and cherry-picks. **Every** build task — sequential Wave-0 setup and integration fixes included — is done by an expert agent. The sole orchestrator hands-on action is the `cp` in 0.4, to guarantee the SoccerSmartBet read-only boundary.
 
 ## Guiding Principle
 
@@ -204,11 +204,11 @@ A final gate so no decision rots in `specs/decisions.md`. Contents are **TBD** �
 
 ## Wave 5.5 — Stabilization (bugs + edit/save UX before extraction depth)
 
-Corrective wave from a full live walkaround + backend sweep + targeted reproduction. The app *runs* (every screen renders; all 25 endpoints respond, no 500s) but it is not yet trustworthy to operate. This wave fixes the **reproduced** defects so Wave 6 builds on a stable base. Each item below was reproduced live — not assumed. 5.5A (`src/backend/` routes/engine/schema), 5.5B (`src/backend/llm/interface.py`), and 5.5C (`src/frontend/`) own disjoint trees → safe in parallel.
+Corrective wave from a full live walkaround + backend sweep + targeted reproduction. The app *runs* (every screen renders; all 25 endpoints respond, no 500s) but it is not yet trustworthy to operate. This wave fixes the **reproduced** defects so later waves build on a stable base. Each item below was reproduced live — not assumed. 5.5A (`src/backend/` routes/engine/schema), 5.5B (`src/backend/llm/interface.py`), and 5.5C (`src/frontend/`) own disjoint trees → safe in parallel.
 
 > **Reproduction evidence (do not re-litigate):** (#2 save) `POST /api/reports` with a new artifact lacking `type` → **HTTP 422 "artifact 'X' is new but has no type"**; (#3 edit) the report **edit page** edits & persists everything (action-item edit confirmed in DB), but the **preview** only inline-edits tasks/artifacts — action items / discussion / issues are read-only there; (#4 mentions) `@`/`#` live search **works** (verified `@clu`→Clutter map, `#clu`→clutter-review) — **no fix needed**; (#5) domain ordering puts NULL-priority first, duplicate `(champion, meeting_date)` is accepted, cross-team champion assignment is accepted.
 
-> **Forward note (Omer):** post-5.5 the team expects to move from waves to issue-based **tasks / bugs / features**; Wave 6 may be the last "wave". 5.5B partially overlaps Wave 6 §6A (extraction) — it adds only the *safety-net* (nothing dropped, artifacts always typed); when Wave 6 runs, fold 5.5B into 6A rather than duplicating.
+> **Forward note (Omer):** post-5.5 the team expects to move from waves to issue-based **tasks / bugs / features**; the remaining waves may be the last. 5.5B partially overlaps Wave 8 §8A (extraction) — it adds only the *safety-net* (nothing dropped, artifacts always typed); when Wave 8 runs, fold 5.5B into 8A rather than duplicating.
 
 ### Agent 5.5A: Backend correctness fixes
 **Type:** `backend-developer` · **Scope:** `src/backend/routes/views.py`, `src/backend/routes/management.py`, `src/backend/routes/reports.py`, `src/backend/reports/engine.py`, `src/backend/schema.sql`
@@ -219,7 +219,7 @@ Corrective wave from a full live walkaround + backend sweep + targeted reproduct
 | 3 | Cross-team champion → 422 | `POST`/`PATCH /api/domains`: reject when `champion.team_id != domain.team_id` with a clear 4xx | reproduced: orphan domain in no portfolio |
 | 4 | Surface fan-out validation errors | the typeless-artifact 422 (and siblings) must return a structured, UI-consumable error body | pairs with 5.5C #2 |
 | 5 | Typed `response_model` on report endpoints | `POST`/`GET`/`PATCH /api/reports` use the `Report` model so OpenAPI isn't `any` | minor; contract hygiene |
-| 6 | **Auto-create domains from the report** | the first report that names a domain introduces it — fan-out + replay create the domain (name + any `changes`: scope/priority/description) instead of 422'ing; same model as tasks/artifacts. No manual domain pre-definition | Omer: "the domain is covered in the first report — I don't want to define it manually" |
+| 6 | Auto-create domains from the report | the first report that names a domain introduces it — fan-out + replay create the domain (name + any `changes`: scope/priority/description) instead of 422'ing; same model as tasks/artifacts. No manual domain pre-definition | Omer: "the domain is covered in the first report — I don't want to define it manually" |
 **Commit:** `Wave 5.5 Agent 5.5A: backend fixes (ordering, dup-date, cross-team, typed reports, auto-create domains)`
 
 ### Agent 5.5B: LLM extraction safety-net
@@ -244,65 +244,91 @@ Corrective wave from a full live walkaround + backend sweep + targeted reproduct
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/components/AppShell.tsx`, `src/frontend/src/pages/report/ReportPreviewPage.tsx`, `ReportEditPage.tsx`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Sidebar "＋ New Report" | top of Main nav → `/reports/new` (champion dropdown on the page) | **Done** — Manage-only users had no report entry point |
+| 1 | Sidebar "＋ New Report" | top of Main nav → `/reports/new` (champion dropdown on the page) | Manage-only users had no report entry point |
 | 2 | Label domain sections clearly | preview/edit: render each block as "Domain: X" so it's obvious artifacts/tasks are grouped *under a domain* | reproduced confusion: artifacts appeared under a bare "Claude Code" header |
 | 3 | Render team-wide artifacts section | preview/edit show the top-level (un-domained) artifacts from 5.5E as their own "Team-wide artifacts" block | depends on 5.5E |
 **Commit:** `Wave 5.5 Agent 5.5D: sidebar New Report + preview domain/team-wide clarity`
 
 ### Agent 5.5E: Domain semantics + team-wide artifacts (backend + prompt)
 **Type:** `ai-engineer` · **Scope:** `src/backend/models.py`, `src/backend/report_schema.json`, `src/backend/reports/engine.py`, `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`)
-**Rule (Omer):** a **domain = a team technology/stack area** (Backend, Web, Deployment, Monitor & Debug) only. "Claude Code", meeting headings, and adoption-meta are **never** domains. The model currently invents a "Claude Code" domain because a report has nowhere else to put CC-adoption artifacts (context md files, the test-exec skill) — `ReportDomainSection.domain` is required and there is no top-level artifacts slot, even though the DB supports un-domained team artifacts (the all-team gutter).
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Team-wide artifacts slot in the report | add top-level `artifacts: list[ReportArtifactEntry]` to `ReportDocument` (models + `report_schema.json`); fan-out + replay create/update them as `artifact` rows with `domain_id NULL` (the all-team gutter) | DB + views already support domain-null artifacts |
-| 2 | Prompt: domains are tech stacks only | `_SYSTEM_PROMPT`: never invent a domain from "Claude Code"/headings/adoption-meta; use only real team tech/stack domains; CC-adoption artifacts that fit no tech domain go in the top-level team-wide artifacts list | the rule above |
+| 2 | Prompt: domains are tech stacks only | `_SYSTEM_PROMPT`: never invent a domain from "Claude Code"/headings/adoption-meta; use only real team tech/stack domains; CC-adoption artifacts that fit no tech domain go in the top-level team-wide artifacts list | a domain = a team technology/stack area only |
 | 3 | Prompt: group, don't explode | one described thing = one artifact (e.g. "context md files in a router pattern (architecture, conventions, index, deep-dives)" → ONE `context` artifact, not four); only concrete named tools/skills/agents/hooks/context become artifacts | reproduced: 4 artifacts from one md-file description |
 **Commit:** `Wave 5.5 Agent 5.5E: domains=tech-stacks-only + team-wide artifacts slot + artifact grouping`
 
-### Agent 5.5F: Context-driven assignment + General domain + domain picker (the agreed model)
-**Decisions (Omer):** domains are **manual** (created in Manage first); tasks & artifacts are **report-driven** (mention existing → referenced; write "new …" → created). The model does the real work using the DB context; the UI is the **fix-handle** for its errors (more errors expected on a local/air-gap model).
-| # | Task | Target | Status |
-|---|------|--------|--------|
-| 1 | Prompt: use ONLY provided (existing) domains; assign each task/artifact to its best-fit existing domain; **"General"** catch-all when unsure; never invent a domain | `llm/interface.py` `_SYSTEM_PROMPT` | 🟢 verified |
-| 2 | Prompt: existing-vs-new — reference the matching existing task/artifact by exact name unless notes say "new …"; match on meaning | `llm/interface.py` | 🟢 verified (temp-DB: "Auth service"/"ci-runner" referenced, "rate limiting" new, Claude-Code→discussion) |
-| 3 | Per-champion **"General"** catch-all domain, ensured at draft + offered in context/UI | `reports/engine.py` `_ensure_general_domain` + `build_draft_context` | 🟢 verified |
-| 4 | UI **domain picker** per task/artifact (preview + edit) — moves item between the champion's domains; "Domain: X" labels | `pages/report/*`, `api.ts` `domains.listByChampion` | 🟢 verified (live: moved context pack General→Backend) |
-**Commit:** `Wave 5.5 Agent 5.5F: context-driven domain assignment + General catch-all + per-item domain picker`
-
-### Agent 5.5G: Domain setup redesign — text→domains extraction + symmetric links (BUILT)
-**Decisions (Omer):** manual per-field domain entry was unacceptable. A second, simpler LLM call turns one text block into MANY domains. `scope` is redundant with `description` → removed. `priority` is free text. `cross_domain` free-text → symmetric multi-select of domains across ALL teams.
-| # | Task | Target | Status |
-|---|------|--------|--------|
-| 1 | `POST /api/domains/extract` — text → `{domains:[{name, description, priority}]}` proposals (not saved). New `extract_domains()` + `DomainExtraction`/`DomainProposal` (OpenAI/Anthropic SDK + Pydantic) | `llm/interface.py`, `routes/management.py` | 🟢 verified (live: 4 domains, priority ranked from "1→4→3→2") |
-| 2 | Remove `scope` everywhere; `priority` → free TEXT | `schema.sql`, `models.py`, `report_schema.json`, `reports/engine.py`, `routes/*`, frontend | 🟢 verified |
-| 3 | `cross_domain` → symmetric `domain_link` table; domain → multi-select of domains across ALL teams ("Team: Domain"); add/remove propagate both ways; `Domain` returns `team_name` + `cross_domains[]` | `schema.sql`, `models.py`, `routes/management.py`, `domain_helpers.py` | 🟢 verified (live: add+remove symmetry) |
-| 4 | Shared `DomainForm` used identically for edit-existing AND approve-extracted; "Set up domains" flow (pick team → champion auto when sole → paste text → extract → approve each) | `pages/manage/DomainForm.tsx`, `pages/domain/DomainSetupPage.tsx` | 🟢 verified (live setup flow) |
-| 5 | CC Baseline relabeled "Current Claude Code status" + real placeholder | `pages/manage/TeamForm.tsx` | 🟢 done |
-**Commit:** `Domain redesign: text->domains LLM extraction, symmetric cross-links, drop scope` (b336eaf)
-
-### Agent 5.5H: Domain-add UX consolidation (⬜ PENDING — next session)
-**Bug + reframe (Omer):** the Manage → domains tab now shows TWO confusing buttons — **"Set up domains"** (grey/secondary `btn-secondary`, opens a SEPARATE PAGE `/domains/setup`) and **"+ Add Domain"** (purple/primary `btn-primary`, opens a MODAL for one domain). Different colors, duplicated-seeming purpose. Worse: add team / champion / single-domain are **modals (popups)** but multi-domain is a **separate page** — inconsistent, feels unconsidered.
+### Agent 5.5F: Context-driven assignment + General domain + domain picker
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py`, `src/backend/reports/engine.py`, `src/frontend/src/pages/report/*`, `src/frontend/src/api.ts`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | **Merge the two buttons into ONE "Add Domain(s)"** button | `pages/manage/ManagePage.tsx` | remove the duplicate/colored second button |
-| 2 | One box with **two flavours**: (a) manual single-domain insert (used rarely), (b) multi-domain LLM extraction (paste text → propose → approve) | reuse `DomainForm` + the extract flow inside the box | both reachable from the one button |
-| 3 | **Consistent surface:** match the rest of management — the domain-add box should be the SAME kind of surface (modal/popup) as add-team / add-champion / edit, NOT a separate page. Decide modal vs page once and apply uniformly; retire the standalone `/domains/setup` page (or fold it into the modal) | `pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx` | the sidebar item was already removed |
-**Commit:** `Wave 5.5 Agent 5.5H: unify domain-add into one "Add Domain(s)" box (manual + LLM), consistent modal surface`
+| 1 | Prompt: use ONLY provided (existing) domains; assign each task/artifact to its best-fit existing domain; **"General"** catch-all when unsure; never invent a domain | `llm/interface.py` `_SYSTEM_PROMPT` | |
+| 2 | Prompt: existing-vs-new — reference the matching existing task/artifact by exact name unless notes say "new …"; match on meaning | `llm/interface.py` | |
+| 3 | Per-champion **"General"** catch-all domain, ensured at draft + offered in context/UI | `reports/engine.py` `_ensure_general_domain` + `build_draft_context` | |
+| 4 | UI **domain picker** per task/artifact (preview + edit) — moves item between the champion's domains; "Domain: X" labels | `pages/report/*`, `api.ts` `domains.listByChampion` | |
+**Commit:** `Wave 5.5 Agent 5.5F: context-driven domain assignment + General catch-all + per-item domain picker`
+
+### Agent 5.5G: Domain setup redesign — text→domains extraction + symmetric links
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py`, `src/backend/routes/management.py`, `src/backend/schema.sql`, `src/backend/models.py`, `src/backend/report_schema.json`, `src/backend/reports/engine.py`, `src/backend/domain_helpers.py`, `src/frontend/src/pages/manage/*`, `src/frontend/src/pages/domain/*`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | `POST /api/domains/extract` — text → `{domains:[{name, description, priority}]}` proposals (not saved); new `extract_domains()` + `DomainExtraction`/`DomainProposal` (OpenAI/Anthropic SDK + Pydantic) | `llm/interface.py`, `routes/management.py` | |
+| 2 | Remove `scope` everywhere; `priority` → free TEXT | `schema.sql`, `models.py`, `report_schema.json`, `reports/engine.py`, `routes/*`, frontend | |
+| 3 | `cross_domain` → symmetric `domain_link` table; domain → multi-select of domains across ALL teams ("Team: Domain"); add/remove propagate both ways; `Domain` returns `team_name` + `cross_domains[]` | `schema.sql`, `models.py`, `routes/management.py`, `domain_helpers.py` | |
+| 4 | Shared `DomainForm` for edit-existing AND approve-extracted; "Set up domains" flow (pick team → champion auto when sole → paste text → extract → approve each) | `pages/manage/DomainForm.tsx`, `pages/domain/DomainSetupPage.tsx` | |
+| 5 | CC Baseline relabeled "Current Claude Code status" + real placeholder | `pages/manage/TeamForm.tsx` | |
+**Commit:** `Domain redesign: text->domains LLM extraction, symmetric cross-links, drop scope` (b336eaf)
 
 ### After Wave 5.5
-- Cherry-pick 5.5A–5.5F. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
+- Cherry-pick 5.5A–5.5G. Verify by re-running the reproductions: dup-date → 422; cross-team → 422; domains sort with NULL last; a draft with a new artifact saves (typed) and, if forced typeless, the UI blocks with a clear message; action items/discussion/issues editable in preview; CC Baseline is a textarea; `@`/`#` still work; **a draft no longer invents a "Claude Code" domain** — CC-adoption artifacts land in the team-wide list, grouped (md files → one context artifact); sidebar New Report works. Re-seed clean and walk the create→preview→edit→save loop end to end.
 
 ---
 
-## Wave 6 — Raw-notes extraction depth (4 agents + 1 acceptance gate)
+## Wave 6 — Domain-add UX design (1 agent — spec only)
 
-Corrective wave on the feature's core purpose. The drafting path under-extracts from RAW messy notes: fed a CURATED note (≈40 min of manual human curation, done air-gapped) it produces a rich `ReportDocument`; fed the same meeting's RAW notes it drops whole categories (participants, artifacts, an entire domain, discussion, issues). The feature only earns its place if it extracts richly from RAW notes with little/no human curation. Three levers: (a) a prompt that **mines** the notes instead of timidly transcribing, leaning on the full `ReportDocument` field map; (b) **free-text inference** so data buried in prose becomes structured fields; (c) an **agentic DB-lookup tool** so referenced tasks/artifacts map onto their real existing rows (exact names, no duplicates) while genuinely-new ones are still created. 6A (`llm/interface.py` prompt + free-text rules) and 6B (`llm/` tool-use loop + new query helper) share the `llm/` tree, so 6B lands after 6A on the same file; 6C (`reports/engine.py` reconciliation) and 6D (acceptance gate, test-only) are disjoint and parallel-safe once 6A/6B merge. **No fan-out semantics change unless 6C's reconciliation decision requires it.**
+The Manage → domains tab shows TWO confusing buttons — **"Set up domains"** (grey/secondary, opens a SEPARATE PAGE `/domains/setup`) and **"+ Add Domain"** (purple/primary, opens a MODAL for one domain): different colors, duplicated-seeming purpose, and inconsistent surfaces (add team/champion/single-domain are modals, multi-domain is a separate page). This wave produces **only the UX design spec** — no code. Implementation is **Wave 7** (a separate wave), because agents within a wave run in parallel: the build must wait for the approved spec, so it cannot share a wave with the design.
+
+### Agent 6A: Domain-add UX design (spec only, no code)
+**Type:** `ux-researcher` · **Scope:** `specs/domain_add_ux.md` (design spec only — no app code)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Consolidate to ONE "Add Domain(s)" affordance | spec the single entry point that replaces the two buttons | one button, one purpose |
+| 2 | Two flavours in one surface | (a) manual single-domain insert (rare), (b) multi-domain LLM extraction (paste text → propose → approve) | both reachable from the one button |
+| 3 | Decide the surface once and justify | modal vs page, applied uniformly to match add-team / add-champion / edit; lay out the flow + states; call out retiring/folding `/domains/setup` | the UX expert's call — pick one, don't leave it open |
+**Commit:** `Wave 6 Agent 6A: domain-add UX design spec`
+
+### After Wave 6
+- Cherry-pick 6A's spec. **Omer approves it before Wave 7 implements** — the spec is the gate.
+
+---
+
+## Wave 7 — Domain-add implementation (1 agent; consumes Wave 6's approved spec)
+
+Builds exactly what Wave 6's spec defines — a single agent, no parallel siblings, run only after the spec lands and is approved.
+
+### Agent 7A: Implement the consolidated domain-add
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*`, `src/frontend/src/pages/domain/DomainSetupPage.tsx`, `src/frontend/src/router.tsx`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Merge the two buttons into ONE "Add Domain(s)" button | `pages/manage/ManagePage.tsx` | remove the duplicate/colored second button |
+| 2 | One surface, two flavours (manual single + LLM multi-extract) per the Wave 6 spec | reuse `DomainForm` + the extract flow inside the surface | both reachable from the one button |
+| 3 | Apply the Wave 6 spec's modal-vs-page decision; retire/fold the standalone `/domains/setup` page | `pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx` | sidebar item already removed |
+**Commit:** `Wave 7 Agent 7A: unify domain-add into one "Add Domain(s)" surface (manual + LLM)`
+
+### After Wave 7
+- Cherry-pick 7A. Verify live: one "Add Domain(s)" button on the domains tab; both manual-single and LLM-multi reachable from it; the surface matches the Wave 6 spec; no standalone `/domains/setup` page.
+
+---
+
+## Wave 8 — Raw-notes extraction depth (4 agents + 1 acceptance gate)
+
+Corrective wave on the feature's core purpose. The drafting path under-extracts from RAW messy notes: fed a CURATED note (≈40 min of manual human curation, done air-gapped) it produces a rich `ReportDocument`; fed the same meeting's RAW notes it drops whole categories (participants, artifacts, an entire domain, discussion, issues). The feature only earns its place if it extracts richly from RAW notes with little/no human curation. Three levers: (a) a prompt that **mines** the notes instead of timidly transcribing, leaning on the full `ReportDocument` field map; (b) **free-text inference** so data buried in prose becomes structured fields; (c) an **agentic DB-lookup tool** so referenced tasks/artifacts map onto their real existing rows (exact names, no duplicates) while genuinely-new ones are still created. 8A (`llm/interface.py` prompt + free-text rules) and 8B (`llm/` tool-use loop + new query helper) share the `llm/` tree, so 8B lands after 8A on the same file; 8C (`reports/engine.py` reconciliation) and 8D (acceptance gate, test-only) are disjoint and parallel-safe once 8A/8B merge. **No fan-out semantics change unless 8C's reconciliation decision requires it.**
 
 > **Read first (do not guess):** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths), `src/backend/models.py` (`ReportDocument` + nested models — the full field map), `src/backend/report_schema.json`, `src/backend/reports/engine.py` (`build_draft_context` + the fan-out name-resolution `_find_task_id` / `_find_artifact_id` / `_create_*`), `src/backend/routes/reports.py` (the `/draft` call + validate), and `src/backend/search/service.py` (`filter_tasks` / `filter_artifacts` — server-side, the reuse candidate for a lookup tool).
 
-> **The "new X" convention (shared by 6A/6B/6C — design in lockstep):** when the notes say **"new task" / "new skill" / "new agent" / "new <artifact-type>"** the mention is a NEW entity to **create**; any other mention is a **REFERENCE** that must be looked up in the DB so the exact existing name is reused. How an *unmarked, unknown* mention is handled (auto-create as today vs flag for human confirmation) is an **open decision for Omer** (below) — Wave 6 must not silently pick one.
+> **The "new X" convention (shared by 8A/8B/8C — design in lockstep):** when the notes say **"new task" / "new skill" / "new agent" / "new <artifact-type>"** the mention is a NEW entity to **create**; any other mention is a **REFERENCE** that must be looked up in the DB so the exact existing name is reused. How an *unmarked, unknown* mention is handled (auto-create as today vs flag for human confirmation) is an **open decision for Omer** (below) — Wave 8 must not silently pick one.
 
-### Agent 6A: Extraction prompt rewrite + free-text mining
+### Agent 8A: Extraction prompt rewrite + free-text mining
 **Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT` and `_user_content` only — no provider-path or signature change here)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
@@ -310,9 +336,9 @@ Corrective wave on the feature's core purpose. The drafting path under-extracts 
 | 2 | Lean on the Pydantic field map | enumerate the target fields in the prompt — `participants`, per-domain `tasks` (`status`/`owner`/`note`), `artifacts` (`type`/`tags`/`change_kind`/`note`), `action_items` (`owner`/`domain`/`due_date`), `domains[].changes`, `discussion`, `issues` — and instruct: fill each whenever the answer is present in the notes; do not leave it empty when the note supports it | mirror `models.ReportDocument` exactly; don't invent fields not in the schema |
 | 3 | Free-text inference rules | add explicit prose→structured examples mirrored on the failing note: "Meeting with Uri… I (Omer)" → participants `[Uri, Omer]`; "context md files in a router pattern" → a `context` artifact; "automatic test execution" → a `skill` artifact; marketplace / CR-gap prose → `issues` / `discussion` | infer structured values from buried prose; still never fabricate absent facts |
 | 4 | Date / champion / raw_notes rules preserved | keep the existing `champion`, `meeting_date` (partial-date resolution against today), and verbatim `raw_notes` rules intact through the rewrite | these already work — don't regress them |
-**Commit:** `Wave 6 Agent 6A: extraction-first prompt + free-text mining`
+**Commit:** `Wave 8 Agent 8A: extraction-first prompt + free-text mining`
 
-### Agent 6B: Agentic DB-lookup tool + multi-turn loop (both providers)
+### Agent 8B: Agentic DB-lookup tool + multi-turn loop (both providers)
 **Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (both provider paths), plus a new internal query helper module under `src/backend/llm/` (e.g. `llm/lookup.py`)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
@@ -320,31 +346,31 @@ Corrective wave on the feature's core purpose. The drafting path under-extracts 
 | 2 | Expose it as an LLM tool on both providers | OpenAI `tools=[…]` function tool + Anthropic `tools=[…]` alongside the existing `submit_report` tool; the model calls `lookup_entities(kind, name)` when a note references a task/artifact | tool surface (exact signatures) is an open decision below |
 | 3 | Multi-turn tool-call loop | turn each provider path from single-shot into a loop: run → if the model calls `lookup_entities`, execute it server-side, append the tool result, re-run → until the model emits the final structured `ReportDocument`; cap the turns and surface overrun as `LLMRequestError` | changes the adapter's shape; both OpenAI and Anthropic must do the loop |
 | 4 | Wire the "new X" convention into the tool contract | the tool's description tells the model: "new task/skill/agent/<type>" ⇒ a NEW entity (do not look up, mint a fresh name); any other mention ⇒ look it up and reuse the exact returned name | prompt-only vs schema marker is an open decision below — implement whatever Omer chooses |
-**Commit:** `Wave 6 Agent 6B: agentic entity-lookup tool + tool-call loop (OpenAI + Anthropic)`
+**Commit:** `Wave 8 Agent 8B: agentic entity-lookup tool + tool-call loop (OpenAI + Anthropic)`
 
-### Agent 6C: Reconcile lookup with fan-out name-resolution
+### Agent 8C: Reconcile lookup with fan-out name-resolution
 **Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (and `routes/reports.py` only if a preview/confirmation flag is needed)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Single source of name-resolution truth | ensure the draft-time lookup (6B) and the fan-out resolvers (`_find_task_id` / `_find_artifact_id`) agree on matching (same `_norm` casefold/trim, same team/domain scoping) so a name the model reused resolves to that exact row at save | don't duplicate matching logic — share or mirror `_norm` + the scope rules |
+| 1 | Single source of name-resolution truth | ensure the draft-time lookup (8B) and the fan-out resolvers (`_find_task_id` / `_find_artifact_id`) agree on matching (same `_norm` casefold/trim, same team/domain scoping) so a name the model reused resolves to that exact row at save | don't duplicate matching logic — share or mirror `_norm` + the scope rules |
 | 2 | Handle the unmarked-unknown mention per Omer's decision | implement the chosen behaviour for a mention that is neither a DB match nor a "new X": auto-create silently (today's behavior) **or** flag it in the draft for human confirmation in preview | gated on the open decision below; do not pick unilaterally |
-**Commit:** `Wave 6 Agent 6C: reconcile draft lookup with fan-out resolution`
+**Commit:** `Wave 8 Agent 8C: reconcile draft lookup with fan-out resolution`
 
-### Agent 6D: Acceptance gate — raw-vs-curated parity (THE metric)
+### Agent 8D: Acceptance gate — raw-vs-curated parity (THE metric)
 **Type:** `test-automator` · **Scope:** `src/backend/tests/` (new test module; test-only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Raw-vs-curated parity test | a recorded-or-live test that drafts the SAME meeting twice — once from the RAW messy note, once from the CURATED note — and asserts the RAW draft **approaches** the curated draft in richness: comparable participant count, all domains present (not one dropped), artifacts extracted (incl. `type`), and non-empty `discussion` / `issues` when the curated draft has them | this is the gate that decides whether the feature lives; richness is measured per-category, not by exact string match |
 | 2 | Category-coverage assertions | assert each schema category the curated draft populated is also populated by the raw draft (within a tolerance Omer sets), so a regression that re-drops a whole category fails loudly | tie thresholds to the categories that were being dropped: participants, artifacts, the missing domain, discussion, issues |
-**Commit:** `Wave 6 Agent 6D: raw-vs-curated extraction parity gate`
+**Commit:** `Wave 8 Agent 8D: raw-vs-curated extraction parity gate`
 
-### Open decisions for Omer (resolve before running Wave 6)
+### Open decisions for Omer (resolve before running Wave 8)
 *Do not let an agent pick these — each changes the adapter or the save path.*
-1. **Agentic loop vs single-shot.** 6B turns the adapter into a multi-turn tool-call loop (query DB → then emit the final structured `ReportDocument`) for **both** providers (OpenAI tools + Anthropic tools). This adds latency and N extra model calls per draft and changes the adapter's shape (no longer one call → one parse). Accept the multi-turn cost, or keep single-shot and feed candidate matches via `build_draft_context` only?
+1. **Agentic loop vs single-shot.** 8B turns the adapter into a multi-turn tool-call loop (query DB → then emit the final structured `ReportDocument`) for **both** providers (OpenAI tools + Anthropic tools). This adds latency and N extra model calls per draft and changes the adapter's shape (no longer one call → one parse). Accept the multi-turn cost, or keep single-shot and feed candidate matches via `build_draft_context` only?
 2. **The "new X" convention — prompt-only or a schema/marker change?** Is "new task / new skill / new agent / new <type>" purely a prompt instruction the model honours, or do we add a marker (e.g. a `new: true` discriminator on the report entry / `ReportDocument`)? And for an **unmarked unknown** mention (no DB match, not flagged "new"): **auto-create** as today's fan-out does, or **flag for human confirmation** in the preview before save?
 3. **Tool surface.** Reuse the existing `search.filter_tasks` / `filter_artifacts` (server-side, in-process) directly, or add new internal query helpers in `llm/lookup.py`? Define the exact tool signature(s) — e.g. `lookup_entities(kind: "task"|"artifact", name: str)` returning `[{id, name, type|status, domain}]` (fuzzy by name) — and whether one tool covers both kinds or two tools split them.
-4. **Model choice.** If prompt tuning + the lookup tool still can't close the raw-vs-curated gap (6D fails), do we move off `gpt-4o` to a stronger extraction model? Decide the fallback model and whether the parity gate is allowed to gate on model choice.
-5. **Air-gap implications.** The system runs air-gapped against a self-hosted OpenAI/Anthropic-compatible server. Confirm that **tool use / function calling is supported by that server** for the chosen provider wire format — the loop in 6B is useless if the air-gapped endpoint can't return tool calls. The lookup helper itself stays in-process (no new outbound HTTP), but the tool-call protocol must work end-to-end against the self-hosted model.
+4. **Model choice.** If prompt tuning + the lookup tool still can't close the raw-vs-curated gap (8D fails), do we move off `gpt-4o` to a stronger extraction model? Decide the fallback model and whether the parity gate is allowed to gate on model choice.
+5. **Air-gap implications.** The system runs air-gapped against a self-hosted OpenAI/Anthropic-compatible server. Confirm that **tool use / function calling is supported by that server** for the chosen provider wire format — the loop in 8B is useless if the air-gapped endpoint can't return tool calls. The lookup helper itself stays in-process (no new outbound HTTP), but the tool-call protocol must work end-to-end against the self-hosted model.
 
-### After Wave 6
-- Cherry-pick 6A, 6B, 6C, then 6D. Verify: a RAW messy note drafts a report with participants, all its domains, artifacts (with `type`), and discussion/issues populated — not the stripped-down output seen before; referenced tasks/artifacts map onto existing rows (no duplicates), "new X" mentions create fresh entities; the unmarked-unknown path behaves per Omer's decision; **6D's raw-vs-curated parity gate passes** (the metric that says the feature lives). Air-gapped tool-use confirmed against the self-hosted endpoint.
+### After Wave 8
+- Cherry-pick 8A, 8B, 8C, then 8D. Verify: a RAW messy note drafts a report with participants, all its domains, artifacts (with `type`), and discussion/issues populated — not the stripped-down output seen before; referenced tasks/artifacts map onto existing rows (no duplicates), "new X" mentions create fresh entities; the unmarked-unknown path behaves per Omer's decision; **8D's raw-vs-curated parity gate passes** (the metric that says the feature lives). Air-gapped tool-use confirmed against the self-hosted endpoint.

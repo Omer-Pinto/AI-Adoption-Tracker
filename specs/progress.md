@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 83% (74/89)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜] 80% (74/92)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 74 / 89 | 83% |
+| 🟢 Done | 74 / 92 | 80% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 15 (3 = Wave 5.5H · 12 = Wave 6) | 17% |
+| ⬜ Pending | 18 (3 = Wave 6 · 3 = Wave 7 · 12 = Wave 8) | 20% |
 
 ---
 
@@ -26,8 +26,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Done | 4/4 | 4/4 | 0/12 | Frontend merged + verified (combined build clean; DSL↔backend gate; post-review fixes: mention dropdown, form errors, artifact-click dedupe, stable keys). Prep: api.ts wired + types name-only |
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
 | 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
-| 5.5 | In Progress | 7/8 | 7/8 | 3/30 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). **5.5H PENDING** — consolidate the two confusing domain-add buttons into one "Add Domain(s)" box + fix modal-vs-page inconsistency |
-| 6 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
+| 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
+| 6 | Not Started | 0/1 | 0/1 | 3/3 | Domain-add UX design — single UX agent, spec only (modal-vs-page is the UX expert's call). Implementation is the separate Wave 7 |
+| 7 | Not Started | 0/1 | 0/1 | 3/3 | Domain-add implementation — one frontend agent builds Wave 6's approved spec (one "Add Domain(s)" surface, manual + LLM) |
+| 8 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -227,20 +229,39 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 4 | Shared `DomainForm` (edit + approve-extracted) + "Set up domains" flow | 🟢 Done | live setup flow; champion auto when sole |
 | 5 | CC Baseline relabeled "Current Claude Code status" + real placeholder | 🟢 Done | |
 
-### Agent 5.5H: Domain-add UX consolidation (⬜ PENDING — next session)
+---
+
+## Wave 6 — Domain-add UX consolidation
+
+> Wave 6 = the UX design spec only (no code). Implementation is the separate Wave 7 — agents in a wave run in parallel, so the build cannot share the design's wave. See `specs/task_breakdown.md` Wave 6.
+
+### Agent 6A: Domain-add UX design (spec only — `specs/domain_add_ux.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Merge the two domain buttons ("Set up domains" grey + "+ Add Domain" purple) into ONE "Add Domain(s)" | ⬜ Pending | confusing duplicate, different colors |
-| 2 | One box, two flavours: manual single-domain + multi-domain LLM extraction | ⬜ Pending | reuse DomainForm + extract flow |
-| 3 | Consistent surface — domain-add same kind (modal) as team/champion/edit, NOT a separate page; retire `/domains/setup` page | ⬜ Pending | sidebar item already removed |
+| 1 | Consolidate the two domain buttons ("Set up domains" grey + "+ Add Domain" purple) into ONE "Add Domain(s)" affordance | ⬜ Pending | confusing duplicate, different colors |
+| 2 | Spec one surface, two flavours: manual single-domain + multi-domain LLM extraction | ⬜ Pending | both reachable from the one button |
+| 3 | Decide the surface once (modal vs page) to match team/champion/edit; spec retiring `/domains/setup` | ⬜ Pending | pick one, justify, lay out the flow |
 
 ---
 
-## Wave 6 — Raw-notes extraction depth
+## Wave 7 — Domain-add implementation
 
-> Open decisions for Omer (loop vs single-shot, the "new X" convention + unmarked-unknown handling, tool surface, model choice, air-gap tool-use) must be resolved before agents run — see `specs/task_breakdown.md` Wave 6.
+> Builds exactly what Wave 6's approved spec defines — single agent, runs after the spec lands. See `specs/task_breakdown.md` Wave 7.
 
-### Agent 6A: Extraction prompt rewrite + free-text mining (`llm/interface.py` — `_SYSTEM_PROMPT`/`_user_content`)
+### Agent 7A: Implement the consolidated domain-add (`pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Merge into ONE "Add Domain(s)" button | ⬜ Pending | remove the duplicate/colored second button |
+| 2 | One surface, two flavours (manual single + LLM multi-extract) per the Wave 6 spec | ⬜ Pending | reuse DomainForm + extract flow |
+| 3 | Apply the Wave 6 spec's modal-vs-page decision; retire/fold `/domains/setup` | ⬜ Pending | sidebar item already removed |
+
+---
+
+## Wave 8 — Raw-notes extraction depth
+
+> Open decisions for Omer (loop vs single-shot, the "new X" convention + unmarked-unknown handling, tool surface, model choice, air-gap tool-use) must be resolved before agents run — see `specs/task_breakdown.md` Wave 8.
+
+### Agent 8A: Extraction prompt rewrite + free-text mining (`llm/interface.py` — `_SYSTEM_PROMPT`/`_user_content`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Rewrite system prompt to EXTRACT, not transcribe (drop the timid "omit when unsure" framing) | ⬜ Pending | |
@@ -248,7 +269,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Free-text inference rules (prose→participants/artifacts/issues/discussion) | ⬜ Pending | |
 | 4 | Preserve champion / meeting_date / verbatim raw_notes rules through the rewrite | ⬜ Pending | |
 
-### Agent 6B: Agentic DB-lookup tool + multi-turn loop (`llm/interface.py` both providers + new `llm/lookup.py`)
+### Agent 8B: Agentic DB-lookup tool + multi-turn loop (`llm/interface.py` both providers + new `llm/lookup.py`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Internal lookup helper (server-side, no HTTP; reuse search or thin SQL) | ⬜ Pending | |
@@ -256,13 +277,13 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 3 | Multi-turn tool-call loop (query DB → re-run → final `ReportDocument`); turn cap | ⬜ Pending | |
 | 4 | Wire the "new X" convention into the tool contract | ⬜ Pending | |
 
-### Agent 6C: Reconcile lookup with fan-out name-resolution (`reports/engine.py`)
+### Agent 8C: Reconcile lookup with fan-out name-resolution (`reports/engine.py`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Single source of name-resolution truth (share `_norm` + scope rules with draft lookup) | ⬜ Pending | |
 | 2 | Handle the unmarked-unknown mention per Omer's decision (auto-create vs flag) | ⬜ Pending | |
 
-### Agent 6D: Acceptance gate — raw-vs-curated parity (`tests/` — test-only)
+### Agent 8D: Acceptance gate — raw-vs-curated parity (`tests/` — test-only)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Raw-vs-curated parity test (RAW draft approaches CURATED in richness) | ⬜ Pending | The gate that decides whether the feature lives |
