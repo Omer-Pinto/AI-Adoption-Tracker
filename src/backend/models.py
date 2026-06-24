@@ -7,8 +7,9 @@ Two groups:
 
 2. Report-document models — mirror the §4 weekly-report JSON. This same shape
    serves three jobs: the form layout, the save-time validation, and the
-   contract the LLM drafts against. `report_schema.json` is the JSON-Schema
-   twin of these models.
+   contract the LLM drafts against. These Pydantic models are the SOLE source
+   of truth for that contract (the OpenAI/Anthropic structured-output schema is
+   derived from `ReportDocument` at call time; there is no JSON-Schema twin).
 
 Design notes (see uncertainties in the agent report):
   * ids are int (SQLite INTEGER PK).
@@ -146,17 +147,27 @@ class ActionItem(BaseModel):
 
 
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
-# Tasks and artifacts link to existing rows by an optional `id` (the matched
-# record's PK), with `name` as the human-readable label; no `id` = new (created
-# at fan-out time in the engine).
+# The report is FLAT: tasks and artifacts are top-level lists, each entry carrying
+# its own domain placement. There is no nested domain tree.
+#
+# TWO INDEPENDENT id-match conventions, with OPPOSITE null semantics:
+#   * Entity id (`id` on task/artifact entries): the matched existing row's PK.
+#     ``id = None`` MEANS "create a NEW task/artifact" at fan-out time.
+#   * Domain id (`domain_id` on every entry / action item): the matched existing
+#     domain's PK, with ``domain`` carrying that domain's exact name.
+#     ``domain_id = None`` does NOT create a domain — it means UNPLACED / team-wide
+#     (the per-champion "General" gutter). The report NEVER mints domains; a human
+#     reassigns null-domain items via the UI picker.
+#
 # `populate_by_name=True` lets callers build models with either alias or Python
-# attribute name.
+# attribute name; `extra="forbid"` rejects any unknown key on every report
+# sub-model (it only bars unknown keys — content mapped to known fields is kept).
 
-_doc_config = ConfigDict(populate_by_name=True)
+_doc_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class ReportTaskEntry(BaseModel):
-    """A task line inside a report domain.
+    """A flat task line in a report (domain carried per entry).
 
     ``task`` is the task's human-readable name.
 
@@ -165,11 +176,18 @@ class ReportTaskEntry(BaseModel):
     if present, otherwise to the report's ``meeting_date``.  The engine NEVER
     auto-computes a finish date from status history (spec §5, Omer's rule).
 
-    ``id`` is the matching signal. The draft context feeds the team's existing
-    tasks each with their globally-unique integer PK. When a note line matches an
-    existing task, the model returns that task's ``id`` (plus its exact existing
-    ``name`` in ``task``) so the engine links to the real row. When the line is a
-    new task (no match, or the notes say "new …"), ``id`` is omitted (null).
+    ``note`` is the per-meeting change note (-> ``task_history.change_note``).
+
+    ENTITY id-match — ``id`` is the link signal. The draft context feeds this
+    team's existing tasks each with their integer PK. A note line that matches an
+    existing task → set ``id`` to that PK and ``task`` to the EXACT existing name
+    (links to the real row). A new task (no match, or the notes say "new …") →
+    omit ``id`` (null) and give the free-text name; ``status`` is required.
+
+    DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
+    ``domain`` its exact name. ``domain_id = None`` does NOT create a domain: it
+    marks the task as unplaced/team-wide ("General" bucket), reassigned via the
+    UI picker. The report never invents domains.
     """
     model_config = _doc_config
 
@@ -179,23 +197,35 @@ class ReportTaskEntry(BaseModel):
     owner: str | None = None
     note: str | None = None
     finished_on: str | None = None
+    domain_id: int | None = None
+    domain: str | None = None
 
 
 class ReportArtifactEntry(BaseModel):
-    """An artifact change line inside a report domain.
+    """A flat artifact change line in a report (domain carried per entry).
 
     ``artifact`` is the artifact's human-readable name.
 
-    ``change_kind`` defaults to "added" when the artifact is newly created and
-    to "updated"/"moved" when it already exists; the field may be supplied
+    ``summary`` is the artifact's standing description (-> entity
+    ``Artifact.summary``); ``note`` is the per-meeting change note
+    (-> ``artifact_history.change_note``). They are DISTINCT fields.
+
+    ``change_kind`` is "added" for a newly created artifact and
+    "updated"/"moved"/"retired" for an existing one; it may be supplied
     explicitly to override inference.
 
-    ``id`` is the matching signal. The draft context feeds the team's existing
-    artifacts each with their globally-unique integer PK. When a note line
-    matches an existing artifact, the model returns that artifact's ``id`` (plus
-    its exact existing ``name`` in ``artifact`` and its ``type``) so the engine
-    links to the real row. When the line is a new artifact (no match, or the
-    notes say "new …"), ``id`` is omitted (null) and a best-fit ``type`` is set.
+    ENTITY id-match — ``id`` is the link signal. The draft context feeds this
+    team's existing artifacts each with their integer PK. A note line that
+    matches an existing artifact → set ``id`` to that PK, ``artifact`` to the
+    EXACT existing name, and copy the entity's existing ``type``. A new artifact
+    (no match, or the notes say "new …") → omit ``id`` (null), give the free-text
+    name, and set a best-fit ``type`` (required for a NEW artifact).
+
+    DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
+    ``domain`` its exact name. ``domain_id = None`` does NOT create a domain: it
+    marks the artifact as team-wide / cross-cutting (the all-team gutter; e.g.
+    shared context packs, team-wide skills), reassigned via the UI picker. The
+    report never invents domains.
     """
     model_config = _doc_config
 
@@ -203,49 +233,46 @@ class ReportArtifactEntry(BaseModel):
     artifact: str
     type: ArtifactType | None = None
     tags: list[str] | None = None
+    summary: str | None = None
     change_kind: ArtifactChangeKind | None = None
     note: str | None = None
-
-
-class ReportDomainSection(BaseModel):
-    """One domain's slice of a weekly report.
-
-    ``domain`` is an EXISTING domain name (from the draft context) used purely
-    for placement. The report never creates domains nor carries per-domain
-    attribute changes — domains are owned solely by the Manage "Smart domain
-    extract" flow.
-    """
-    model_config = _doc_config
-
-    domain: str
-    tasks: list[ReportTaskEntry] = Field(default_factory=list)
-    artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
+    domain_id: int | None = None
+    domain: str | None = None
 
 
 class ReportActionItem(BaseModel):
-    """An action item inside a report (§4: text, owner; optional domain/due)."""
+    """An action item in a report (§4: text, owner; optional domain/due).
+
+    DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
+    ``domain`` its exact name (replacing the old free-text ``domain`` string).
+    ``domain_id = None`` does NOT create a domain: it means unplaced/team-wide,
+    reassigned via the UI picker. The report never invents domains.
+    """
     model_config = _doc_config
 
     text: str
     owner: str | None = None
-    domain: str | None = None
     due_date: str | None = None
+    domain_id: int | None = None
+    domain: str | None = None
 
 
 class ReportDocument(BaseModel):
     """The full §4 weekly-report JSON. Drives the form, save validation, and the
-    LLM drafting contract."""
+    LLM drafting contract.
+
+    FLAT shape: ``tasks`` and ``artifacts`` are top-level lists, each entry
+    carrying its own ``domain_id``/``domain`` placement — there is no nested
+    domain tree. An artifact with ``domain_id = None`` is the team-wide /
+    cross-cutting case (formerly the separate top-level ``artifacts`` concept).
+    """
     model_config = _doc_config
 
     champion: str
     meeting_date: str
     participants: list[str] = Field(default_factory=list)
     raw_notes: str
-    domains: list[ReportDomainSection] = Field(default_factory=list)
-    # Team-wide artifacts not tied to any tech-stack domain (e.g. cross-cutting
-    # Claude Code adoption: context packs, team-wide skills). Saved with
-    # domain_id NULL → shown in the team's all-team gutter. "Claude Code" is
-    # never a domain; such artifacts live here instead.
+    tasks: list[ReportTaskEntry] = Field(default_factory=list)
     artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
     action_items: list[ReportActionItem] = Field(default_factory=list)
     discussion: str | None = None
