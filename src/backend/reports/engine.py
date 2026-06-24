@@ -64,7 +64,7 @@ from models import ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
 # ── design constants ─────────────────────────────────────────────────────────
 
 # Statuses that close a task — used only to decide whether ``ended_on`` should
-# be populated (spec §5).  No longer used to walk the trailing run.
+# be populated (spec §5).
 _TERMINAL_STATUSES = frozenset(
     {"finished_successfully", "finished_with_issues", "abandoned"}
 )
@@ -392,27 +392,36 @@ def _insert_report_row(
     return cur.lastrowid
 
 
-def _apply_task_entry(
+def _record_task_entry(
     conn: sqlite3.Connection,
     report_id: int,
     meeting_date: str,
     champion_id: int,
     team_id: int,
     entry,
-) -> None:
-    """Resolve/create the current-state task row + append one task_history row.
+) -> tuple[int, bool]:
+    """Resolve/create a task row, back-fill the entry, and append one history row.
+
+    Shared by the save path (``_apply_task_entry``) and the replay path
+    (``_replay_champion``) — they differ only in WHEN current-state is recomputed,
+    so that is left to the caller. Does NOT recompute current-state.
 
     A task always needs a domain → falls back to 'General'. A MATCHED task
     (``entry.id`` set) is re-placed to its resolved domain so re-placement via the
-    report works. Back-fills the resolved ids onto the entry."""
+    report works (decision: report placement is authoritative for an
+    explicitly-referenced task). The resolved ids are back-filled onto the entry
+    so a saved/replayed report_json is id-complete (prevents duplicates on a
+    later replay).
+
+    Returns ``(task_id, created)`` where ``created`` is True when a brand-new
+    task row was inserted (``entry.id`` was None)."""
     domain_id = _resolve_entry_domain_id(
         conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=True
     )
 
+    created = entry.id is None
     if entry.id is not None:
         task_id = _verify_task_in_team(conn, entry.id, champion_id)
-        # Re-place a matched task to the resolved domain (decision: report
-        # placement is authoritative for an explicitly-referenced task).
         conn.execute(
             "UPDATE task SET domain_id = ? WHERE id = ?", (domain_id, task_id)
         )
@@ -429,6 +438,21 @@ def _apply_task_entry(
         "(task_id, report_id, meeting_date, status_at_meeting, change_note) "
         "VALUES (?, ?, ?, ?, ?)",
         (task_id, report_id, meeting_date, entry.status.value, entry.note),
+    )
+    return task_id, created
+
+
+def _apply_task_entry(
+    conn: sqlite3.Connection,
+    report_id: int,
+    meeting_date: str,
+    champion_id: int,
+    team_id: int,
+    entry,
+) -> None:
+    """Save-path task fan-out: record the entry, then recompute current-state."""
+    task_id, _ = _record_task_entry(
+        conn, report_id, meeting_date, champion_id, team_id, entry
     )
     _recompute_task_current_state(conn, task_id)
 
@@ -811,29 +835,13 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
         doc = ReportDocument.model_validate_json(rep["report_json"])
         doc_mutated = False
         for entry in doc.tasks:
-            domain_id = _resolve_entry_domain_id(
-                conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=True
+            # Same record-and-back-fill as the save path; replay defers the
+            # current-state recompute to after the whole timeline is applied.
+            task_id, created = _record_task_entry(
+                conn, rep["id"], rep["meeting_date"], champion_id, team_id, entry
             )
-            if entry.id is not None:
-                task_id = _verify_task_in_team(conn, entry.id, champion_id)
-                conn.execute(
-                    "UPDATE task SET domain_id = ? WHERE id = ?", (domain_id, task_id)
-                )
-            else:
-                task_id = _create_task(conn, domain_id, entry.task, entry)
+            if created:
                 doc_mutated = True
-            # Back-fill resolved ids onto the in-memory entry so any id=None
-            # entries get a real id written back to report_json (prevents
-            # duplicates on subsequent replays).
-            entry.id = task_id
-            entry.domain_id = domain_id
-            entry.domain = _domain_name_for_id(conn, domain_id)
-            conn.execute(
-                "INSERT INTO task_history "
-                "(task_id, report_id, meeting_date, status_at_meeting, change_note) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (task_id, rep["id"], rep["meeting_date"], entry.status.value, entry.note),
-            )
             touched_tasks.add(task_id)
         for entry in doc.artifacts:
             pre_id = entry.id
