@@ -595,9 +595,10 @@ def draft_report(notes: str, context: dict) -> dict:
 
     Args:
         notes:   Raw meeting notes, pasted verbatim by the user.
-        context: Champion state hints built by ``reports.build_draft_context``
-                 (current domains, tasks, artifacts) to help the model rephrase,
-                 de-duplicate, and map notes onto existing entities.
+        context: Champion state built by ``reports.build_draft_context``
+                 (existing domains, and the team's existing tasks/artifacts each
+                 with its integer ``id``) so the model can match note lines to
+                 existing records by id and place them under existing domains.
 
     Returns:
         A dict conforming to ``models.ReportDocument``. The caller

@@ -30,6 +30,12 @@
       "default": [],
       "items": { "$ref": "#/$defs/domainSection" }
     },
+    "artifacts": {
+      "type": "array",
+      "default": [],
+      "description": "Team-wide artifacts not tied to any single tech-stack domain (e.g. cross-cutting Claude Code adoption assets: shared context packs, team-wide skills). Same id-matching and type rules as domain-section artifacts.",
+      "items": { "$ref": "#/$defs/artifactEntry" }
+    },
     "action_items": {
       "type": "array",
       "default": [],
