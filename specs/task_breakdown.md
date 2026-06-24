@@ -378,6 +378,6 @@ Corrective wave on the feature's core purpose. The drafting path under-extracts 
 
 ---
 
-## Wave 9 — Search bar + DSL on entity pages (OUT OF SCOPE — placeholder, do not start)
+## Wave 9 — Search bar + DSL on entity pages (needs further design and/or decisions)
 
-> Captured 2026-06-24 so it isn't forgotten — **not scheduled, not scoped.** Consider integrating the existing chip **SearchBar + DSL** (already built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. Open questions to settle with Omer when this wave is picked up: which pages actually benefit, which DSL keys map there, and whether grouped views need filtering at all. Decide scope with Omer before any work; do not start unprompted.
+> Captured 2026-06-24 so it isn't forgotten — **needs further design and/or decisions before it's actionable.** Consider integrating the existing chip **SearchBar + DSL** (already built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. Open questions to settle with Omer first: which pages actually benefit, which DSL keys map there, and whether grouped views need filtering at all. Decide scope with Omer before any work.
