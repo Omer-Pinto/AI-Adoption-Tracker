@@ -304,19 +304,20 @@ The Manage → domains tab shows TWO confusing buttons — **"Set up domains"** 
 
 ## Wave 7 — Domain-add implementation (1 agent; consumes Wave 6's approved spec)
 
-Builds exactly what Wave 6's spec defines — a single agent, no parallel siblings, run only after the spec lands and is approved.
+Builds exactly what the approved `specs/domain_add_ux.md` defines: **two clearly-labelled buttons** on the Domains tab — **"+ Add Domain"** (manual single domain → the existing `DomainForm` **modal**) and **"Smart domain extract"** (the LLM multi-domain flow → a **page**). Single agent, run after the spec is approved (done).
 
-### Agent 7A: Implement the consolidated domain-add
+### Agent 7A: Two-button domain-add (manual modal + smart-extract page)
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*`, `src/frontend/src/pages/domain/DomainSetupPage.tsx`, `src/frontend/src/router.tsx`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Merge the two buttons into ONE "Add Domain(s)" button | `pages/manage/ManagePage.tsx` | remove the duplicate/colored second button |
-| 2 | One surface, two flavours (manual single + LLM multi-extract) per the Wave 6 spec | reuse `DomainForm` + the extract flow inside the surface | both reachable from the one button |
-| 3 | Apply the Wave 6 spec's modal-vs-page decision; retire/fold the standalone `/domains/setup` page | `pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx` | sidebar item already removed |
-**Commit:** `Wave 7 Agent 7A: unify domain-add into one "Add Domain(s)" surface (manual + LLM)`
+| 1 | Two labelled buttons; drop the old grey "Set up domains" link | `pages/manage/ManagePage.tsx` | "+ Add Domain" (primary) → manual modal; "Smart domain extract" → extract page |
+| 2 | Manual modal: block Save until Name non-empty (inline "Name is required"); Priority → **numeric** input (1,2,3…) | `pages/manage/DomainForm.tsx` | empty-name guard absent today; priority was free-text |
+| 3 | Smart-extract **page** (re-entered from the new button): one champion per batch; **warn before re-Extract** discards unsaved edited proposals (5B); close = leave, no warning (6A); add "No domains found…" empty state | `pages/domain/DomainSetupPage.tsx`, `router.tsx` | keep page surface (per verdict); relabel entry; no `/domains/setup` redirect |
+| 4 | Domains list sorted by **numeric priority, nulls last** | `pages/manage/ManagePage.tsx` | backend `priority` stays TEXT-backed; sort numerically client-side |
+**Commit:** `Wave 7 Agent 7A: two-button domain-add (manual modal + smart-extract page)`
 
 ### After Wave 7
-- Cherry-pick 7A. Verify live: one "Add Domain(s)" button on the domains tab; both manual-single and LLM-multi reachable from it; the surface matches the Wave 6 spec; no standalone `/domains/setup` page.
+- Cherry-pick 7A. Verify live: two labelled buttons ("+ Add Domain", "Smart domain extract"); manual add is a modal that blocks an empty name and takes a numeric priority; Smart extract opens the page, binds a batch to one champion, warns on re-Extract with unsaved edits, closes without warning; the old grey "Set up domains" link is gone; the domains list is ordered by priority number.
 
 ---
 

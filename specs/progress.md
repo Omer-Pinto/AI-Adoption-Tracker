@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜] 80% (74/92)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 83% (77/93)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 74 / 92 | 80% |
+| 🟢 Done | 77 / 93 | 83% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 18 (3 = Wave 6 · 3 = Wave 7 · 12 = Wave 8) | 20% |
+| ⬜ Pending | 16 (4 = Wave 7 · 12 = Wave 8) | 17% |
 
 ---
 
@@ -27,8 +27,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 4 | Done | 1/1 | 1/1 | 0/3 | Seed (canonical §6 via engine) + README run docs + smoke; smoke 35/35 on merged tree (dev.sh helper removed — dev-only, not app) |
 | 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
 | 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
-| 6 | Not Started | 0/1 | 0/1 | 3/3 | Domain-add UX design — single UX agent, spec only (modal-vs-page is the UX expert's call). Implementation is the separate Wave 7 |
-| 7 | Not Started | 0/1 | 0/1 | 3/3 | Domain-add implementation — one frontend agent builds Wave 6's approved spec (one "Add Domain(s)" surface, manual + LLM) |
+| 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
+| 7 | Not Started | 0/1 | 0/1 | 4/4 | Domain-add implementation — two buttons (+ Add Domain → manual modal; Smart domain extract → page); empty-name Save guard; numeric priority + sorted list; 5B re-extract warning. **READY** |
 | 8 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -238,9 +238,9 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 6A: Domain-add UX design (spec only — `specs/domain_add_ux.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Consolidate the two domain buttons ("Set up domains" grey + "+ Add Domain" purple) into ONE "Add Domain(s)" affordance | ⬜ Pending | confusing duplicate, different colors |
-| 2 | Spec one surface, two flavours: manual single-domain + multi-domain LLM extraction | ⬜ Pending | both reachable from the one button |
-| 3 | Decide the surface once (modal vs page) to match team/champion/edit; spec retiring `/domains/setup` | ⬜ Pending | pick one, justify, lay out the flow |
+| 1 | Domain-add entry points | 🟢 Done | DECIDED: two labelled buttons — "+ Add Domain" (manual) + "Smart domain extract" |
+| 2 | Two add modes specced (manual single + LLM multi-extract) | 🟢 Done | manual → modal; extract → page |
+| 3 | Surface decision (modal vs page) | 🟢 Done | VERDICT: extract flow is a **page** (N-record approval queue + click-outside data-loss); manual stays a modal |
 
 ---
 
