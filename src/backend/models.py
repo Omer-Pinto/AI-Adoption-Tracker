@@ -16,9 +16,9 @@ Design notes (see uncertainties in the agent report):
     "YYYY-MM-DD" text and SQLite has no date type; we don't coerce to
     `datetime.date` to keep the LLM-draft round-trip lossless.
   * `tags` is a list[str] in the model; persisted as JSON text in `artifact`.
-  * Tasks and artifacts are referenced by NAME only. Whether a name is new or
-    already exists is resolved at fan-out time against the DB (existing → reuse;
-    unknown → create). There is no new_task / new_artifact discriminator.
+  * Tasks and artifacts link to existing rows by an optional ``id`` (the matched
+    record's integer PK); ``name`` is the human-readable label. No ``id`` means a
+    new task/artifact to create at fan-out time.
 """
 
 from enum import Enum
@@ -146,8 +146,9 @@ class ActionItem(BaseModel):
 
 
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
-# Tasks and artifacts are identified by name only. Resolution (existing vs new)
-# happens at fan-out time in the engine, not in the report document.
+# Tasks and artifacts link to existing rows by an optional `id` (the matched
+# record's PK), with `name` as the human-readable label; no `id` = new (created
+# at fan-out time in the engine).
 # `populate_by_name=True` lets callers build models with either alias or Python
 # attribute name.
 
@@ -157,17 +158,22 @@ _doc_config = ConfigDict(populate_by_name=True)
 class ReportTaskEntry(BaseModel):
     """A task line inside a report domain.
 
-    ``task`` is the task's name. The engine resolves it against the DB: if a
-    task with that name exists in the domain, its row is updated; if not, a new
-    task row is created. There is no separate ``new_task`` field.
+    ``task`` is the task's human-readable name.
 
     ``finished_on`` is an optional per-task finish-date override (YYYY-MM-DD).
     When the task reaches a terminal status, ``ended_on`` is set to this value
     if present, otherwise to the report's ``meeting_date``.  The engine NEVER
     auto-computes a finish date from status history (spec §5, Omer's rule).
+
+    ``id`` is the matching signal. The draft context feeds the team's existing
+    tasks each with their globally-unique integer PK. When a note line matches an
+    existing task, the model returns that task's ``id`` (plus its exact existing
+    ``name`` in ``task``) so the engine links to the real row. When the line is a
+    new task (no match, or the notes say "new …"), ``id`` is omitted (null).
     """
     model_config = _doc_config
 
+    id: int | None = None
     task: str
     status: TaskStatus
     owner: str | None = None
@@ -178,17 +184,22 @@ class ReportTaskEntry(BaseModel):
 class ReportArtifactEntry(BaseModel):
     """An artifact change line inside a report domain.
 
-    ``artifact`` is the artifact's name. The engine resolves it against the DB:
-    if an artifact with that name exists in the team's scope, its row is
-    updated; if not, a new artifact row is created (``type`` is required in
-    that case). There is no separate ``new_artifact`` field.
+    ``artifact`` is the artifact's human-readable name.
 
     ``change_kind`` defaults to "added" when the artifact is newly created and
     to "updated"/"moved" when it already exists; the field may be supplied
     explicitly to override inference.
+
+    ``id`` is the matching signal. The draft context feeds the team's existing
+    artifacts each with their globally-unique integer PK. When a note line
+    matches an existing artifact, the model returns that artifact's ``id`` (plus
+    its exact existing ``name`` in ``artifact`` and its ``type``) so the engine
+    links to the real row. When the line is a new artifact (no match, or the
+    notes say "new …"), ``id`` is omitted (null) and a best-fit ``type`` is set.
     """
     model_config = _doc_config
 
+    id: int | None = None
     artifact: str
     type: ArtifactType | None = None
     tags: list[str] | None = None
@@ -196,20 +207,17 @@ class ReportArtifactEntry(BaseModel):
     note: str | None = None
 
 
-class ReportDomainChanges(BaseModel):
-    """Only the domain fields that changed this meeting; omit if none (§4)."""
-    model_config = _doc_config
-
-    description: str | None = None
-    priority: str | None = None
-
-
 class ReportDomainSection(BaseModel):
-    """One domain's slice of a weekly report."""
+    """One domain's slice of a weekly report.
+
+    ``domain`` is an EXISTING domain name (from the draft context) used purely
+    for placement. The report never creates domains nor carries per-domain
+    attribute changes — domains are owned solely by the Manage "Smart domain
+    extract" flow.
+    """
     model_config = _doc_config
 
     domain: str
-    changes: ReportDomainChanges | None = None
     tasks: list[ReportTaskEntry] = Field(default_factory=list)
     artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
 

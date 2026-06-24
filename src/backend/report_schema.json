@@ -61,18 +61,10 @@
     "domainSection": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One domain's slice. `domain` is an EXISTING domain name used only for placement; the report never creates domains nor carries per-domain attribute changes.",
       "required": ["domain"],
       "properties": {
         "domain": { "type": "string" },
-        "changes": {
-          "description": "Only the domain fields that changed this meeting; omit if none.",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "description": { "type": "string" },
-            "priority": { "type": "string" }
-          }
-        },
         "tasks": {
           "type": "array",
           "default": [],
@@ -88,9 +80,13 @@
     "taskEntry": {
       "type": "object",
       "additionalProperties": false,
-      "description": "A task line. `task` is the task name; whether it already exists is resolved against the DB at fan-out time — existing name → that row; unknown name → created.",
+      "description": "A task line. `id` is the match signal: when the line matches an existing context task, return that task's id together with its exact existing name in `task`; for a new task (no match, or notes say \"new …\") omit `id` (null) and give the free-text name.",
       "required": ["task", "status"],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "PK of the matched existing task from the context; null/omitted for a new task."
+        },
         "task": { "type": "string", "description": "The task's name." },
         "status": { "$ref": "#/$defs/taskStatus" },
         "owner": { "type": "string" },
@@ -105,9 +101,13 @@
     "artifactEntry": {
       "type": "object",
       "additionalProperties": false,
-      "description": "An artifact change line. `artifact` is the artifact name; whether it already exists is resolved against the DB at fan-out time — existing name → that row; unknown name → created (requires `type`).",
+      "description": "An artifact change line. `id` is the match signal: when the line matches an existing context artifact, return that artifact's id together with its exact existing name in `artifact` and its `type`; for a new artifact (no match, or notes say \"new …\") omit `id` (null), give the free-text name and a best-fit `type`.",
       "required": ["artifact"],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "PK of the matched existing artifact from the context; null/omitted for a new artifact."
+        },
         "artifact": { "type": "string", "description": "The artifact's name." },
         "type": { "$ref": "#/$defs/artifactType" },
         "tags": {
