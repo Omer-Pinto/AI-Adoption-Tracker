@@ -353,6 +353,40 @@ a:hover { text-decoration: underline; }
   padding: 16px 18px;
 }
 
+/* ---- Team Group Card (Manage screen, grouped lists) ---- */
+/* Unique 'mgroup-' prefix — must NOT collide with team-page.css's .team-card* */
+.mgroup-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(26, 29, 35, 0.06);
+  margin-bottom: 18px;
+}
+
+.mgroup-card:last-child { margin-bottom: 0; }
+
+.mgroup-card-header {
+  background: #ede9fe;
+  border-bottom: 1px solid #ddd6fe;
+  padding: 12px 18px;
+  text-align: center;
+}
+
+.mgroup-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #5b21b6;
+}
+
+.mgroup-card-meta {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7c5cd6;
+}
+
 /* ---- Dashboard Layout ---- */
 .dashboard-grid {
   display: grid;

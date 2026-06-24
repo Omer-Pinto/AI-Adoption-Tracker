@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Team, Champion, Domain } from '@/types';
 import { api } from '@/api';
@@ -221,17 +222,25 @@ export default function ManagePage() {
     }));
   }
 
-  function TeamGroupHeader({ name }: { name: string }) {
+  function TeamGroupCard({
+    name,
+    count,
+    noun,
+    children,
+  }: {
+    name: string;
+    count: number;
+    noun: string;
+    children: ReactNode;
+  }) {
+    const label = `${count} ${count === 1 ? noun : `${noun}s`}`;
     return (
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: '#374151',
-          padding: '14px 0 8px',
-        }}
-      >
-        {name}
+      <div className="mgroup-card">
+        <div className="mgroup-card-header">
+          <span className="mgroup-card-title">{name}</span>
+          <span className="mgroup-card-meta">— {label}</span>
+        </div>
+        {children}
       </div>
     );
   }
@@ -317,50 +326,62 @@ export default function ManagePage() {
 
       {/* Page body */}
       <div className="page-body">
-        <div className="panel">
-          {tab === 'teams' && (
+        {tab === 'teams' && (
+          <div className="panel">
             <DataTable
               columns={teamColumns}
               rows={teams}
               rowKey={(r) => r.id}
               empty="No teams yet. Click + Add Team to create one."
             />
-          )}
-          {tab === 'champions' &&
-            (champions.length === 0 ? (
+          </div>
+        )}
+        {tab === 'champions' &&
+          (champions.length === 0 ? (
+            <div className="panel">
               <div className="page-body text-muted text-sm">
                 No champions yet. Click + Add Champion to create one.
               </div>
-            ) : (
-              groupByTeam(champions).map((group) => (
-                <div key={group.teamId}>
-                  <TeamGroupHeader name={group.teamName} />
-                  <DataTable
-                    columns={championColumns}
-                    rows={group.rows}
-                    rowKey={(r) => r.id}
-                  />
-                </div>
-              ))
-            ))}
-          {tab === 'domains' &&
-            (domains.length === 0 ? (
+            </div>
+          ) : (
+            groupByTeam(champions).map((group) => (
+              <TeamGroupCard
+                key={group.teamId}
+                name={group.teamName}
+                count={group.rows.length}
+                noun="champion"
+              >
+                <DataTable
+                  columns={championColumns}
+                  rows={group.rows}
+                  rowKey={(r) => r.id}
+                />
+              </TeamGroupCard>
+            ))
+          ))}
+        {tab === 'domains' &&
+          (domains.length === 0 ? (
+            <div className="panel">
               <div className="page-body text-muted text-sm">
                 No domains yet. Click + Add Domain to create one.
               </div>
-            ) : (
-              groupByTeam(domains).map((group) => (
-                <div key={group.teamId}>
-                  <TeamGroupHeader name={group.teamName} />
-                  <DataTable
-                    columns={domainColumns}
-                    rows={sortByPriority(group.rows)}
-                    rowKey={(r) => r.id}
-                  />
-                </div>
-              ))
-            ))}
-        </div>
+            </div>
+          ) : (
+            groupByTeam(domains).map((group) => (
+              <TeamGroupCard
+                key={group.teamId}
+                name={group.teamName}
+                count={group.rows.length}
+                noun="domain"
+              >
+                <DataTable
+                  columns={domainColumns}
+                  rows={sortByPriority(group.rows)}
+                  rowKey={(r) => r.id}
+                />
+              </TeamGroupCard>
+            ))
+          ))}
       </div>
 
       {/* Isolated edit modals — only one open at a time */}
