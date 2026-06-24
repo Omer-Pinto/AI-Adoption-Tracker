@@ -299,7 +299,7 @@ def extract_domains(body: DomainExtractRequest) -> dict:
     saved to the database.
 
     Response shape: ``{ "domains": [ { "name": str, "description": str|null,
-    "priority": str|null } ] }``
+    "priority": int|null } ] }``
     """
     try:
         return llm.extract_domains(body.text)

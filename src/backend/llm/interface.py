@@ -68,7 +68,7 @@ class DomainProposal(_PydanticBaseModel):
     """One proposed domain extracted from free text."""
     name: str
     description: str | None = None
-    priority: str | None = None
+    priority: int | None = None
 
 
 class DomainExtraction(_PydanticBaseModel):
@@ -404,18 +404,22 @@ def _draft_anthropic(
 _DOMAIN_EXTRACT_PROMPT = """\
 You are a structured-data extraction assistant for an AI Adoption Tracker.
 
-Given a text excerpt (team notes, planning docs, retrospectives, etc.), identify \
-the TECHNOLOGY / WORK DOMAINS the team operates in — these are recurring areas of \
-technical ownership such as "Backend", "Web", "Deployment", "Monitor & Debug", \
-"Data Platform", etc.
+The input is a short text block that lists a team's TECHNOLOGY / WORK DOMAINS — \
+each given as a name, a short description, and (optionally) a stated priority or \
+ordering. It is NOT a meeting transcript or planning doc; it is a concise \
+enumeration of domains. Your job is to identify those domains — the recurring \
+areas of technical ownership such as "Backend", "Web", "Deployment", \
+"Monitor & Debug", "Data Platform", etc.
 
 Rules:
 - name: a short, clear domain name (2-5 words max).
 - description: the tech/scope words that describe what this domain covers \
 (key technologies, systems, responsibilities). Keep it concise.
-- priority: if the text states an explicit priority order (e.g. \
-"Priority Order: 1 -> 4 -> 3 -> 2") map each domain to its rank as plain text \
-(e.g. "1", "2", "high", "P1"). Otherwise null.
+- priority: a plain integer rank (1, 2, 3, …) — 1 being highest priority — \
+whenever the text states or implies an ordering (e.g. \
+"Priority Order: 1 -> 4 -> 3 -> 2", or domains simply listed in priority order). \
+If the text gives no ordering for a domain, use null. NEVER output words or \
+labels such as "high", "P1", or "medium"; priority is ALWAYS an integer or null.
 - Do NOT invent domains not evidenced in the text.
 - Do NOT make "Claude Code", "AI Adoption", or the adoption process itself a domain.
 - Return only concrete technical/product work areas the team owns.
