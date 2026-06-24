@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (81/96)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (81/97)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 81 / 96 | 84% |
+| 🟢 Done | 81 / 97 | 84% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 15 (10 = Wave 8 · 2 = Wave 9 · 3 = Wave 10) | 16% |
+| ⬜ Pending | 16 (10 = Wave 8 · 3 = Wave 9 · 3 = Wave 10) | 16% |
 
 ---
 
@@ -30,7 +30,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
 | 8 | Not Started | 0/3 | 0/3 | 10/10 | Report extraction (backend) — simplify report (existing domains only; drop domain create + `changes`), mining prompt, team-scoped task/artifact context (id + full fields), id-based save, new-in-preview. Single-shot, both providers. 2 Omer gates (prompt+schema; both-provider structured-output). Omer tests live |
-| 9 | Not Started | 0/1 | 0/1 | 2/2 | Report editor (frontend) — JIRA-style entity links (matched id → chip) + team-scoped `@`/`#` mention picker. Consumes Wave 8's id output |
+| 9 | Not Started | 0/1 | 0/1 | 3/3 | Report editor (frontend) — JIRA-style entity links (matched id → chip), team-scoped `@`/`#` mention picker, and a clear NEW label for unmatched tasks/artifacts. Consumes Wave 8's id output |
 | 10 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 10A explore+design; then implement (10B+). See `task_breakdown.md` Wave 10 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -302,6 +302,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 |---|------|--------|-------|
 | 1 | Render matched entries (with `id`) as JIRA-style linked chips in preview/edit | ⬜ Pending | depends on Wave 8 id output |
 | 2 | `@`/`#` opens a team-scoped list of tasks/artifacts; select links by id | ⬜ Pending | reworks Wave-3C global mentions |
+| 3 | Mark NEW (unmatched) tasks/artifacts with a clear "NEW" label/badge | ⬜ Pending | visual = frontend agent's call (badge/label/grouped list) |
 
 ---
 

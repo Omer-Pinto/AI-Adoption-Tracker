@@ -376,10 +376,11 @@ Consumes Wave 8's id-returning draft. When the model matched a mention to an exi
 |---|------|--------|-------|
 | 1 | Render matched entries (with `id`) as JIRA-style linked chips | preview + edit; click → the entity | depends on Wave 8's id output |
 | 2 | `@`/`#` opens a **team-scoped** list of tasks/artifacts; select links by id | reworks the Wave-3C global mention list | team scope, not all-teams |
-**Commit:** `Wave 9 Agent 9A: JIRA-style entity links + team-scoped @/# mentions`
+| 3 | Mark **NEW** (unmatched) tasks/artifacts with a clear "NEW" label/badge | preview + edit; visually distinct from the matched linked chips (new = no `id`) | exact visual is the frontend agent's call — badge / label / grouped "new" list |
+**Commit:** `Wave 9 Agent 9A: JIRA-style entity links + team-scoped @/# mentions + NEW markers`
 
 ### After Wave 9
-- In the report editor, matched entities show as linked chips; `@`/`#` lists the team's tasks/artifacts and links by id.
+- In the report editor, matched entities show as linked chips, **new (unmatched) entities are clearly labelled NEW**, and `@`/`#` lists the team's tasks/artifacts and links by id.
 
 ---
 
