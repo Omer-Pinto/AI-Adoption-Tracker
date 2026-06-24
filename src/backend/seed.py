@@ -4,14 +4,25 @@ Run from src/backend/:
     python seed.py
 
 Expects a FRESH (empty) database — either a newly created tracker.db or one
-that has been removed. The script will initialise the schema and fail loudly
-if any required entity already exists, because it inserts by name and the engine
-will find duplicates that break the §6 trace.
+that has been removed. The script initialises the schema and drives the REAL
+``fan_out_report`` path, exactly as the app does.
 
 FLAG — idempotency decision: seed.py targets an EMPTY DB. If tracker.db already
 exists the script will attempt to delete it and start from scratch (controlled
 by the SEED_RESET env var — default True). Set SEED_RESET=0 to disable the
 automatic reset and let it fail if data already exists.
+
+FLAT, id-based world (Wave 9)
+-----------------------------
+Reports reference EXISTING domains, which are created manually BEFORE the
+reports (here via direct inserts). Reports are FLAT: ``tasks`` / ``artifacts`` /
+``action_items`` are top-level lists, each entry carrying its own ``domain`` /
+``domain_id`` placement and an optional entity ``id``.
+
+A first-mention task/artifact has ``id=None`` (engine creates it and BACK-FILLS
+the PK into the saved report_json). A later report that references the SAME
+entity passes the now-known ``id`` (read back from the DB after the first save),
+so no duplicate is created.
 
 Two teams are seeded:
  1. Radar / Dana / signal-processing — the full §6 canonical trace across two
@@ -37,7 +48,6 @@ from models import (
     ReportActionItem,
     ReportArtifactEntry,
     ReportDocument,
-    ReportDomainSection,
     ReportTaskEntry,
     TaskStatus,
 )
@@ -95,6 +105,18 @@ def _create_domain(
     return cur.lastrowid
 
 
+def _task_id_by_name(conn, champion_id: int, name: str) -> int:
+    """Read back a task's PK after a fan-out so a later report can reference it."""
+    row = conn.execute(
+        "SELECT t.id FROM task t JOIN domain d ON d.id = t.domain_id "
+        "WHERE d.champion_id = ? AND t.name = ?",
+        (champion_id, name),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError(f"[seed] expected task {name!r} to exist after fan-out")
+    return row["id"]
+
+
 # ── Radar / Dana ──────────────────────────────────────────────────────────────
 
 def seed_radar(conn) -> None:
@@ -103,26 +125,22 @@ def seed_radar(conn) -> None:
     Two meetings following the §6 worked-example trace:
 
     Meeting 06-08 (report 1):
-      - Clutter map: in-progress ("first draft of map")
-      CFAR tuning does NOT appear in the first meeting — per §6, its
-      started_on = 06-01 which pre-dates our seed window, but the spec's
-      task_history table shows only report 41 (06-08) for Clutter map and
-      report 42 (06-15) for CFAR tuning / Doppler check.  We faithfully
-      reproduce that: CFAR tuning first appears on 06-15 (already started
-      elsewhere, flagged here as started 06-01 in the spec history table —
-      but started_on is derived as the earliest report date, so we accept
-      that in our seed started_on = 06-15 for CFAR, which differs from the
-      §6 illustration.  FLAG: the §6 table shows started_on = 06-01 for
-      CFAR tuning but the engine derives started_on from the earliest report
-      date — we have no 06-01 report so started_on will be 06-15 here.
-      The trace intent (abandoned on 06-15) is preserved.)
+      - Clutter map: in-progress ("first draft of map") — first mention (id=None).
 
     Meeting 06-15 (report 2):
-      - CFAR tuning: abandoned, finished_on 2026-06-15
-      - Clutter map: in-progress (still going)
-      - Doppler check: planned
-      - clutter-review: skill, added
-      - action item: "find a context-usage tool"
+      - CFAR tuning: abandoned, finished_on 2026-06-15 (first mention, id=None).
+      - Clutter map: in-progress (still going) — references the SAME task by the
+        id back-filled from report 1.
+      - Doppler check: planned (first mention, id=None).
+      - clutter-review: skill, added (first mention, id=None).
+      - action item: "find a context-usage tool".
+
+    FLAG (unchanged from the original seed): the §6 illustration shows
+    started_on = 06-01 for CFAR tuning / Clutter map, but the engine derives
+    started_on from the EARLIEST report date that mentions the task. We have no
+    06-01 report, so started_on is 06-08 for Clutter map and 06-15 for CFAR.
+    The trace intent (CFAR abandoned 06-15, Clutter map in-progress, Doppler
+    planned, clutter-review added) is preserved exactly.
     """
     print("[seed] creating Radar team …")
     team_id = _create_team(
@@ -131,7 +149,7 @@ def seed_radar(conn) -> None:
         cc_baseline="Team uses Claude Code ad-hoc for scripts; no structured skills or agents yet.",
     )
     champion_id = _create_champion(conn, name="Dana", team_id=team_id, start_date="2026-05-01")
-    _create_domain(
+    domain_id = _create_domain(
         conn,
         team_id=team_id,
         champion_id=champion_id,
@@ -139,7 +157,7 @@ def seed_radar(conn) -> None:
         description="DSP pipeline work including CFAR, clutter mapping, and Doppler analysis.",
         priority="1",
     )
-    print(f"[seed]   team={team_id}  champion={champion_id} (Dana)")
+    print(f"[seed]   team={team_id}  champion={champion_id} (Dana)  domain={domain_id}")
 
     # ── meeting 06-08 ─────────────────────────────────────────────────────────
     print("[seed] fanning out 2026-06-08 report (Radar/Dana) …")
@@ -152,22 +170,24 @@ def seed_radar(conn) -> None:
             "the map; still a lot to refine.  CFAR tuning is stalling, not sure "
             "it's worth pursuing.  Nothing else new."
         ),
-        domains=[
-            ReportDomainSection(
+        tasks=[
+            ReportTaskEntry(
+                task="Clutter map",
+                status=TaskStatus.in_progress,
+                owner="Dana",
+                note="first draft of map",
+                domain_id=domain_id,
                 domain="signal-processing",
-                tasks=[
-                    ReportTaskEntry(
-                        task="Clutter map",
-                        status=TaskStatus.in_progress,
-                        owner="Dana",
-                        note="first draft of map",
-                    ),
-                ],
-            )
+            ),
         ],
     )
     row1 = fan_out_report(conn, doc_0608)
     print(f"[seed]   saved report id={row1['id']}")
+
+    # Read back the id the engine assigned to Clutter map so report 2 references
+    # the SAME task by id (proving the no-duplicate id path).
+    clutter_map_id = _task_id_by_name(conn, champion_id, "Clutter map")
+    print(f"[seed]   Clutter map task id={clutter_map_id} (referenced by report 2)")
 
     # ── meeting 06-15 ─────────────────────────────────────────────────────────
     print("[seed] fanning out 2026-06-15 report (Radar/Dana) …")
@@ -181,45 +201,51 @@ def seed_radar(conn) -> None:
             "Starting a new Doppler check task instead.  "
             "Created clutter-review skill to speed up review cycles."
         ),
-        domains=[
-            ReportDomainSection(
+        tasks=[
+            ReportTaskEntry(
+                task="CFAR tuning",
+                status=TaskStatus.abandoned,
+                owner="Dana",
+                note="retired — not worth continuing",
+                finished_on="2026-06-15",
+                domain_id=domain_id,
                 domain="signal-processing",
-                tasks=[
-                    ReportTaskEntry(
-                        task="CFAR tuning",
-                        status=TaskStatus.abandoned,
-                        owner="Dana",
-                        note="retired — not worth continuing",
-                        finished_on="2026-06-15",
-                    ),
-                    ReportTaskEntry(
-                        task="Clutter map",
-                        status=TaskStatus.in_progress,
-                        owner="Dana",
-                        note="still going; ran first pilot",
-                    ),
-                    ReportTaskEntry(
-                        task="Doppler check",
-                        status=TaskStatus.planned,
-                        owner="Dana",
-                        note="started instead",
-                    ),
-                ],
-                artifacts=[
-                    ReportArtifactEntry(
-                        artifact="clutter-review",
-                        type=ArtifactType.skill,
-                        tags=["under_test"],
-                        change_kind=ArtifactChangeKind.added,
-                        note="created to speed review",
-                    ),
-                ],
-            )
+            ),
+            ReportTaskEntry(
+                id=clutter_map_id,  # existing task — id-match, no duplicate
+                task="Clutter map",
+                status=TaskStatus.in_progress,
+                owner="Dana",
+                note="still going; ran first pilot",
+                domain_id=domain_id,
+                domain="signal-processing",
+            ),
+            ReportTaskEntry(
+                task="Doppler check",
+                status=TaskStatus.planned,
+                owner="Dana",
+                note="started instead",
+                domain_id=domain_id,
+                domain="signal-processing",
+            ),
+        ],
+        artifacts=[
+            ReportArtifactEntry(
+                artifact="clutter-review",
+                type=ArtifactType.skill,
+                tags=["under_test"],
+                change_kind=ArtifactChangeKind.added,
+                summary="Skill that speeds up clutter-map review cycles.",
+                note="created to speed review",
+                domain_id=domain_id,
+                domain="signal-processing",
+            ),
         ],
         action_items=[
             ReportActionItem(
                 text="find a context-usage tool",
                 owner="Omer",
+                domain_id=domain_id,
                 domain="signal-processing",
             ),
         ],
@@ -251,7 +277,7 @@ def seed_platform(conn) -> None:
         cc_baseline="Team uses Claude Code for PR descriptions; no automation skills yet.",
     )
     champion_id = _create_champion(conn, name="Eli", team_id=team_id, start_date="2026-05-15")
-    _create_domain(
+    domain_id = _create_domain(
         conn,
         team_id=team_id,
         champion_id=champion_id,
@@ -259,7 +285,7 @@ def seed_platform(conn) -> None:
         description="Continuous integration and deployment pipeline automation.",
         priority="1",
     )
-    print(f"[seed]   team={team_id}  champion={champion_id} (Eli)")
+    print(f"[seed]   team={team_id}  champion={champion_id} (Eli)  domain={domain_id}")
 
     print("[seed] fanning out 2026-06-12 report (Platform/Eli) …")
     doc = ReportDocument(
@@ -271,38 +297,41 @@ def seed_platform(conn) -> None:
             "Identified deploy gate as the next thing to tackle.  "
             "Created a hook to automate deploy gate validation."
         ),
-        domains=[
-            ReportDomainSection(
+        tasks=[
+            ReportTaskEntry(
+                task="Pipeline health check",
+                status=TaskStatus.in_progress,
+                owner="Eli",
+                note="initial review underway",
+                domain_id=domain_id,
                 domain="ci-cd",
-                tasks=[
-                    ReportTaskEntry(
-                        task="Pipeline health check",
-                        status=TaskStatus.in_progress,
-                        owner="Eli",
-                        note="initial review underway",
-                    ),
-                    ReportTaskEntry(
-                        task="Deploy gate review",
-                        status=TaskStatus.planned,
-                        owner="Eli",
-                        note="queued after pipeline health check",
-                    ),
-                ],
-                artifacts=[
-                    ReportArtifactEntry(
-                        artifact="deploy-gate-hook",
-                        type=ArtifactType.hook,
-                        tags=["under_test"],
-                        change_kind=ArtifactChangeKind.added,
-                        note="automates deploy gate validation",
-                    ),
-                ],
-            )
+            ),
+            ReportTaskEntry(
+                task="Deploy gate review",
+                status=TaskStatus.planned,
+                owner="Eli",
+                note="queued after pipeline health check",
+                domain_id=domain_id,
+                domain="ci-cd",
+            ),
+        ],
+        artifacts=[
+            ReportArtifactEntry(
+                artifact="deploy-gate-hook",
+                type=ArtifactType.hook,
+                tags=["under_test"],
+                change_kind=ArtifactChangeKind.added,
+                summary="Hook that validates the deploy gate before promotion.",
+                note="automates deploy gate validation",
+                domain_id=domain_id,
+                domain="ci-cd",
+            ),
         ],
         action_items=[
             ReportActionItem(
                 text="share deploy-gate-hook design with Radar team",
                 owner="Eli",
+                domain_id=domain_id,
                 domain="ci-cd",
             ),
         ],
