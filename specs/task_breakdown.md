@@ -321,75 +321,80 @@ Builds exactly what the approved `specs/domain_add_ux.md` defines: **two clearly
 
 ---
 
-## Wave 8 — Raw-notes extraction depth (4 agents + 1 acceptance gate)
+## Wave 8 — Report extraction: simplify, mine, team-scoped entity matching (backend)
 
-Corrective wave on the feature's core purpose. The drafting path under-extracts from RAW messy notes: fed a CURATED note (≈40 min of manual human curation, done air-gapped) it produces a rich `ReportDocument`; fed the same meeting's RAW notes it drops whole categories (participants, artifacts, an entire domain, discussion, issues). The feature only earns its place if it extracts richly from RAW notes with little/no human curation. Three levers: (a) a prompt that **mines** the notes instead of timidly transcribing, leaning on the full `ReportDocument` field map; (b) **free-text inference** so data buried in prose becomes structured fields; (c) an **agentic DB-lookup tool** so referenced tasks/artifacts map onto their real existing rows (exact names, no duplicates) while genuinely-new ones are still created. 8A (`llm/interface.py` prompt + free-text rules) and 8B (`llm/` tool-use loop + new query helper) share the `llm/` tree, so 8B lands after 8A on the same file; 8C (`reports/engine.py` reconciliation) and 8D (acceptance gate, test-only) are disjoint and parallel-safe once 8A/8B merge. **No fan-out semantics change unless 8C's reconciliation decision requires it.**
+The report draft (a) under-extracts from RAW notes vs a curated note and (b) still carries domain-management baggage that now belongs to the Smart-extract flow. Wave 8 makes the report **reference existing domains only** (drops domain creation + the per-domain `changes` priority/description), **mines** raw notes into every supported `ReportDocument` category, and gives the model the **team's existing tasks & artifacts (full fields + id)** so it reuses a real row by **id** or proposes a new one. **Single-shot** (no live tool loop), **both providers**, structured outputs each in its own form. Two **Omer-authorization gates** (prompt+schema; both-provider structured-output quality) — like the domain-extraction round. **No automated parity test — Omer tests live (statistical, by feel).** The JIRA-style mention/link UI is the separate **Wave 9** (consumes Wave 8's id output).
 
-> **Read first (do not guess):** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths), `src/backend/models.py` (`ReportDocument` + nested models — the full field map), `src/backend/report_schema.json`, `src/backend/reports/engine.py` (`build_draft_context` + the fan-out name-resolution `_find_task_id` / `_find_artifact_id` / `_create_*`), `src/backend/routes/reports.py` (the `/draft` call + validate), and `src/backend/search/service.py` (`filter_tasks` / `filter_artifacts` — server-side, the reuse candidate for a lookup tool).
+> **Read first:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths, the `extract_domains` / `draft_report` patterns), `src/backend/models.py` (`ReportDocument` + nested), `src/backend/report_schema.json`, `src/backend/reports/engine.py` (`build_draft_context` + fan-out save path), `src/backend/routes/reports.py`.
 
-> **The "new X" convention (shared by 8A/8B/8C — design in lockstep):** when the notes say **"new task" / "new skill" / "new agent" / "new <artifact-type>"** the mention is a NEW entity to **create**; any other mention is a **REFERENCE** that must be looked up in the DB so the exact existing name is reused. How an *unmarked, unknown* mention is handled (auto-create as today vs flag for human confirmation) is an **open decision for Omer** (below) — Wave 8 must not silently pick one.
+> **Entity matching contract (Omer's design):** context passes ONLY the **team's** tasks & artifacts, each as key-value JSON **+ id**. For each task/artifact the note mentions: **match → return its `id` + name** (artifacts also `type`); **no match → return the free text identified as the task/artifact + name** (artifacts: + `type`) **+ any other fields the note suggests.** IDs are **globally unique across all teams** (like JIRA) — the existing integer primary keys already satisfy this and serve as the link/match id.
 
-### Agent 8A: Extraction prompt rewrite + free-text mining
-**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT` and `_user_content` only — no provider-path or signature change here)
+### Agent 8A: Simplify schema + rewrite mining prompt + both-provider structured output — Omer-gated
+**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (`_SYSTEM_PROMPT`, `_user_content`, both provider paths), `src/backend/models.py`, `src/backend/report_schema.json`
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Rewrite the system prompt to EXTRACT, not transcribe | replace the conservative framing ("only include what's mentioned", "for fields with no value use null") with an active mining directive: read the whole note and populate every `ReportDocument` category the text supports | the timid framing is what drops categories; keep "never fabricate" but stop reading it as "omit when unsure" |
-| 2 | Lean on the Pydantic field map | enumerate the target fields in the prompt — `participants`, per-domain `tasks` (`status`/`owner`/`note`), `artifacts` (`type`/`tags`/`change_kind`/`note`), `action_items` (`owner`/`domain`/`due_date`), `domains[].changes`, `discussion`, `issues` — and instruct: fill each whenever the answer is present in the notes; do not leave it empty when the note supports it | mirror `models.ReportDocument` exactly; don't invent fields not in the schema |
-| 3 | Free-text inference rules | add explicit prose→structured examples mirrored on the failing note: "Meeting with Uri… I (Omer)" → participants `[Uri, Omer]`; "context md files in a router pattern" → a `context` artifact; "automatic test execution" → a `skill` artifact; marketplace / CR-gap prose → `issues` / `discussion` | infer structured values from buried prose; still never fabricate absent facts |
-| 4 | Date / champion / raw_notes rules preserved | keep the existing `champion`, `meeting_date` (partial-date resolution against today), and verbatim `raw_notes` rules intact through the rewrite | these already work — don't regress them |
-**Commit:** `Wave 8 Agent 8A: extraction-first prompt + free-text mining`
+| 1 | Simplify the report | `ReportDocument` + `report_schema.json`: report references **existing domains only** (+ "General"); **remove domain creation and the per-domain `changes` (priority/description)** — domains are owned by the Smart-extract flow now | Q-A; reverses 5.5A#6 auto-create |
+| 2 | Rewrite `_SYSTEM_PROMPT` to MINE, not transcribe | fill every `ReportDocument` category the notes support; free-text inference (prose → participants/artifacts/issues/discussion); keep champion / meeting_date / verbatim raw_notes | single-shot; never fabricate, but never drop |
+| 3 | Per-entity matching contract | each task/artifact entry returns `{id, name}` when it matches a passed-in existing entity, else `{name (as identified), type (artifacts), …suggested fields}`; explicit "new …" stays new | see the entity-matching contract above |
+| 4 | Structured output for BOTH providers (each its own form) | OpenAI `response_format` (strict) + Anthropic forced-tool `input_schema`, both from the same Pydantic model; validated | mirror `extract_domains` |
+**Commit:** `Wave 8 Agent 8A: simplify report schema + mining prompt + both-provider structured output`
 
-### Agent 8B: Agentic DB-lookup tool + multi-turn loop (both providers)
-**Type:** `ai-engineer` · **Scope:** `src/backend/llm/interface.py` (both provider paths), plus a new internal query helper module under `src/backend/llm/` (e.g. `llm/lookup.py`)
+### Agent 8B: Team-scoped entity context
+**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (`build_draft_context`)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Internal lookup helper (server-side, no HTTP) | a fuzzy name→rows query over existing tasks/artifacts returning `{id, name, type/status, domain}`; reuse `search.filter_tasks` / `filter_artifacts` or a thin direct-SQL helper (decision below) | air-gap-safe: in-process DB call, never an HTTP round-trip |
-| 2 | Expose it as an LLM tool on both providers | OpenAI `tools=[…]` function tool + Anthropic `tools=[…]` alongside the existing `submit_report` tool; the model calls `lookup_entities(kind, name)` when a note references a task/artifact | tool surface (exact signatures) is an open decision below |
-| 3 | Multi-turn tool-call loop | turn each provider path from single-shot into a loop: run → if the model calls `lookup_entities`, execute it server-side, append the tool result, re-run → until the model emits the final structured `ReportDocument`; cap the turns and surface overrun as `LLMRequestError` | changes the adapter's shape; both OpenAI and Anthropic must do the loop |
-| 4 | Wire the "new X" convention into the tool contract | the tool's description tells the model: "new task/skill/agent/<type>" ⇒ a NEW entity (do not look up, mint a fresh name); any other mention ⇒ look it up and reuse the exact returned name | prompt-only vs schema marker is an open decision below — implement whatever Omer chooses |
-**Commit:** `Wave 8 Agent 8B: agentic entity-lookup tool + tool-call loop (OpenAI + Anthropic)`
+| 1 | Pass ONLY the team's tasks & artifacts | full fields as key-value JSON **+ id**, scoped to the report's **team** (not just the champion) | single-shot context, no live lookup tool |
+| 2 | Trim domain baggage from context | carry existing domains by name only (for placement) — no domain-attribute payload | aligns with the simplified schema |
+**Commit:** `Wave 8 Agent 8B: team-scoped task/artifact context (id + full fields)`
 
-### Agent 8C: Reconcile lookup with fan-out name-resolution
-**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (and `routes/reports.py` only if a preview/confirmation flag is needed)
+### Agent 8C: Save path uses returned ids; new entries surfaced in preview
+**Type:** `python-pro` · **Scope:** `src/backend/reports/engine.py` (fan-out save), `src/backend/routes/reports.py` (only if a preview flag is needed)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Single source of name-resolution truth | ensure the draft-time lookup (8B) and the fan-out resolvers (`_find_task_id` / `_find_artifact_id`) agree on matching (same `_norm` casefold/trim, same team/domain scoping) so a name the model reused resolves to that exact row at save | don't duplicate matching logic — share or mirror `_norm` + the scope rules |
-| 2 | Handle the unmarked-unknown mention per Omer's decision | implement the chosen behaviour for a mention that is neither a DB match nor a "new X": auto-create silently (today's behavior) **or** flag it in the draft for human confirmation in preview | gated on the open decision below; do not pick unilaterally |
-**Commit:** `Wave 8 Agent 8C: reconcile draft lookup with fan-out resolution`
+| 1 | Matched entry → resolve by `id` | a returned `id` saves to that exact existing row (no fuzzy re-match, no duplicate) | ids are globally-unique PKs |
+| 2 | New/unmarked entry → surface in preview as NEW | per Q2: a mention with no id and not "new" is shown in the preview **as a new task/artifact**; Omer accepts/edits/rejects; created on confirm | not auto-created silently |
+**Commit:** `Wave 8 Agent 8C: id-based save resolution + new entries surfaced in preview`
 
-### Agent 8D: Acceptance gate — raw-vs-curated parity (THE metric)
-**Type:** `test-automator` · **Scope:** `src/backend/tests/` (new test module; test-only — no app code)
-| # | Task | Target | Notes |
-|---|------|--------|-------|
-| 1 | Raw-vs-curated parity test | a recorded-or-live test that drafts the SAME meeting twice — once from the RAW messy note, once from the CURATED note — and asserts the RAW draft **approaches** the curated draft in richness: comparable participant count, all domains present (not one dropped), artifacts extracted (incl. `type`), and non-empty `discussion` / `issues` when the curated draft has them | this is the gate that decides whether the feature lives; richness is measured per-category, not by exact string match |
-| 2 | Category-coverage assertions | assert each schema category the curated draft populated is also populated by the raw draft (within a tolerance Omer sets), so a regression that re-drops a whole category fails loudly | tie thresholds to the categories that were being dropped: participants, artifacts, the missing domain, discussion, issues |
-**Commit:** `Wave 8 Agent 8D: raw-vs-curated extraction parity gate`
-
-### Open decisions for Omer (resolve before running Wave 8)
-*Do not let an agent pick these — each changes the adapter or the save path.*
-1. **Agentic loop vs single-shot.** 8B turns the adapter into a multi-turn tool-call loop (query DB → then emit the final structured `ReportDocument`) for **both** providers (OpenAI tools + Anthropic tools). This adds latency and N extra model calls per draft and changes the adapter's shape (no longer one call → one parse). Accept the multi-turn cost, or keep single-shot and feed candidate matches via `build_draft_context` only?
-2. **The "new X" convention — prompt-only or a schema/marker change?** Is "new task / new skill / new agent / new <type>" purely a prompt instruction the model honours, or do we add a marker (e.g. a `new: true` discriminator on the report entry / `ReportDocument`)? And for an **unmarked unknown** mention (no DB match, not flagged "new"): **auto-create** as today's fan-out does, or **flag for human confirmation** in the preview before save?
-3. **Tool surface.** Reuse the existing `search.filter_tasks` / `filter_artifacts` (server-side, in-process) directly, or add new internal query helpers in `llm/lookup.py`? Define the exact tool signature(s) — e.g. `lookup_entities(kind: "task"|"artifact", name: str)` returning `[{id, name, type|status, domain}]` (fuzzy by name) — and whether one tool covers both kinds or two tools split them.
-4. **Model choice.** If prompt tuning + the lookup tool still can't close the raw-vs-curated gap (8D fails), do we move off `gpt-4o` to a stronger extraction model? Decide the fallback model and whether the parity gate is allowed to gate on model choice.
-5. **Air-gap implications.** The system runs air-gapped against a self-hosted OpenAI/Anthropic-compatible server. Confirm that **tool use / function calling is supported by that server** for the chosen provider wire format — the loop in 8B is useless if the air-gapped endpoint can't return tool calls. The lookup helper itself stays in-process (no new outbound HTTP), but the tool-call protocol must work end-to-end against the self-hosted model.
+### Wave 8 gates — Omer authorization (required)
+| # | Gate | Owner | Notes |
+|---|------|-------|-------|
+| G1 | **Omer reviews & approves the rewritten prompt + simplified `ReportDocument` schema** before 8B/8C are called done | Omer + orchestrator | the prompt and the structured-output schema, verbatim — like the domains review |
+| G2 | **Both-provider structured-output quality check** — `ai-engineer` confirms OpenAI + Anthropic structured outputs are each implemented correctly (its own form) and validated; Omer signs off | Omer + `ai-engineer` | same audit as the domain-extraction round |
 
 ### After Wave 8
-- Cherry-pick 8A, 8B, 8C, then 8D. Verify: a RAW messy note drafts a report with participants, all its domains, artifacts (with `type`), and discussion/issues populated — not the stripped-down output seen before; referenced tasks/artifacts map onto existing rows (no duplicates), "new X" mentions create fresh entities; the unmarked-unknown path behaves per Omer's decision; **8D's raw-vs-curated parity gate passes** (the metric that says the feature lives). Air-gapped tool-use confirmed against the self-hosted endpoint.
+- G1 + G2 passed. A raw note drafts a rich report that references existing domains, matches the team's existing tasks/artifacts by `id` (no duplicates), and proposes new ones as NEW in the preview for Omer to accept. Both providers' structured outputs verified. Omer validates live — no automated test.
 
 ---
 
-## Wave 9 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 9 — Report editor: JIRA-style entity links + team-scoped @/# mentions (frontend)
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (9A); implementation (9B+) is scoped from that spec once Omer approves it.
+Consumes Wave 8's id-returning draft. When the model matched a mention to an existing task/artifact (returned an `id`), the report **preview/edit renders it as a JIRA-style linked chip** (the "rename" link). On edit, **`@` (task) / `#` (artifact) opens a list of the team's relevant tasks/artifacts** to pick; selecting links by id. (Reworks the Wave-3C global mentions into team-scoped, id-linked.)
 
-### Agent 9A: Explore + design SearchBar/DSL integration
+### Agent 9A: JIRA-style entity links + team-scoped mention picker
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/report/*`, `src/frontend/src/api.ts`
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Render matched entries (with `id`) as JIRA-style linked chips | preview + edit; click → the entity | depends on Wave 8's id output |
+| 2 | `@`/`#` opens a **team-scoped** list of tasks/artifacts; select links by id | reworks the Wave-3C global mention list | team scope, not all-teams |
+**Commit:** `Wave 9 Agent 9A: JIRA-style entity links + team-scoped @/# mentions`
+
+### After Wave 9
+- In the report editor, matched entities show as linked chips; `@`/`#` lists the team's tasks/artifacts and links by id.
+
+---
+
+## Wave 10 — Search bar + DSL on entity pages (design first, then implement)
+
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (10A); implementation (10B+) is scoped from that spec once Omer approves it.
+
+### Agent 10A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 9 Agent 9A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 10 Agent 10A: SearchBar/DSL integration design spec`
 
-### After Wave 9 (9A)
-- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (9B+) from the approved spec.
+### After Wave 10 (10A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (10B+) from the approved spec.

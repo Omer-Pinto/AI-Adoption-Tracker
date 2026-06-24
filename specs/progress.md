@@ -12,7 +12,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 |--------|-------|---|
 | 🟢 Done | 81 / 96 | 84% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 15 (12 = Wave 8 · 3 = Wave 9) | 16% |
+| ⬜ Pending | 15 (10 = Wave 8 · 2 = Wave 9 · 3 = Wave 10) | 16% |
 
 ---
 
@@ -29,8 +29,9 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
-| 8 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
-| 9 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 9A explore+design (which pages, DSL keys, grouped-view filtering); design sign-off then implement (9B+). See `task_breakdown.md` Wave 9 |
+| 8 | Not Started | 0/3 | 0/3 | 10/10 | Report extraction (backend) — simplify report (existing domains only; drop domain create + `changes`), mining prompt, team-scoped task/artifact context (id + full fields), id-based save, new-in-preview. Single-shot, both providers. 2 Omer gates (prompt+schema; both-provider structured-output). Omer tests live |
+| 9 | Not Started | 0/1 | 0/1 | 2/2 | Report editor (frontend) — JIRA-style entity links (matched id → chip) + team-scoped `@`/`#` mention picker. Consumes Wave 8's id output |
+| 10 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 10A explore+design; then implement (10B+). See `task_breakdown.md` Wave 10 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -260,45 +261,55 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 8 — Raw-notes extraction depth
+## Wave 8 — Report extraction: simplify, mine, team-scoped entity matching (backend)
 
-> Open decisions for Omer (loop vs single-shot, the "new X" convention + unmarked-unknown handling, tool surface, model choice, air-gap tool-use) must be resolved before agents run — see `specs/task_breakdown.md` Wave 8.
+> Single-shot (no live tool loop), both providers. Report references existing domains only (domains owned by the Smart-extract flow). Entity match by **id** (team-scoped context); new/unmarked → surfaced as NEW in preview (Q2). 2 Omer gates. No automated test — Omer tests live. See `task_breakdown.md` Wave 8.
 
-### Agent 8A: Extraction prompt rewrite + free-text mining (`llm/interface.py` — `_SYSTEM_PROMPT`/`_user_content`)
+### Agent 8A: Simplify schema + mining prompt + both-provider structured output — Omer-gated (`llm/interface.py`, `models.py`, `report_schema.json`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Rewrite system prompt to EXTRACT, not transcribe (drop the timid "omit when unsure" framing) | ⬜ Pending | |
-| 2 | Lean on the `ReportDocument` field map — fill every category the notes support | ⬜ Pending | |
-| 3 | Free-text inference rules (prose→participants/artifacts/issues/discussion) | ⬜ Pending | |
-| 4 | Preserve champion / meeting_date / verbatim raw_notes rules through the rewrite | ⬜ Pending | |
+| 1 | Simplify report — existing domains only (+General); drop domain create + per-domain `changes` (priority/description) | ⬜ Pending | reverses 5.5A#6 |
+| 2 | Rewrite `_SYSTEM_PROMPT` to MINE every supported category + free-text inference (single-shot) | ⬜ Pending | keep champion/date/verbatim raw_notes |
+| 3 | Per-entity matching: `{id,name}` if matched else `{name,(type),suggested fields}` | ⬜ Pending | team-scoped existing entities |
+| 4 | Structured output for BOTH providers (OpenAI response_format + Anthropic tool), validated | ⬜ Pending | mirror `extract_domains` |
 
-### Agent 8B: Agentic DB-lookup tool + multi-turn loop (`llm/interface.py` both providers + new `llm/lookup.py`)
+### Agent 8B: Team-scoped entity context (`reports/engine.py` — `build_draft_context`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Internal lookup helper (server-side, no HTTP; reuse search or thin SQL) | ⬜ Pending | |
-| 2 | Expose `lookup_entities` as an LLM tool on both OpenAI and Anthropic | ⬜ Pending | |
-| 3 | Multi-turn tool-call loop (query DB → re-run → final `ReportDocument`); turn cap | ⬜ Pending | |
-| 4 | Wire the "new X" convention into the tool contract | ⬜ Pending | |
+| 1 | Pass ONLY the team's tasks & artifacts (full fields + id) | ⬜ Pending | scoped to team, not champion |
+| 2 | Trim domain baggage from context (existing domain names only) | ⬜ Pending | aligns with simplified schema |
 
-### Agent 8C: Reconcile lookup with fan-out name-resolution (`reports/engine.py`)
+### Agent 8C: Save path uses returned ids; new entries surfaced in preview (`reports/engine.py`, `routes/reports.py`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Single source of name-resolution truth (share `_norm` + scope rules with draft lookup) | ⬜ Pending | |
-| 2 | Handle the unmarked-unknown mention per Omer's decision (auto-create vs flag) | ⬜ Pending | |
+| 1 | Matched entry → resolve by `id` to that exact row (no fuzzy, no duplicate) | ⬜ Pending | ids globally unique PKs |
+| 2 | New/unmarked entry → shown as NEW in preview; Omer accepts/edits/rejects (Q2) | ⬜ Pending | not auto-created silently |
 
-### Agent 8D: Acceptance gate — raw-vs-curated parity (`tests/` — test-only)
-| # | Task | Status | Notes |
+### Wave 8 gates — Omer authorization
+| # | Gate | Status | Notes |
 |---|------|--------|-------|
-| 1 | Raw-vs-curated parity test (RAW draft approaches CURATED in richness) | ⬜ Pending | The gate that decides whether the feature lives |
-| 2 | Category-coverage assertions (participants/artifacts/missing-domain/discussion/issues) | ⬜ Pending | |
+| G1 | Omer reviews & approves rewritten prompt + simplified `ReportDocument` schema | ⬜ Pending | verbatim, like the domains review |
+| G2 | `ai-engineer` confirms both providers' structured outputs (each its own form) implemented + validated; Omer signs off | ⬜ Pending | same audit as domain extraction |
 
 ---
 
-## Wave 9 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 9 — Report editor: JIRA-style entity links + team-scoped @/# mentions (frontend)
 
-> Opens with a design/exploration task (9A → `specs/search_integration.md`); implementation (9B+) is scoped from the approved spec. See `task_breakdown.md` Wave 9.
+> Consumes Wave 8's id-returning draft. See `task_breakdown.md` Wave 9.
 
-### Agent 9A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+### Agent 9A: JIRA-style entity links + team-scoped mention picker (`pages/report/*`, `api.ts`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Render matched entries (with `id`) as JIRA-style linked chips in preview/edit | ⬜ Pending | depends on Wave 8 id output |
+| 2 | `@`/`#` opens a team-scoped list of tasks/artifacts; select links by id | ⬜ Pending | reworks Wave-3C global mentions |
+
+---
+
+## Wave 10 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (10A → `specs/search_integration.md`); implementation (10B+) is scoped from the approved spec. See `task_breakdown.md` Wave 10.
+
+### Agent 10A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |
