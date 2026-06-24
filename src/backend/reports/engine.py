@@ -809,6 +809,7 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
 
     for rep in reports:
         doc = ReportDocument.model_validate_json(rep["report_json"])
+        doc_mutated = False
         for entry in doc.tasks:
             domain_id = _resolve_entry_domain_id(
                 conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=True
@@ -820,6 +821,13 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
                 )
             else:
                 task_id = _create_task(conn, domain_id, entry.task, entry)
+                doc_mutated = True
+            # Back-fill resolved ids onto the in-memory entry so any id=None
+            # entries get a real id written back to report_json (prevents
+            # duplicates on subsequent replays).
+            entry.id = task_id
+            entry.domain_id = domain_id
+            entry.domain = _domain_name_for_id(conn, domain_id)
             conn.execute(
                 "INSERT INTO task_history "
                 "(task_id, report_id, meeting_date, status_at_meeting, change_note) "
@@ -828,14 +836,30 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
             )
             touched_tasks.add(task_id)
         for entry in doc.artifacts:
+            pre_id = entry.id
             _replay_artifact_entry(
                 conn, rep["id"], rep["meeting_date"], champion_id, team_id, entry, seen_artifacts
             )
+            if pre_id is None:
+                doc_mutated = True
         for item in doc.action_items:
             item_domain_id = _resolve_entry_domain_id(
                 conn, champion_id, team_id, item.domain_id, item.domain, needs_domain=False
             )
+            # Back-fill domain resolution onto the action item so stored doc
+            # reflects the resolved domain id (idempotent; low cost).
+            item.domain_id = item_domain_id
+            item.domain = _domain_name_for_id(conn, item_domain_id)
             _insert_action_item(conn, rep["id"], item_domain_id, item)
+        # Persist the id-complete document if any entry was newly created
+        # (had id=None at load time).  This makes ALL paths id-complete in
+        # storage: fresh save, edit-same-report, edit-other-report, and any
+        # brand-new entity created during replay.
+        if doc_mutated:
+            conn.execute(
+                "UPDATE report SET report_json = ? WHERE id = ?",
+                (doc.model_dump_json(by_alias=True, exclude_none=True), rep["id"]),
+            )
 
     for task_id in touched_tasks:
         _recompute_task_current_state(conn, task_id)
@@ -876,6 +900,12 @@ def _replay_artifact_entry(
         artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
         change_kind = entry.change_kind.value if entry.change_kind else "added"
     seen_artifacts.add(artifact_id)
+    # Back-fill resolved ids onto the in-memory entry so the caller can detect
+    # that this was a newly-created artifact (pre_id was None) and persist the
+    # id-complete doc to report_json.
+    entry.id = artifact_id
+    entry.domain_id = domain_id
+    entry.domain = _domain_name_for_id(conn, domain_id)
     conn.execute(
         "INSERT INTO artifact_history "
         "(artifact_id, report_id, meeting_date, change_kind, change_note) "
