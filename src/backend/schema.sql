@@ -43,9 +43,17 @@ CREATE TABLE IF NOT EXISTS domain (
     champion_id  INTEGER NOT NULL REFERENCES champion(id),
     name         TEXT NOT NULL,
     description  TEXT,
-    scope        TEXT,
-    priority     INTEGER,          -- priority vs other domains
-    cross_domain TEXT              -- cross-domain relevance (free text)
+    priority     TEXT              -- priority vs other domains (free text)
+);
+
+-- ── domain_link (symmetric cross-domain relation, may span teams) ─────────────
+-- A undirected link between two domains. Stored once per unordered pair
+-- (a < b); a domain's cross-domains = every row mentioning it, in either slot.
+CREATE TABLE IF NOT EXISTS domain_link (
+    domain_a INTEGER NOT NULL REFERENCES domain(id) ON DELETE CASCADE,
+    domain_b INTEGER NOT NULL REFERENCES domain(id) ON DELETE CASCADE,
+    PRIMARY KEY (domain_a, domain_b),
+    CHECK (domain_a < domain_b)
 );
 
 -- ── report ──────────────────────────────────────────────────────────────────

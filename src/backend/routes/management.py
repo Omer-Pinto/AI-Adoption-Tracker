@@ -11,12 +11,21 @@ not live in `models.py`, so they are defined locally here:
     entity model's nullability (NOT NULL columns required, nullable optional).
   * `*Update` — every field optional (partial PATCH; only provided fields are
     written, using `model_dump(exclude_unset=True)`).
+
+Domain cross-links are stored in `domain_link(domain_a, domain_b)` as
+unordered pairs (domain_a < domain_b). The `cross_domain_ids` field on
+DomainCreate/DomainUpdate reconciles this domain's links to exactly the
+supplied set (add missing pairs, remove stale ones).
 """
+
+import sqlite3
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
+import llm.interface as llm
 from db import get_connection
+from domain_helpers import build_domain, build_domains_for_query
 from models import Champion, Domain, Team
 
 router = APIRouter(prefix="/api", tags=["management"])
@@ -55,9 +64,8 @@ class DomainCreate(BaseModel):
     champion_id: int
     name: str
     description: str | None = None
-    scope: str | None = None
-    priority: int | None = None
-    cross_domain: str | None = None
+    priority: str | None = None
+    cross_domain_ids: list[int] = []
 
 
 class DomainUpdate(BaseModel):
@@ -65,14 +73,13 @@ class DomainUpdate(BaseModel):
     champion_id: int | None = None
     name: str | None = None
     description: str | None = None
-    scope: str | None = None
-    priority: int | None = None
-    cross_domain: str | None = None
+    priority: str | None = None
+    cross_domain_ids: list[int] | None = None
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _insert(conn, table: str, data: dict) -> int:
+def _insert(conn: sqlite3.Connection, table: str, data: dict) -> int:
     """INSERT `data` into `table`; return the new row id."""
     cols = list(data.keys())
     placeholders = ", ".join("?" for _ in cols)
@@ -84,7 +91,7 @@ def _insert(conn, table: str, data: dict) -> int:
     return cur.lastrowid
 
 
-def _update(conn, table: str, row_id: int, data: dict) -> None:
+def _update(conn: sqlite3.Connection, table: str, row_id: int, data: dict) -> None:
     """UPDATE only the provided columns of `table` row `row_id`."""
     assignments = ", ".join(f"{c} = ?" for c in data)
     conn.execute(
@@ -93,12 +100,12 @@ def _update(conn, table: str, row_id: int, data: dict) -> None:
     )
 
 
-def _fetch(conn, table: str, row_id: int):
+def _fetch(conn: sqlite3.Connection, table: str, row_id: int):
     return conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
 
 
 def _assert_champion_belongs_to_team(
-    conn, champion_id: int, team_id: int
+    conn: sqlite3.Connection, champion_id: int, team_id: int
 ) -> None:
     """Raise 422 if the champion's team_id does not match `team_id`.
 
@@ -119,6 +126,51 @@ def _assert_champion_belongs_to_team(
                 f"not team {team_id}. A domain's champion must belong to the "
                 "same team as the domain."
             ),
+        )
+
+
+def _reconcile_links(
+    conn: sqlite3.Connection, domain_id: int, target_ids: list[int]
+) -> None:
+    """Reconcile domain_link rows for `domain_id` to exactly `target_ids`.
+
+    Adds rows for pairs not yet present; removes rows for pairs whose other
+    side is no longer in the target set. Each pair is stored once as
+    (min(a,b), max(a,b)).  Validates that every id in `target_ids` exists.
+    Cross-team links are allowed.
+    """
+    # Validate all target ids exist.
+    for other_id in target_ids:
+        if conn.execute("SELECT id FROM domain WHERE id = ?", (other_id,)).fetchone() is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"cross_domain_ids references unknown domain id {other_id}",
+            )
+
+    target_set = set(target_ids)
+
+    # Current linked ids (from either slot).
+    current_rows = conn.execute(
+        "SELECT domain_a, domain_b FROM domain_link WHERE domain_a = ? OR domain_b = ?",
+        (domain_id, domain_id),
+    ).fetchall()
+    current_set: set[int] = set()
+    for r in current_rows:
+        other = r["domain_b"] if r["domain_a"] == domain_id else r["domain_a"]
+        current_set.add(other)
+
+    # Add missing pairs.
+    to_add = target_set - current_set
+    for other_id in to_add:
+        a, b = min(domain_id, other_id), max(domain_id, other_id)
+        conn.execute("INSERT OR IGNORE INTO domain_link (domain_a, domain_b) VALUES (?, ?)", (a, b))
+
+    # Remove stale pairs.
+    to_remove = current_set - target_set
+    for other_id in to_remove:
+        a, b = min(domain_id, other_id), max(domain_id, other_id)
+        conn.execute(
+            "DELETE FROM domain_link WHERE domain_a = ? AND domain_b = ?", (a, b)
         )
 
 
@@ -233,82 +285,114 @@ def update_champion(champion_id: int, body: ChampionUpdate) -> Champion:
 
 # ── domains ──────────────────────────────────────────────────────────────────
 
+class DomainExtractRequest(BaseModel):
+    """Body for POST /api/domains/extract."""
+    text: str
+
+
+@router.post("/domains/extract", tags=["management"])
+def extract_domains(body: DomainExtractRequest) -> dict:
+    """Extract domain proposals from free text via the LLM.
+
+    Calls the configured LLM provider to identify technology/work domains
+    mentioned in the supplied text. Returns a list of proposals; nothing is
+    saved to the database.
+
+    Response shape: ``{ "domains": [ { "name": str, "description": str|null,
+    "priority": str|null } ] }``
+    """
+    try:
+        return llm.extract_domains(body.text)
+    except llm.LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except llm.LLMRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/domains", response_model=list[Domain])
 def list_domains(
     team_id: int | None = Query(default=None),
     champion_id: int | None = Query(default=None),
 ) -> list[Domain]:
     conn = get_connection()
-    clauses = []
-    params: list[int] = []
-    if team_id is not None:
-        clauses.append("team_id = ?")
-        params.append(team_id)
-    if champion_id is not None:
-        clauses.append("champion_id = ?")
-        params.append(champion_id)
-    sql = "SELECT * FROM domain"
-    if clauses:
-        sql += " WHERE " + " AND ".join(clauses)
-    rows = conn.execute(sql, params).fetchall()
-    conn.close()
-    return [Domain(**dict(r)) for r in rows]
+    try:
+        clauses: list[str] = []
+        params: list[int] = []
+        if team_id is not None:
+            clauses.append("d.team_id = ?")
+            params.append(team_id)
+        if champion_id is not None:
+            clauses.append("d.champion_id = ?")
+            params.append(champion_id)
+        return build_domains_for_query(conn, clauses, params)
+    finally:
+        conn.close()
 
 
 @router.get("/domains/{domain_id}", response_model=Domain)
 def get_domain(domain_id: int) -> Domain:
     conn = get_connection()
-    row = _fetch(conn, "domain", domain_id)
-    conn.close()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    return Domain(**dict(row))
+    try:
+        domain = build_domain(conn, domain_id)
+        if domain is None:
+            raise HTTPException(status_code=404, detail="Domain not found")
+        return domain
+    finally:
+        conn.close()
 
 
 @router.post("/domains", response_model=Domain, status_code=status.HTTP_201_CREATED)
 def create_domain(body: DomainCreate) -> Domain:
     conn = get_connection()
-    if _fetch(conn, "team", body.team_id) is None:
+    try:
+        if _fetch(conn, "team", body.team_id) is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+        if _fetch(conn, "champion", body.champion_id) is None:
+            raise HTTPException(status_code=404, detail="Champion not found")
+        _assert_champion_belongs_to_team(conn, body.champion_id, body.team_id)
+        domain_data = {
+            "team_id": body.team_id,
+            "champion_id": body.champion_id,
+            "name": body.name,
+            "description": body.description,
+            "priority": body.priority,
+        }
+        new_id = _insert(conn, "domain", domain_data)
+        _reconcile_links(conn, new_id, body.cross_domain_ids)
+        conn.commit()
+        return build_domain(conn, new_id)
+    finally:
         conn.close()
-        raise HTTPException(status_code=404, detail="Team not found")
-    if _fetch(conn, "champion", body.champion_id) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Champion not found")
-    _assert_champion_belongs_to_team(conn, body.champion_id, body.team_id)
-    new_id = _insert(conn, "domain", body.model_dump())
-    conn.commit()
-    row = _fetch(conn, "domain", new_id)
-    conn.close()
-    return Domain(**dict(row))
 
 
 @router.patch("/domains/{domain_id}", response_model=Domain)
 def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
     conn = get_connection()
-    existing_row = _fetch(conn, "domain", domain_id)
-    if existing_row is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Domain not found")
-    changes = body.model_dump(exclude_unset=True)
-    for field in ("name", "team_id", "champion_id"):
-        if field in changes and changes[field] is None:
-            conn.close()
-            raise HTTPException(status_code=422, detail=f"{field} cannot be null")
-    if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Team not found")
-    if "champion_id" in changes and _fetch(conn, "champion", changes["champion_id"]) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Champion not found")
-    # Cross-team guard: if either team_id or champion_id is being changed,
-    # ensure the effective (post-patch) champion belongs to the effective team.
-    if "team_id" in changes or "champion_id" in changes:
-        effective_team_id = changes.get("team_id", existing_row["team_id"])
-        effective_champion_id = changes.get("champion_id", existing_row["champion_id"])
-        _assert_champion_belongs_to_team(conn, effective_champion_id, effective_team_id)
-    if changes:
-        _update(conn, "domain", domain_id, changes)
+    try:
+        existing_row = _fetch(conn, "domain", domain_id)
+        if existing_row is None:
+            raise HTTPException(status_code=404, detail="Domain not found")
+        changes = body.model_dump(exclude_unset=True)
+        # Pop cross_domain_ids before building the SQL update dict.
+        cross_domain_ids: list[int] | None = changes.pop("cross_domain_ids", None)
+        for field in ("name", "team_id", "champion_id"):
+            if field in changes and changes[field] is None:
+                raise HTTPException(status_code=422, detail=f"{field} cannot be null")
+        if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+        if "champion_id" in changes and _fetch(conn, "champion", changes["champion_id"]) is None:
+            raise HTTPException(status_code=404, detail="Champion not found")
+        # Cross-team guard: if either team_id or champion_id is being changed,
+        # ensure the effective (post-patch) champion belongs to the effective team.
+        if "team_id" in changes or "champion_id" in changes:
+            effective_team_id = changes.get("team_id", existing_row["team_id"])
+            effective_champion_id = changes.get("champion_id", existing_row["champion_id"])
+            _assert_champion_belongs_to_team(conn, effective_champion_id, effective_team_id)
+        if changes:
+            _update(conn, "domain", domain_id, changes)
+        if cross_domain_ids is not None:
+            _reconcile_links(conn, domain_id, cross_domain_ids)
         conn.commit()
-    row = _fetch(conn, "domain", domain_id)
-    conn.close()
-    return Domain(**dict(row))
+        return build_domain(conn, domain_id)
+    finally:
+        conn.close()

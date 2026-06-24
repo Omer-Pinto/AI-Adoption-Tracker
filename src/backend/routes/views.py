@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 import models
 from db import get_connection
+from domain_helpers import build_domain
 
 # Cross-agent seam (Agent 1D's `search` package). 1D adapts the vendored DSL
 # engine to expose these helpers; until then this import resolves against the
@@ -103,8 +104,9 @@ def _champion(row: sqlite3.Row) -> models.Champion:
     return models.Champion(**dict(row))
 
 
-def _domain(row: sqlite3.Row) -> models.Domain:
-    return models.Domain(**dict(row))
+def _domain(conn: sqlite3.Connection, domain_id: int) -> models.Domain:
+    """Build the enriched Domain model (team_name + cross_domains) for `domain_id`."""
+    return build_domain(conn, domain_id)
 
 
 def _report(row: sqlite3.Row) -> models.Report:
@@ -245,13 +247,13 @@ def team_page(id: int) -> TeamPage:
             raise HTTPException(status_code=404, detail="Team not found")
         team = _team(team_row)
 
-        domain_rows = conn.execute(
-            "SELECT * FROM domain WHERE champion_id = ? ORDER BY priority IS NULL, priority, id",
+        domain_id_rows = conn.execute(
+            "SELECT id FROM domain WHERE champion_id = ? ORDER BY priority IS NULL, priority, id",
             (id,),
         ).fetchall()
         domains: list[DomainBlock] = []
-        for d_row in domain_rows:
-            domain = _domain(d_row)
+        for d_id_row in domain_id_rows:
+            domain = _domain(conn, d_id_row["id"])
             domains.append(
                 DomainBlock(
                     domain=domain,
@@ -303,12 +305,9 @@ def domain_page(id: int) -> DomainPage:
     """Drill into a single domain: current tasks/artifacts + full history."""
     conn = get_connection()
     try:
-        d_row = conn.execute(
-            "SELECT * FROM domain WHERE id = ?", (id,)
-        ).fetchone()
-        if d_row is None:
+        domain = _domain(conn, id)
+        if domain is None:
             raise HTTPException(status_code=404, detail="Domain not found")
-        domain = _domain(d_row)
         return DomainPage(
             domain=domain,
             tasks=_tasks_for_domain(conn, id),

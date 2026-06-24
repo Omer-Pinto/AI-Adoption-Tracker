@@ -57,6 +57,23 @@ import os
 from typing import Any
 
 from models import ReportDocument
+from pydantic import BaseModel as _PydanticBaseModel
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models for domain extraction structured output
+# ---------------------------------------------------------------------------
+
+class DomainProposal(_PydanticBaseModel):
+    """One proposed domain extracted from free text."""
+    name: str
+    description: str | None = None
+    priority: str | None = None
+
+
+class DomainExtraction(_PydanticBaseModel):
+    """Structured output for the extract_domains call."""
+    domains: list[DomainProposal]
 
 # ---------------------------------------------------------------------------
 # Config keys
@@ -211,8 +228,7 @@ change) → an "artifacts" entry under its best-fit existing domain (or "General
 unsure); a follow-up or to-do → an \
 "action_items" entry (text, and owner/domain/due_date when stated); a person \
 present → "participants"; a domain mentioned → a domain section; a domain \
-attribute change (description/scope/priority/cross_domain) → that domain's \
-"changes".
+attribute change (description/priority) → that domain's "changes".
 - If a line genuinely does not fit any structured field, it MUST STILL be \
 captured: put general talking points, context, or progress narrative in \
 "discussion", and problems, risks, blockers, or concerns in "issues" — \
@@ -379,6 +395,160 @@ def _draft_anthropic(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Domain extraction system prompt
+# ---------------------------------------------------------------------------
+
+_DOMAIN_EXTRACT_PROMPT = """\
+You are a structured-data extraction assistant for an AI Adoption Tracker.
+
+Given a text excerpt (team notes, planning docs, retrospectives, etc.), identify \
+the TECHNOLOGY / WORK DOMAINS the team operates in — these are recurring areas of \
+technical ownership such as "Backend", "Web", "Deployment", "Monitor & Debug", \
+"Data Platform", etc.
+
+Rules:
+- name: a short, clear domain name (2-5 words max).
+- description: the tech/scope words that describe what this domain covers \
+(key technologies, systems, responsibilities). Keep it concise.
+- priority: if the text states an explicit priority order (e.g. \
+"Priority Order: 1 -> 4 -> 3 -> 2") map each domain to its rank as plain text \
+(e.g. "1", "2", "high", "P1"). Otherwise null.
+- Do NOT invent domains not evidenced in the text.
+- Do NOT make "Claude Code", "AI Adoption", or the adoption process itself a domain.
+- Return only concrete technical/product work areas the team owns.
+- These are PROPOSALS only — nothing is saved.
+"""
+
+
+def _extract_openai(
+    text: str,
+    api_key: str,
+    model: str,
+    base_url: str | None,
+    timeout: float,
+) -> dict:
+    """Extract domain proposals via OpenAI structured-output parsing."""
+    import openai
+    from openai import OpenAI
+
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+
+    try:
+        completion = client.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": _DOMAIN_EXTRACT_PROMPT},
+                {"role": "user", "content": f"Extract domains from:\n\n{text}"},
+            ],
+            response_format=DomainExtraction,
+        )
+    except (openai.APIConnectionError, openai.APIStatusError, openai.APIError) as exc:
+        raise LLMRequestError(f"OpenAI request failed: {exc}") from exc
+
+    message = completion.choices[0].message
+    if getattr(message, "refusal", None):
+        raise LLMRequestError(
+            f"OpenAI refused to extract domains: {message.refusal}"
+        )
+
+    parsed = message.parsed
+    if parsed is None:
+        raise LLMRequestError(
+            "OpenAI returned no parsed structured output "
+            f"(finish_reason={completion.choices[0].finish_reason!r})."
+        )
+    return parsed.model_dump(mode="json")
+
+
+def _extract_anthropic(
+    text: str,
+    api_key: str,
+    model: str,
+    base_url: str | None,
+    timeout: float,
+) -> dict:
+    """Extract domain proposals via Anthropic forced tool use."""
+    import anthropic
+    from pydantic import ValidationError
+
+    client = anthropic.Anthropic(api_key=api_key, base_url=base_url, timeout=timeout)
+
+    input_schema = DomainExtraction.model_json_schema()
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=_ANTHROPIC_MAX_TOKENS,
+            system=_DOMAIN_EXTRACT_PROMPT,
+            messages=[
+                {"role": "user", "content": f"Extract domains from:\n\n{text}"},
+            ],
+            tools=[
+                {
+                    "name": "submit_domains",
+                    "description": "Submit the extracted domain proposals.",
+                    "input_schema": input_schema,
+                }
+            ],
+            tool_choice={"type": "tool", "name": "submit_domains"},
+        )
+    except (anthropic.APIConnectionError, anthropic.APIStatusError, anthropic.APIError) as exc:
+        raise LLMRequestError(f"Anthropic request failed: {exc}") from exc
+
+    tool_use = next(
+        (block for block in response.content if getattr(block, "type", None) == "tool_use"),
+        None,
+    )
+    if tool_use is None:
+        raise LLMRequestError(
+            "Anthropic response contains no tool_use block "
+            f"(stop_reason={response.stop_reason!r})."
+        )
+
+    raw: Any = tool_use.input
+    if not isinstance(raw, dict):
+        raise LLMRequestError(
+            f"Anthropic tool_use 'input' is not an object (got {type(raw).__name__})."
+        )
+
+    try:
+        extraction = DomainExtraction.model_validate(raw)
+    except ValidationError as exc:
+        raise LLMRequestError(
+            f"Anthropic structured output failed domain extraction validation: {exc}"
+        ) from exc
+    return extraction.model_dump(mode="json")
+
+
+def extract_domains(text: str) -> dict:
+    """Extract proposed domains from free text using the configured LLM provider.
+
+    Returns a dict shaped like ``{"domains": [{"name": ..., "description": ...,
+    "priority": ...}, ...]}``.  These are PROPOSALS only — the caller does NOT
+    save them to the database.
+
+    Args:
+        text: Free-form text (meeting notes, planning docs, etc.) to analyse.
+
+    Returns:
+        A dict conforming to ``DomainExtraction``: ``{"domains": [DomainProposal]}``.
+
+    Raises:
+        LLMNotConfiguredError: A required config var (provider/key/model) is
+                               unset or blank. Routes maps this to HTTP 503.
+        LLMRequestError:       The call is configured but failed (transport, API
+                               error, or unparseable/invalid response).
+                               Routes maps this to HTTP 502.
+    """
+    provider, api_key, model, base_url, timeout = _load_config()
+
+    if provider == "openai":
+        return _extract_openai(text, api_key, model, base_url, timeout)
+    else:  # provider == "anthropic"  (validated in _load_config)
+        return _extract_anthropic(text, api_key, model, base_url, timeout)
 
 
 def draft_report(notes: str, context: dict) -> dict:

@@ -22,6 +22,23 @@ import type {
   TeamPageIndexEntry,
 } from '@/types';
 
+/** Shape accepted by POST /api/domains and PATCH /api/domains/{id}. */
+export interface DomainWriteBody {
+  team_id: number;
+  champion_id: number;
+  name: string;
+  description?: string | null;
+  priority?: string | null;
+  cross_domain_ids?: number[];
+}
+
+/** One item returned by POST /api/domains/extract (not yet saved). */
+export interface DomainProposal {
+  name: string;
+  description: string | null;
+  priority: string | null;
+}
+
 export const API_BASE = '/api';
 
 class ApiError extends Error {
@@ -78,10 +95,13 @@ export const api = {
     /** Filter domains by champion — `GET /api/domains?champion_id=<id>` */
     listByChampion: (championId: number): Promise<Domain[]> =>
       request(`/domains?champion_id=${encodeURIComponent(String(championId))}`),
-    create: (body: Omit<Domain, 'id'>): Promise<Domain> =>
+    create: (body: DomainWriteBody): Promise<Domain> =>
       request('/domains', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: Partial<Omit<Domain, 'id'>>): Promise<Domain> =>
+    update: (id: number, body: Partial<DomainWriteBody>): Promise<Domain> =>
       request(`/domains/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    /** POST /api/domains/extract — LLM extraction, returns proposals (not saved). */
+    extract: (text: string): Promise<{ domains: DomainProposal[] }> =>
+      request('/domains/extract', { method: 'POST', body: JSON.stringify({ text }) }),
   },
 
   // ---- Views & lists (backend routes/views.py — task_breakdown 1B) ----

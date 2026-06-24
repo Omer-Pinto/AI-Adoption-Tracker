@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import type { Team, Champion, Domain } from '@/types';
 import { api } from '@/api';
 import { DataTable } from '@/components/DataTable';
@@ -137,7 +138,7 @@ export default function ManagePage() {
     {
       key: 'team',
       header: 'Team',
-      render: (row) => <span className="text-muted">{teamById(row.team_id)}</span>,
+      render: (row) => <span className="text-muted">{row.team_name || teamById(row.team_id)}</span>,
     },
     {
       key: 'champion',
@@ -147,13 +148,36 @@ export default function ManagePage() {
     {
       key: 'priority',
       header: 'Priority',
-      width: '80px',
+      width: '100px',
       render: (row) => <span className="text-muted">{row.priority ?? '—'}</span>,
     },
     {
-      key: 'scope',
-      header: 'Scope',
-      render: (row) => <span className="text-muted">{row.scope ?? '—'}</span>,
+      key: 'cross_domains',
+      header: 'Cross-domain',
+      render: (row) =>
+        row.cross_domains.length === 0 ? (
+          <span className="text-muted">—</span>
+        ) : (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {row.cross_domains.map((cd) => (
+              <span
+                key={cd.id}
+                style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 20,
+                  background: '#ede9fe',
+                  color: '#5b21b6',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cd.team_name}: {cd.name}
+              </span>
+            ))}
+          </div>
+        ),
     },
     {
       key: 'actions',
@@ -205,12 +229,17 @@ export default function ManagePage() {
             </button>
           )}
           {tab === 'domains' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setModal({ kind: 'domain', editing: null })}
-            >
-              + Add Domain
-            </button>
+            <>
+              <Link to="/domains/setup" className="btn btn-secondary btn-sm">
+                Set up domains
+              </Link>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setModal({ kind: 'domain', editing: null })}
+              >
+                + Add Domain
+              </button>
+            </>
           )}
         </div>
       </div>

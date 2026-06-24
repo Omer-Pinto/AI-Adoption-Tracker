@@ -130,24 +130,35 @@ export default function DomainPage() {
                   <div className="case-meta-value">{domain.priority}</div>
                 </div>
               )}
-              {domain.scope && (
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Scope</div>
-                  <div className="case-meta-value">{domain.scope}</div>
+              <div className="case-meta-item">
+                <div className="case-meta-label">Cross-domain</div>
+                <div className="case-meta-value">
+                  {domain.cross_domains.length === 0 ? (
+                    <span className="text-muted">none</span>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                      {domain.cross_domains.map((cd) => (
+                        <Link
+                          key={cd.id}
+                          to={`/domains/${cd.id}`}
+                          style={{
+                            display: 'inline-block',
+                            padding: '2px 10px',
+                            borderRadius: 20,
+                            background: '#ede9fe',
+                            color: '#5b21b6',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          {cd.team_name}: {cd.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-              {domain.cross_domain && (
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Cross-domain</div>
-                  <div className="case-meta-value">{domain.cross_domain}</div>
-                </div>
-              )}
-              {!domain.cross_domain && (
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Cross-domain</div>
-                  <div className="case-meta-value text-muted">none</div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

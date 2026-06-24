@@ -70,9 +70,7 @@
           "additionalProperties": false,
           "properties": {
             "description": { "type": "string" },
-            "scope": { "type": "string" },
-            "priority": { "type": "integer" },
-            "cross_domain": { "type": "string" }
+            "priority": { "type": "string" }
           }
         },
         "tasks": {

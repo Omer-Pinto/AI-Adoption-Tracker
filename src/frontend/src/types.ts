@@ -46,15 +46,22 @@ export interface Champion {
   end_date: string | null;
 }
 
+export interface CrossDomainRef {
+  id: number;
+  name: string;
+  team_id: number;
+  team_name: string;
+}
+
 export interface Domain {
   id: number;
   team_id: number;
+  team_name: string;
   champion_id: number;
   name: string;
   description: string | null;
-  scope: string | null;
-  priority: number | null;
-  cross_domain: string | null;
+  priority: string | null;
+  cross_domains: CrossDomainRef[];
 }
 
 export interface Task {
@@ -127,7 +134,7 @@ export interface ReportArtifactLine {
 
 export interface ReportDomainBlock {
   domain: string;
-  changes?: Partial<Pick<Domain, 'priority' | 'description' | 'scope' | 'cross_domain'>>;
+  changes?: Partial<Pick<Domain, 'priority' | 'description'>>;
   tasks?: ReportTaskLine[];
   artifacts?: ReportArtifactLine[];
 }

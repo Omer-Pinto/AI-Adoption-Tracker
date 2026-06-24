@@ -84,13 +84,12 @@ def _create_domain(
     champion_id: int,
     name: str,
     description: str | None = None,
-    scope: str | None = None,
-    priority: int | None = None,
+    priority: str | None = None,
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name, description, scope, priority) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (team_id, champion_id, name, description, scope, priority),
+        "INSERT INTO domain (team_id, champion_id, name, description, priority) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (team_id, champion_id, name, description, priority),
     )
     conn.commit()
     return cur.lastrowid
@@ -138,8 +137,7 @@ def seed_radar(conn) -> None:
         champion_id=champion_id,
         name="signal-processing",
         description="DSP pipeline work including CFAR, clutter mapping, and Doppler analysis.",
-        scope="All signal-chain tasks from raw ADC to target detection.",
-        priority=1,
+        priority="1",
     )
     print(f"[seed]   team={team_id}  champion={champion_id} (Dana)")
 
@@ -259,8 +257,7 @@ def seed_platform(conn) -> None:
         champion_id=champion_id,
         name="ci-cd",
         description="Continuous integration and deployment pipeline automation.",
-        scope="Build, test, and deploy gates for the platform services.",
-        priority=1,
+        priority="1",
     )
     print(f"[seed]   team={team_id}  champion={champion_id} (Eli)")
 

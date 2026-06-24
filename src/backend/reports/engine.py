@@ -34,11 +34,11 @@ Design decisions (Wave 2 Agent 2B):
   status is terminal).  See ``_ended_on_for_task``.
 
 * **Domain field reset on replay** — before replaying a champion's reports,
-  the mutable report-driven fields (``description``, ``scope``, ``priority``,
-  ``cross_domain``) are reset to NULL *per domain*, but only for the fields
-  that at least one report section actually sets for THAT domain.  A field
-  that only a report for domain A ever touches is not NULLed on domain B,
-  so management-CRUD-set values on domain B survive edit-replays.
+  the mutable report-driven fields (``description``, ``priority``) are reset
+  to NULL *per domain*, but only for the fields that at least one report
+  section actually sets for THAT domain.  A field that only a report for
+  domain A ever touches is not NULLed on domain B, so management-CRUD-set
+  values on domain B survive edit-replays.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ _TERMINAL_STATUSES = frozenset(
 
 # Domain columns that are driven exclusively by report ``changes`` sections and
 # must therefore be reset to NULL before a replay so that removed changes revert.
-_DOMAIN_REPORT_FIELDS = ("description", "scope", "priority", "cross_domain")
+_DOMAIN_REPORT_FIELDS = ("description", "priority")
 
 
 # ── exceptions ──────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
 
     domains: list[dict] = []
     for dom in conn.execute(
-        "SELECT id, name, description, scope, priority, cross_domain "
+        "SELECT id, name, description, priority "
         "FROM domain WHERE champion_id = ? ORDER BY id",
         (champion_id,),
     ).fetchall():
@@ -296,9 +296,7 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
             {
                 "name": dom["name"],
                 "description": dom["description"],
-                "scope": dom["scope"],
                 "priority": dom["priority"],
-                "cross_domain": dom["cross_domain"],
                 "tasks": tasks,
                 "artifacts": artifacts,
             }
@@ -741,11 +739,11 @@ def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
     that the timeline no longer references keep their last computed value
     (entities are not deleted on replay — decision, flagged).
 
-    Domain field reset: before replaying, ``description / scope / priority /
-    cross_domain`` are reset to NULL **per domain** — but only for the fields
-    that at least one of THIS domain's report sections actually sets (non-None
-    value in the ``changes`` block, matching ``_apply_domain_changes`` semantics).
-    A field never mentioned in any report for domain X is left untouched on X,
+    Domain field reset: before replaying, ``description`` and ``priority``
+    are reset to NULL **per domain** — but only for the fields that at least
+    one of THIS domain's report sections actually sets (non-None value in the
+    ``changes`` block, matching ``_apply_domain_changes`` semantics). A field
+    never mentioned in any report for domain X is left untouched on X,
     preserving any management-CRUD value set outside the report flow."""
     reports = conn.execute(
         "SELECT id, meeting_date, report_json FROM report "

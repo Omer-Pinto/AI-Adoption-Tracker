@@ -73,13 +73,13 @@ export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
         />
       </div>
       <div className="form-row">
-        <label className="form-label">CC Baseline</label>
+        <label className="form-label">Current Claude Code status</label>
         <textarea
           className="form-textarea"
-          rows={4}
+          rows={6}
           value={ccBaseline}
           onChange={(e) => setCcBaseline(e.target.value)}
-          placeholder="e.g. 2024-Q1 — describe the baseline in as much detail as needed"
+          placeholder="Current Claude Code status — current skills, agents, claude.md / context files, workflows, etc."
         />
       </div>
     </Modal>

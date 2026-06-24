@@ -70,15 +70,23 @@ class Champion(BaseModel):
     end_date: str | None = None
 
 
+class DomainRef(BaseModel):
+    """Lightweight reference to a linked domain (used inside Domain.cross_domains)."""
+    id: int
+    name: str
+    team_id: int
+    team_name: str
+
+
 class Domain(BaseModel):
     id: int
     team_id: int
+    team_name: str
     champion_id: int
     name: str
     description: str | None = None
-    scope: str | None = None
-    priority: int | None = None
-    cross_domain: str | None = None
+    priority: str | None = None
+    cross_domains: list[DomainRef] = Field(default_factory=list)
 
 
 class Report(BaseModel):
@@ -193,9 +201,7 @@ class ReportDomainChanges(BaseModel):
     model_config = _doc_config
 
     description: str | None = None
-    scope: str | None = None
-    priority: int | None = None
-    cross_domain: str | None = None
+    priority: str | None = None
 
 
 class ReportDomainSection(BaseModel):
