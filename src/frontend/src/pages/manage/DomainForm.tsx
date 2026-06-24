@@ -70,10 +70,16 @@ export function DomainFormFields({
         <label className="form-label">Priority</label>
         <input
           className="form-input"
+          type="number"
+          min="1"
+          step="1"
           value={priority}
           onChange={(e) => onChange({ ...values, priority: e.target.value })}
-          placeholder="e.g. High, P1, Critical…"
+          placeholder="e.g. 1, 2, 3…"
         />
+        <div className="text-muted text-sm" style={{ marginTop: 4 }}>
+          Lower number = higher priority
+        </div>
       </div>
       <div className="form-row">
         <label className="form-label">Cross-domain links</label>
@@ -222,6 +228,10 @@ export function DomainForm({
   const title = editing ? `Edit Domain: ${editing.name}` : 'Add Domain';
 
   async function handleSubmit() {
+    if (!fields.name.trim()) {
+      setSubmitError('Name is required.');
+      return;
+    }
     setSaving(true);
     setSubmitError(null);
     const body = {
@@ -257,7 +267,11 @@ export function DomainForm({
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={saving || !fields.name.trim()}
+          >
             {saving ? 'Saving…' : 'Save'}
           </button>
         </>

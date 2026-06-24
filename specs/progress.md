@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 83% (77/93)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜] 87% (81/93)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 77 / 93 | 83% |
+| 🟢 Done | 81 / 93 | 87% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 16 (4 = Wave 7 · 12 = Wave 8) | 17% |
+| ⬜ Pending | 12 (12 = Wave 8) | 13% |
 
 ---
 
@@ -28,7 +28,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 5 | Done | — | — | 0/2 | Decisions signed off (5.1); live OpenAI draft test (5.2) passed — schema-valid report from raw notes (extraction *quality* gaps moved to Wave 5.5/6) |
 | 5.5 | Done | 7/7 | 7/7 | 0/27 | 5.5A–F done+verified (backend correctness, extraction safety-net, report-flow UX, General catch-all + per-item domain picker). 5.5G domain redesign BUILT (text→domains extraction, symmetric cross-links, scope removed, priority free-text, shared DomainForm). Domain-add UX consolidation moved out to Wave 6 |
 | 6 | Done | 1/1 | 0/1 | 0/3 | 6A spec **APPROVED by Omer** → `specs/domain_add_ux.md`. DECISION: two buttons — "+ Add Domain" (manual modal) + "Smart domain extract" (page). Verdict: extract flow is a page, not a modal. Commit batched with Wave 7 |
-| 7 | Not Started | 0/1 | 0/1 | 4/4 | Domain-add implementation — two buttons (+ Add Domain → manual modal; Smart domain extract → page); empty-name Save guard; numeric priority + sorted list; 5B re-extract warning. **READY** |
+| 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
 | 8 | Not Started | 0/4 | 0/4 | 12/12 | Raw-notes extraction depth — extraction-first prompt, free-text mining, agentic DB-lookup tool-call loop (both providers), fan-out reconciliation, raw-vs-curated parity gate. Open decisions for Omer must be resolved first |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -248,12 +248,14 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 > Builds exactly what Wave 6's approved spec defines — single agent, runs after the spec lands. See `specs/task_breakdown.md` Wave 7.
 
-### Agent 7A: Implement the consolidated domain-add (`pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx`)
+### Agent 7A: Two-button domain-add (manual modal + smart-extract page) (`pages/manage/*`, `pages/domain/DomainSetupPage.tsx`, `router.tsx`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Merge into ONE "Add Domain(s)" button | ⬜ Pending | remove the duplicate/colored second button |
-| 2 | One surface, two flavours (manual single + LLM multi-extract) per the Wave 6 spec | ⬜ Pending | reuse DomainForm + extract flow |
-| 3 | Apply the Wave 6 spec's modal-vs-page decision; retire/fold `/domains/setup` | ⬜ Pending | sidebar item already removed |
+| 1 | Two labelled buttons; drop old grey "Set up domains" link; sort domains by numeric priority (nulls last) | 🟢 Done | `ManagePage.tsx`: "+ Add Domain" → modal, "Smart domain extract" → `/domains/extract`; `sortedDomains` |
+| 2 | Manual modal: block Save on empty Name (inline error); Priority → numeric input | 🟢 Done | `DomainForm.tsx`: Save disabled when Name blank; `type=number min=1`, hint "Lower number = higher priority" |
+| 3 | Smart-extract page: 5B re-extract warning (per-card dirty); no-results empty state; one champion/batch; close-no-warning | 🟢 Done | `DomainSetupPage.tsx`: `window.confirm` on dirty re-extract; "No domains found…" state |
+| 4 | Routing: button → extract page; remove old grey-link; no redirect | 🟢 Done | `router.tsx`: route renamed `domains/setup` → `domains/extract` |
+**Verification:** `npm run build` (tsc -b && vite build) PASSED — 63 modules, no errors. No stale `/domains/setup` refs.
 
 ---
 

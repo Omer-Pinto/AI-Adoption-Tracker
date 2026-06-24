@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { Team, Champion, Domain } from '@/types';
 import { api } from '@/api';
 import { DataTable } from '@/components/DataTable';
@@ -19,6 +19,7 @@ type ModalState =
   | { kind: 'domain'; editing: Domain | null };
 
 export default function ManagePage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ActiveTab>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
   const [champions, setChampions] = useState<Champion[]>([]);
@@ -129,6 +130,19 @@ export default function ManagePage() {
   // --- Domains table ---
   const championById = (id: number) => champions.find((c) => c.id === id)?.name ?? String(id);
 
+  // Sort by numeric priority ascending (lower number = higher priority),
+  // rows with no/blank/non-numeric priority sort to the bottom.
+  const sortedDomains = [...domains].sort((a, b) => {
+    const pa = Number(a.priority);
+    const pb = Number(b.priority);
+    const aValid = a.priority != null && a.priority.trim() !== '' && Number.isFinite(pa);
+    const bValid = b.priority != null && b.priority.trim() !== '' && Number.isFinite(pb);
+    if (aValid && bValid) return pa - pb;
+    if (aValid) return -1;
+    if (bValid) return 1;
+    return 0;
+  });
+
   const domainColumns: Column<Domain>[] = [
     {
       key: 'name',
@@ -230,9 +244,12 @@ export default function ManagePage() {
           )}
           {tab === 'domains' && (
             <>
-              <Link to="/domains/setup" className="btn btn-secondary btn-sm">
-                Set up domains
-              </Link>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => navigate('/domains/extract')}
+              >
+                Smart domain extract
+              </button>
               <button
                 className="btn btn-primary btn-sm"
                 onClick={() => setModal({ kind: 'domain', editing: null })}
@@ -295,7 +312,7 @@ export default function ManagePage() {
           {tab === 'domains' && (
             <DataTable
               columns={domainColumns}
-              rows={domains}
+              rows={sortedDomains}
               rowKey={(r) => r.id}
               empty="No domains yet. Click + Add Domain to create one."
             />

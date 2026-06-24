@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
       { index: true, element: <TeamsIndexPage /> },
       { path: 'manage', element: <ManagePage /> },
       { path: 'teams/:championId', element: <TeamPage /> },
-      { path: 'domains/setup', element: <DomainSetupPage /> },
+      { path: 'domains/extract', element: <DomainSetupPage /> },
       { path: 'domains/:domainId', element: <DomainPage /> },
       { path: 'artifacts', element: <ArtifactsPage /> },
       { path: 'tasks', element: <TasksPage /> },

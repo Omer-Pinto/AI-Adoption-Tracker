@@ -6,7 +6,7 @@ import { api } from '@/api';
 import { DomainFormFields } from '@/pages/manage/DomainForm';
 import type { DomainFormFieldValues } from '@/pages/manage/DomainForm';
 
-// Route: "/domains/setup"
+// Route: "/domains/extract"
 // Lets the user pick a team (and champion), paste raw domain text,
 // extract proposals via POST /api/domains/extract, then review/edit
 // and approve each proposal (POST /api/domains).
@@ -20,6 +20,7 @@ interface ProposalCardProps {
   teamId: number;
   championId: number;
   onApproved: (saved: Domain) => void;
+  onDirtyChange: (index: number, dirty: boolean) => void;
   alreadySaved: boolean;
 }
 
@@ -30,16 +31,28 @@ function ProposalCard({
   teamId,
   championId,
   onApproved,
+  onDirtyChange,
   alreadySaved,
 }: ProposalCardProps) {
-  const [fields, setFields] = useState<DomainFormFieldValues>({
+  const initial: DomainFormFieldValues = {
     name: proposal.name,
     description: proposal.description ?? '',
     priority: proposal.priority ?? '',
     crossDomainIds: [],
-  });
+  };
+  const [fields, setFields] = useState<DomainFormFieldValues>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleFieldsChange(next: DomainFormFieldValues) {
+    setFields(next);
+    const dirty =
+      next.name !== initial.name ||
+      next.description !== initial.description ||
+      next.priority !== initial.priority ||
+      next.crossDomainIds.length !== initial.crossDomainIds.length;
+    onDirtyChange(index, dirty);
+  }
 
   async function handleApprove() {
     if (!fields.name.trim()) {
@@ -57,6 +70,7 @@ function ProposalCard({
         priority: fields.priority || null,
         cross_domain_ids: fields.crossDomainIds,
       });
+      onDirtyChange(index, false);
       onApproved(saved);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed.');
@@ -121,7 +135,7 @@ function ProposalCard({
 
       <DomainFormFields
         values={fields}
-        onChange={setFields}
+        onChange={handleFieldsChange}
         allDomains={allDomains}
         autoFocusName={false}
       />
@@ -156,6 +170,8 @@ export default function DomainSetupPage() {
 
   const [proposals, setProposals] = useState<DomainProposal[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
+  const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
+  const [hasExtracted, setHasExtracted] = useState(false);
 
   // Load teams + all domains on mount
   useEffect(() => {
@@ -196,13 +212,24 @@ export default function DomainSetupPage() {
 
   async function handleExtract() {
     if (!text.trim()) return;
+    // 5B — warn before discarding unsaved edited (dirty, not-yet-saved) proposals.
+    const hasUnsavedEdits = [...dirtyIds].some((i) => !savedIds.has(i));
+    if (hasUnsavedEdits) {
+      const ok = window.confirm(
+        'Re-extracting will discard your unsaved edited proposals. Continue?',
+      );
+      if (!ok) return;
+    }
     setExtracting(true);
     setExtractError(null);
     setProposals([]);
     setSavedIds(new Set());
+    setDirtyIds(new Set());
+    setHasExtracted(false);
     try {
       const result = await api.domains.extract(text);
       setProposals(result.domains);
+      setHasExtracted(true);
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Extraction failed.');
     } finally {
@@ -216,6 +243,17 @@ export default function DomainSetupPage() {
     setSavedIds((prev) => new Set([...prev, index]));
   }
 
+  function handleDirtyChange(index: number, dirty: boolean) {
+    setDirtyIds((prev) => {
+      const has = prev.has(index);
+      if (dirty === has) return prev;
+      const next = new Set(prev);
+      if (dirty) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+  }
+
   const allApproved = proposals.length > 0 && savedIds.size === proposals.length;
   const canExtract = Boolean(selectedTeamId && selectedChampionId && text.trim());
 
@@ -223,7 +261,7 @@ export default function DomainSetupPage() {
     <>
       <div className="top-bar">
         <div>
-          <span className="top-bar-title">Set up domains</span>
+          <span className="top-bar-title">Smart domain extract</span>
           <span className="top-bar-sub">Extract and approve domain proposals from text</span>
         </div>
         <div className="top-bar-actions">
@@ -239,7 +277,7 @@ export default function DomainSetupPage() {
           <span className="breadcrumb-sep">/</span>
           <Link to="/manage">Manage</Link>
           <span className="breadcrumb-sep">/</span>
-          <span>Set up domains</span>
+          <span>Smart domain extract</span>
         </div>
 
         <div style={{ maxWidth: 760 }}>
@@ -355,6 +393,16 @@ export default function DomainSetupPage() {
             </div>
           </div>
 
+          {/* No-results empty state */}
+          {hasExtracted && proposals.length === 0 && (
+            <div className="form-section">
+              <div className="form-section-title">Step 3 — Review and approve proposals</div>
+              <div className="text-muted text-sm" style={{ padding: '6px 0' }}>
+                No domains found in that text. Edit it and extract again, or add one manually.
+              </div>
+            </div>
+          )}
+
           {/* Step 3 — Review and approve proposals */}
           {proposals.length > 0 && (
             <div className="form-section">
@@ -386,6 +434,7 @@ export default function DomainSetupPage() {
                   teamId={Number(selectedTeamId)}
                   championId={Number(selectedChampionId)}
                   onApproved={(saved) => handleProposalApproved(i, saved)}
+                  onDirtyChange={handleDirtyChange}
                   alreadySaved={savedIds.has(i)}
                 />
               ))}
