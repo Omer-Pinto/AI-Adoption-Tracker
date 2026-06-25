@@ -84,9 +84,9 @@ export interface DomainOption {
   name: string;
 }
 
-function colorForDomain(name: string | null | undefined, domains: DomainOption[]): DomainColor {
-  if (!name) return DOMAIN_GENERAL;
-  const i = domains.findIndex((d) => d.name === name);
+function colorForDomain(domainId: number | null | undefined, domains: DomainOption[]): DomainColor {
+  if (domainId == null) return DOMAIN_GENERAL;
+  const i = domains.findIndex((d) => d.id === domainId);
   return i >= 0 ? (DOMAIN_PALETTE[i % DOMAIN_PALETTE.length] as DomainColor) : DOMAIN_GENERAL;
 }
 
@@ -135,15 +135,17 @@ function DomainLegend({ domains }: { domains: DomainOption[] }) {
 
 function DomainSelect({
   domain,
+  domainId,
   domains,
   onChange,
 }: {
   domain: string | null | undefined;
+  domainId: number | null | undefined;
   domains: DomainOption[];
   // null target = unplaced/team-wide (clears both domain_id and domain)
   onChange: (next: DomainOption | null) => void;
 }) {
-  const c = colorForDomain(domain, domains);
+  const c = colorForDomain(domainId, domains);
   return (
     <select
       className="dom-sel"
@@ -469,7 +471,7 @@ function TasksCard({
                   />
                 </td>
                 <td>
-                  <DomainSelect domain={t.domain} domains={domains} onChange={(d) => setDomain(i, d)} />
+                  <DomainSelect domain={t.domain} domainId={t.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
                 </td>
                 <td>
                   <input
@@ -626,7 +628,7 @@ function ArtifactsCard({
                   />
                 </td>
                 <td>
-                  <DomainSelect domain={a.domain} domains={domains} onChange={(d) => setDomain(i, d)} />
+                  <DomainSelect domain={a.domain} domainId={a.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
                 </td>
                 <td>
                   <select
@@ -682,7 +684,18 @@ function ArtifactsCard({
 // (matched) or `null` (a NEW reference). The contenteditable renders tokens as
 // chips; on serialization we walk the DOM back to tokens + plain text.
 
-const TOKEN_RE = /\{\{(task|artifact):([^:}]+):([^}]+)\}\}/g;
+// Token grammar: {{kind:id:encodedName}} where encodedName is percent-encoded
+// so that '}', '{', ':', '%' inside a name never break the delimiter.
+const TOKEN_RE = /\{\{(task|artifact):([^:}]+):([^}]*)\}\}/g;
+
+/** Encode a chip name so it is safe inside the {{…}} token. */
+function encodeChipName(name: string): string {
+  return name.replace(/%/g, '%25').replace(/\{/g, '%7B').replace(/\}/g, '%7D').replace(/:/g, '%3A');
+}
+/** Decode an encoded chip name back to the original string. */
+function decodeChipName(encoded: string): string {
+  return decodeURIComponent(encoded);
+}
 
 /** Build contenteditable HTML from a token-encoded string. */
 function tokensToHtml(str: string): string {
@@ -694,7 +707,7 @@ function tokensToHtml(str: string): string {
     out += escapeHtml(str.slice(last, m.index));
     const kind = m[1] as 'task' | 'artifact';
     const rawId = m[2];
-    const name = m[3] ?? '';
+    const name = decodeChipName(m[3] ?? '');
     const id = rawId && rawId !== 'null' ? rawId : null;
     out += chipHtml(kind, id, name);
     last = m.index + m[0].length;
@@ -742,7 +755,7 @@ function htmlToTokens(root: HTMLElement): string {
           out += visible;
         } else {
           const id = idAttr && idAttr !== 'null' ? idAttr : 'null';
-          out += `{{${kind}:${id}:${storedName}}}`;
+          out += `{{${kind}:${id}:${encodeChipName(storedName)}}}`;
         }
       } else if (node.tagName === 'BR') {
         out += '\n';
@@ -810,6 +823,15 @@ function RichMentionEditor({
     return (q ? pool.filter((p) => p.name.toLowerCase().includes(q)) : pool).slice(0, 8);
   }, [ac, entities]);
 
+  // Clamp acActive when the candidate list shrinks so Enter never no-ops on a stale index.
+  useEffect(() => {
+    if (candidates.length > 0) {
+      setAcActive((i) => Math.min(i, candidates.length - 1));
+    } else {
+      setAcActive(0);
+    }
+  }, [candidates.length]);
+
   function detectTrigger() {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return setAc(null);
@@ -818,7 +840,7 @@ function RichMentionEditor({
     if (node.nodeType !== Node.TEXT_NODE) return setAc(null);
     const textNode = node as Text;
     const text = (textNode.textContent ?? '').slice(0, range.startOffset);
-    const m = /([@#])([\w\- ]*)$/.exec(text);
+    const m = /([@#])([\w\-]*)$/.exec(text);
     if (!m) return setAc(null);
     const kind = m[1] === '@' ? 'task' : 'artifact';
     const matchStart = range.startOffset - m[0].length;
@@ -872,6 +894,17 @@ function RichMentionEditor({
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
+    // Always suppress Enter / Shift+Enter — this editor is single-line.
+    // When the autocomplete popup is open, Enter picks the active item.
+    // When it is closed, Enter does nothing (no <br> inserted).
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (ac && candidates.length > 0) {
+        const c = candidates[acActive];
+        if (c) pick(c);
+      }
+      return;
+    }
     if (!ac || candidates.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -879,7 +912,7 @@ function RichMentionEditor({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setAcActive((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
+    } else if (e.key === 'Tab') {
       e.preventDefault();
       const c = candidates[acActive];
       if (c) pick(c);
@@ -1001,7 +1034,7 @@ function ActionItemsCard({
                   />
                 </td>
                 <td>
-                  <DomainSelect domain={it.domain} domains={domains} onChange={(d) => setDomain(i, d)} />
+                  <DomainSelect domain={it.domain} domainId={it.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
                 </td>
                 <td>
                   <button className="del-btn" title="Remove row" onClick={() => del(i)}>
@@ -1247,8 +1280,8 @@ export function FlatReportEditor({
         </div>
         <div className="participants-row">
           <span className="participants-label">Participants:</span>
-          {(report.participants ?? []).map((p) => (
-            <span className="avatar" key={p}>
+          {(report.participants ?? []).map((p, pi) => (
+            <span className="avatar" key={pi}>
               <span className="dot">{p.slice(0, 1).toUpperCase()}</span>
               {p}
             </span>
