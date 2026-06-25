@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 94% (91/97)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (94/97)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 91 / 97 | 94% |
+| 🟢 Done | 94 / 97 | 97% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 6 (3 = Wave 10 · 3 = Wave 11) | 6% |
+| ⬜ Pending | 3 (Wave 11) | 3% |
 
 ---
 
@@ -31,7 +31,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 7 | Done | 1/1 | 1/1 | 0/4 | Domain-add implementation DONE + build-verified — two buttons (+ Add Domain → manual modal; Smart domain extract → `/domains/extract` page); empty-name Save guard; numeric priority + sorted list (nulls last); 5B re-extract warning; no-results state; old grey link removed |
 | 8 | Done | 1/1 | 1/1 | 0/6 | 8A FLAT redesign (`194fef0`+`2d559ef`): top-level `tasks`/`artifacts`, entity `id` + domain `domain_id`/`domain` matching, `report_schema.json` deleted, `extra="forbid"`, `summary`. **G1 APPROVED by Omer**; G2 structured-output audit **PASS**. |
 | 9 | Done | 1/1 | 1/1 | 0/4 | Flat id-based engine (`d696420` + dup-fix `2554a35` + cleanup `c6f584a`). Team-scoped id-bearing `build_draft_context`; id-matched save with **id back-fill**; replay back-fills too so an entity added on EDIT can't duplicate (CRITICAL review catch, fixed+proven); domain-changes machinery removed; `summary`/`note` split; `seed.py` reseeded flat (§6 intact). Verified in worktree throwaway DB (no-dup across save/edit-add/re-edit; §6 trace); `import app` clean on mvp. Full live test needs Wave 10 editor UI. |
-| 10 | Not Started | 0/1 | 0/1 | 3/3 | Report editor (frontend) — JIRA-style links (matched id → chip), team-scoped `@`/`#` picker, NEW label for unmatched. Consumes Wave 9 |
+| 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
 | 11 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 11A explore+design; then implement (11B+). See `task_breakdown.md` Wave 11 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -298,14 +298,20 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ## Wave 10 — Report editor: JIRA-style links + team-scoped @/# mentions + NEW markers (frontend)
 
-> Consumes Wave 9's id-returning draft. See `task_breakdown.md` Wave 10.
+> Consumes Wave 9's id-returning draft. Scope EXPANDED after a prototype review with Omer (3 mock iterations → approved flat-tables design at `prototype/report-editor-prototype.html`). Built as 4 focused, individually code-reviewed pieces. See `task_breakdown.md` Wave 10.
 
-### Agent 10A: JIRA-style entity links + team-scoped mention picker + NEW markers (`pages/report/*`, `api.ts`)
+### Backend endpoints (`routes/views.py`, `b674a08`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Render matched entries (with `id`) as JIRA-style linked chips in preview/edit | ⬜ Pending | depends on Wave 9 id output |
-| 2 | `@`/`#` opens a team-scoped list of tasks/artifacts; select links by id | ⬜ Pending | reworks Wave-3C global mentions |
-| 3 | Mark NEW (unmatched) tasks/artifacts with a clear "NEW" label/badge | ⬜ Pending | visual = frontend agent's call (badge/label/grouped list) |
+| 0 | Picker endpoint + entity-detail domain + current-state PATCH | 🟢 Done | api-designed (no DSL shortcut). `GET /api/teams/{id}/entities`; `domain` on task/artifact detail; `PATCH /api/tasks|artifacts/{id}` writes current-state only (report-only history) |
+
+### Frontend — detail pages (`77a9f49`) + flat report editor (`415b174`+fix `74d81d2`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Matched entries → linked chips → real **detail pages** (task & artifact, consistent, contextual Edit, dates-only history) | 🟢 Done | task status read-only ("from reports"); both pages reachable by id |
+| 2 | `@`/`#` **triggers** → inline icon-chips linked by id; team-scoped via `/teams/{id}/entities` | 🟢 Done | raw `@`/`#` removed on pick; single-line editor (no `\n` loss); token names escaped |
+| 3 | NEW markers + flat all-inline-editable tables; NEW↔existing both directions; discussion/issues as lists; domain colors | 🟢 Done | matches approved prototype; save payload allowlist-clean (extra=forbid safe) |
+| — | Live draft→preview→save→edit round-trip | ⬜ Omer | needs LLM `.env`; build-verified + reviewed, not yet run live |
 
 ---
 
