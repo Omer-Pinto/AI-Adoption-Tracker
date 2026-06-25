@@ -96,22 +96,28 @@ export interface ActionItem {
 
 // ---- History rows (spec §5) ----
 
+// `source` distinguishes a report-derived entry from a manual current-state
+// edit (both ARE journaled now). `report_id` is null for a manual entry.
 export interface TaskHistoryEntry {
   id: number;
   task_id: number;
-  report_id: number;
+  report_id: number | null;
   meeting_date: string;
   status_at_meeting: TaskStatus;
+  owner: string | null;
+  ended_on: string | null;
   change_note: string | null;
+  source: 'report' | 'manual';
 }
 
 export interface ArtifactHistoryEntry {
   id: number;
   artifact_id: number;
-  report_id: number;
+  report_id: number | null;
   meeting_date: string;
   change_kind: ArtifactChangeKind;
   change_note: string | null;
+  source: 'report' | 'manual';
 }
 
 // ---- Report JSON (spec §4) ----
@@ -231,7 +237,8 @@ export interface ArtifactDetail {
 /** Body for `PATCH /api/tasks/{id}` — manager current-state edit (un-journaled).
  *  All of status / owner / domain_id / started_on / ended_on are editable
  *  (partial PATCH). A bad `status` enum → 422; `domain_id` must be non-null and
- *  same-team or it 422s. Manual edits here are NOT added to task_history. */
+ *  same-team or it 422s. Manual edits here ARE journaled to task_history
+ *  (source='manual', dated today). */
 export interface TaskPatchBody {
   status?: TaskStatus;
   owner?: string | null;

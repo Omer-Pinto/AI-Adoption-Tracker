@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '@/api';
-import type { Domain, TaskDetail, TaskPatchBody, TaskStatus } from '@/types';
+import type { Domain, TaskDetail, TaskHistoryEntry, TaskPatchBody, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
+
+// A subtle, calm marker showing whether a history entry came from a report or a
+// manual current-state edit. Report entries stay unlabeled (the common case);
+// manual edits get a muted "manual" tag so "was this a meeting update or a
+// manual fix?" is answerable at a glance — no loud color.
+function HistorySourceTag({ source }: { source: TaskHistoryEntry['source'] }) {
+  if (source !== 'manual') return null;
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        color: '#6b7280',
+        background: '#f1f2f4',
+        borderRadius: 4,
+        padding: '1px 6px',
+      }}
+      title="Recorded by a manual edit (not from a report)"
+    >
+      manual
+    </span>
+  );
+}
 
 // Route: "/tasks/:id" — full task detail page (link target for matched-entity
 // chips in the report editor). This is a MANAGER current-state edit interface:
@@ -222,14 +247,17 @@ export default function TaskDetailPage() {
                       <div className="detail-tl-head">
                         <span className="detail-tl-date">{h.meeting_date}</span>
                         <StatusBadge status={h.status_at_meeting} />
-                        <Link
-                          to={`/reports/${h.report_id}/edit`}
-                          className="btn btn-sm btn-outline"
-                          style={{ fontSize: 11, padding: '1px 7px' }}
-                          title="Edit the report that recorded this entry"
-                        >
-                          Edit report
-                        </Link>
+                        <HistorySourceTag source={h.source} />
+                        {h.report_id != null && (
+                          <Link
+                            to={`/reports/${h.report_id}/edit`}
+                            className="btn btn-sm btn-outline"
+                            style={{ fontSize: 11, padding: '1px 7px' }}
+                            title="Edit the report that recorded this entry"
+                          >
+                            Edit report
+                          </Link>
+                        )}
                       </div>
                       {h.change_note && <div className="detail-tl-text">{h.change_note}</div>}
                     </div>
@@ -361,7 +389,7 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
         />
       </div>
       <div className="text-muted text-sm" style={{ marginBottom: 12 }}>
-        Manual edits here aren't added to the report history.
+        Manual edits are recorded in the history below (marked “manual”).
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>

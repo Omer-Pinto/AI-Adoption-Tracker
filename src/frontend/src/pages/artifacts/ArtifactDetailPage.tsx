@@ -1,8 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '@/api';
-import type { Artifact, ArtifactDetail, ArtifactType, Domain } from '@/types';
+import type {
+  Artifact,
+  ArtifactDetail,
+  ArtifactHistoryEntry,
+  ArtifactType,
+  Domain,
+} from '@/types';
 import { ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
+
+// A subtle, calm marker showing whether a history entry came from a report or a
+// manual current-state edit. Report entries stay unlabeled (the common case);
+// manual edits get a muted "manual" tag so "was this a meeting update or a
+// manual fix?" is answerable at a glance — no loud color.
+function HistorySourceTag({ source }: { source: ArtifactHistoryEntry['source'] }) {
+  if (source !== 'manual') return null;
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        color: '#6b7280',
+        background: '#f1f2f4',
+        borderRadius: 4,
+        padding: '1px 6px',
+      }}
+      title="Recorded by a manual edit (not from a report)"
+    >
+      manual
+    </span>
+  );
+}
 
 // Route: "/artifacts/:id" — full artifact detail page (link target for matched
 // artifact chips in the report editor). Mirrors the approved prototype:
@@ -205,14 +236,17 @@ export default function ArtifactDetailPage() {
                       <div className="detail-tl-head">
                         <span className="detail-tl-date">{h.meeting_date}</span>
                         <ChangeKindBadge kind={h.change_kind} />
-                        <Link
-                          to={`/reports/${h.report_id}/edit`}
-                          className="btn btn-sm btn-outline"
-                          style={{ fontSize: 11, padding: '1px 7px' }}
-                          title="Edit the report that recorded this change"
-                        >
-                          Edit report
-                        </Link>
+                        <HistorySourceTag source={h.source} />
+                        {h.report_id != null && (
+                          <Link
+                            to={`/reports/${h.report_id}/edit`}
+                            className="btn btn-sm btn-outline"
+                            style={{ fontSize: 11, padding: '1px 7px' }}
+                            title="Edit the report that recorded this change"
+                          >
+                            Edit report
+                          </Link>
+                        )}
                       </div>
                       {h.change_note && <div className="detail-tl-text">{h.change_note}</div>}
                     </div>
