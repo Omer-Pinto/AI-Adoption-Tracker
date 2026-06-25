@@ -738,13 +738,26 @@ function chipHtml(kind: 'task' | 'artifact', id: string | null, name: string): s
   );
 }
 
-/** Walk a contenteditable element back to a token-encoded string. */
+/** Walk a contenteditable element back to a token-encoded string.
+ *
+ * We keep our own editor DOM FLAT (text nodes, <br>s, chip spans). But Chromium
+ * may still inject block wrappers (<div>/<p>) on some Enter / paste paths, so
+ * this serializer is hardened to survive them: block wrappers emit a leading
+ * '\n' (skipped for the first block) and RECURSE into their children — so a chip
+ * nested in a wrapper survives as a token and inter-block newlines are kept.
+ * Any other unknown element is recursed into (not flattened to textContent),
+ * which preserves chips/<br>s nested inside spans/styling. */
 function htmlToTokens(root: HTMLElement): string {
   let out = '';
-  root.childNodes.forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      out += node.textContent ?? '';
-    } else if (node instanceof HTMLElement) {
+
+  function walk(parent: Node) {
+    parent.childNodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        out += node.textContent ?? '';
+        return;
+      }
+      if (!(node instanceof HTMLElement)) return;
+
       if (node.classList.contains('ref-chip')) {
         const kind = node.getAttribute('data-kind') as 'task' | 'artifact';
         const idAttr = node.getAttribute('data-id');
@@ -757,13 +770,29 @@ function htmlToTokens(root: HTMLElement): string {
           const id = idAttr && idAttr !== 'null' ? idAttr : 'null';
           out += `{{${kind}:${id}:${encodeChipName(storedName)}}}`;
         }
-      } else if (node.tagName === 'BR') {
-        out += '\n';
-      } else {
-        out += node.textContent ?? '';
+        return;
       }
-    }
-  });
+
+      if (node.tagName === 'BR') {
+        out += '\n';
+        return;
+      }
+
+      if (node.tagName === 'DIV' || node.tagName === 'P') {
+        // A browser-injected block wrapper: start a new line before it (unless
+        // nothing has been emitted yet — no leading newline for the first
+        // block), then recurse so any chip / <br> / text inside survives.
+        if (out.length > 0 && !out.endsWith('\n')) out += '\n';
+        walk(node);
+        return;
+      }
+
+      // Unknown element (e.g. a styling span): recurse without adding a newline.
+      walk(node);
+    });
+  }
+
+  walk(root);
   return out;
 }
 
@@ -893,18 +922,44 @@ function RichMentionEditor({
     ref.current.focus();
   }
 
+  /** Insert a single <br> at the caret and place the caret right after it.
+   *  We do this ourselves (instead of the browser default) to keep the editor
+   *  DOM FLAT — only text nodes, <br>s and chip spans, never <div>/<p> block
+   *  wrappers (which would silently flatten a 2nd-line chip on serialization). */
+  function insertLineBreak() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !ref.current) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const br = document.createElement('br');
+    range.insertNode(br);
+    // An empty text node after the <br> gives the caret a legal landing spot
+    // (and makes a trailing newline visible as a real blank line).
+    const caretNode = document.createTextNode('');
+    if (br.parentNode) br.parentNode.insertBefore(caretNode, br.nextSibling);
+    const r = document.createRange();
+    r.setStart(caretNode, 0);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
     // Multi-line editing: when the @/# autocomplete popup is OPEN, Enter picks
-    // the highlighted candidate; otherwise Enter is a normal newline (handled by
-    // contentEditable — we do NOT preventDefault). Items are separate array
-    // elements, so a newline inside one item is fine.
+    // the highlighted candidate. When CLOSED, we insert a single <br> ourselves
+    // (NOT the browser default, which injects <div>/<p> wrappers). Items are
+    // separate array elements, so a newline inside one item is fine.
     if (e.key === 'Enter') {
       if (ac && candidates.length > 0) {
         e.preventDefault();
         const c = candidates[acActive];
         if (c) pick(c);
+        return;
       }
-      // popup closed → let the browser insert a newline (multi-line input)
+      // popup closed → insert a flat <br> ourselves, then serialize.
+      e.preventDefault();
+      insertLineBreak();
+      emit();
       return;
     }
     if (!ac || candidates.length === 0) return;

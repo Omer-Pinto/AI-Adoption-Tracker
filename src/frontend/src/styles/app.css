@@ -1149,6 +1149,8 @@
 .report-editor .rte {
   border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; min-height: 38px;
   font-size: 13.5px; line-height: 1.7; color: #2b2f36; background: #fff; outline: none;
+  /* Render a raw \n in a text node as a visible line break (and still wrap). */
+  white-space: pre-wrap;
 }
 .report-editor .rte:focus { border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
 .report-editor .rte:empty::before { content: attr(data-placeholder); color: #9ca3af; }
