@@ -23,6 +23,8 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from models import ArtifactType
+
 import models
 from db import get_connection
 from domain_helpers import build_domain
@@ -77,15 +79,86 @@ class DomainPage(BaseModel):
 
 
 class TaskDetail(BaseModel):
-    """A task plus its week-by-week journey (contract §2)."""
+    """A task plus its week-by-week journey (contract §2).
+
+    `domain` is the task's domain name (resolved via task.domain_id), surfaced so
+    the entity detail page can label the placement without a second round-trip.
+    """
     task: models.Task
+    domain: str | None = None
     history: list[models.TaskHistory]
 
 
 class ArtifactDetail(BaseModel):
-    """An artifact plus its change history (contract §2)."""
+    """An artifact plus its change history (contract §2).
+
+    `domain` is the artifact's domain name (null when domain_id is null = the
+    team-wide gutter), surfaced for the entity detail page's placement label.
+    """
     artifact: models.Artifact
+    domain: str | None = None
     history: list[models.ArtifactHistory]
+
+
+# ── Wave-10 entity-picker projection (NOT the full entity models) ────────────
+# Picker-shaped rows for the report editor's @-task / #-artifact mentions: only
+# the fields the picker renders, plus the resolved domain name.
+
+class EntityPickerTask(BaseModel):
+    """One task as the picker sees it: id, name, status, domain placement."""
+    id: int
+    name: str
+    status: str
+    domain_id: int
+    domain: str | None = None
+
+
+class EntityPickerArtifact(BaseModel):
+    """One artifact as the picker sees it: id, name, type, domain placement.
+
+    `domain_id` is null for team-wide artifacts (then `domain` is null too).
+    """
+    id: int
+    name: str
+    type: str
+    domain_id: int | None = None
+    domain: str | None = None
+
+
+class TeamEntities(BaseModel):
+    """A team's existing tasks + artifacts as picker-shaped projections."""
+    tasks: list[EntityPickerTask]
+    artifacts: list[EntityPickerArtifact]
+
+
+# ── Wave-10 current-state PATCH request models (all-optional partial patch) ───
+
+class TaskPatch(BaseModel):
+    """Entity-page edit for a task: ONLY `owner` and `domain_id` are editable.
+
+    `status`/`started_on`/`ended_on` are report-derived (set by report replay)
+    and rejected here — see the route. All fields optional (partial PATCH); only
+    supplied fields are written via `model_dump(exclude_unset=True)`.
+    """
+    owner: str | None = None
+    domain_id: int | None = None
+    # Report-derived fields — present only so a supplied value can be REJECTED.
+    status: str | None = None
+    started_on: str | None = None
+    ended_on: str | None = None
+
+
+class ArtifactPatch(BaseModel):
+    """Entity-page edit for an artifact: name/type/tags/summary/domain_id.
+
+    `domain_id` is nullable (null = team-wide). All fields optional (partial
+    PATCH); only supplied fields are written.
+    """
+    name: str | None = None
+    type: str | None = None
+    tags: list[str] | None = None
+    summary: str | None = None
+    domain_id: int | None = None
 
 
 # `from __future__ import annotations` makes the model field annotations strings;
@@ -139,6 +212,35 @@ def _action_item(row: sqlite3.Row) -> models.ActionItem:
     d = dict(row)
     d["resolved"] = bool(d.get("resolved"))
     return models.ActionItem(**d)
+
+
+# ── Wave-10 helpers ──────────────────────────────────────────────────────────
+
+def _domain_name(conn: sqlite3.Connection, domain_id: int | None) -> str | None:
+    """Resolve a domain's name; None for a null/unknown domain_id."""
+    if domain_id is None:
+        return None
+    row = conn.execute(
+        "SELECT name FROM domain WHERE id = ?", (domain_id,)
+    ).fetchone()
+    return row["name"] if row is not None else None
+
+
+def _patch_update(
+    conn: sqlite3.Connection, table: str, row_id: int, changes: dict
+) -> None:
+    """UPDATE only the supplied columns of `table` row `row_id` (partial PATCH).
+
+    Mirrors `management._update`; kept local to views.py to avoid a cross-module
+    import for a one-liner. No-op when `changes` is empty.
+    """
+    if not changes:
+        return
+    assignments = ", ".join(f"{c} = ?" for c in changes)
+    conn.execute(
+        f"UPDATE {table} SET {assignments} WHERE id = ?",
+        [*changes.values(), row_id],
+    )
 
 
 # ── per-domain history fetchers (reached via task/artifact; no domain_id) ─────
@@ -349,6 +451,7 @@ def task_detail(id: int) -> TaskDetail:
         ).fetchall()
         return TaskDetail(
             task=_task(t_row),
+            domain=_domain_name(conn, t_row["domain_id"]),
             history=[_task_history(r) for r in history_rows],
         )
     finally:
@@ -387,7 +490,192 @@ def artifact_detail(id: int) -> ArtifactDetail:
         ).fetchall()
         return ArtifactDetail(
             artifact=_artifact(a_row),
+            domain=_domain_name(conn, a_row["domain_id"]),
             history=[_artifact_history(r) for r in history_rows],
         )
+    finally:
+        conn.close()
+
+
+# ── Wave-10: report-editor entity picker + current-state edits ───────────────
+
+@router.get("/teams/{team_id}/entities", response_model=TeamEntities)
+def team_entities(team_id: int) -> TeamEntities:
+    """The team's existing tasks + artifacts as a picker-shaped projection.
+
+    Feeds the report editor's `@`-task / `#`-artifact mentions. NOT the full
+    entity models — only id/name/status|type and the resolved domain.
+
+    Tasks reach the team via task → domain → domain.team_id (tasks have no direct
+    team_id). Artifacts via artifact.team_id, including team-wide artifacts
+    (domain_id null → domain null). `domain` is the domain name via LEFT JOIN.
+
+    404 if the team does not exist; an empty team yields empty lists (200).
+    """
+    conn = get_connection()
+    try:
+        if conn.execute(
+            "SELECT 1 FROM team WHERE id = ?", (team_id,)
+        ).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        task_rows = conn.execute(
+            """
+            SELECT t.id, t.name, t.status, t.domain_id, d.name AS domain
+            FROM task t
+            JOIN domain d ON d.id = t.domain_id
+            WHERE d.team_id = ?
+            ORDER BY t.id
+            """,
+            (team_id,),
+        ).fetchall()
+        tasks = [EntityPickerTask(**dict(r)) for r in task_rows]
+
+        artifact_rows = conn.execute(
+            """
+            SELECT a.id, a.name, a.type, a.domain_id, d.name AS domain
+            FROM artifact a
+            LEFT JOIN domain d ON d.id = a.domain_id
+            WHERE a.team_id = ?
+            ORDER BY a.id
+            """,
+            (team_id,),
+        ).fetchall()
+        artifacts = [EntityPickerArtifact(**dict(r)) for r in artifact_rows]
+
+        return TeamEntities(tasks=tasks, artifacts=artifacts)
+    finally:
+        conn.close()
+
+
+@router.patch("/tasks/{id}", response_model=models.Task)
+def patch_task(id: int, body: TaskPatch) -> models.Task:
+    """Entity-page edit for a task — current-state only, NO history row written.
+
+    Accepts ONLY `owner` and `domain_id` (partial). `status`/`started_on`/
+    `ended_on` are report-derived (set by report replay) and rejected with 422 if
+    supplied. A non-null `domain_id` must exist (else 422) and its team must equal
+    the task's current team (via current domain) else 422 cross-team. 404 if the
+    task is missing. History is report-only — this writes none.
+    """
+    conn = get_connection()
+    try:
+        task_row = conn.execute(
+            "SELECT * FROM task WHERE id = ?", (id,)
+        ).fetchone()
+        if task_row is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        changes = body.model_dump(exclude_unset=True)
+
+        # Report-derived fields are read-only here (set by report replay).
+        for field in ("status", "started_on", "ended_on"):
+            if field in changes:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{field} is report-derived; edit the source report",
+                )
+
+        # owner may legitimately be set to null (clearing the owner); no guard.
+
+        if "domain_id" in changes:
+            new_domain_id = changes["domain_id"]
+            if new_domain_id is None:
+                # task.domain_id is NOT NULL — a task must stay placed.
+                raise HTTPException(
+                    status_code=422, detail="domain_id cannot be null"
+                )
+            new_dom = conn.execute(
+                "SELECT team_id FROM domain WHERE id = ?", (new_domain_id,)
+            ).fetchone()
+            if new_dom is None:
+                raise HTTPException(
+                    status_code=422, detail=f"Unknown domain id {new_domain_id}"
+                )
+            # Cross-team guard: resolve the task's current team via its current
+            # domain, then require the new domain to share it.
+            cur_dom = conn.execute(
+                "SELECT team_id FROM domain WHERE id = ?", (task_row["domain_id"],)
+            ).fetchone()
+            if cur_dom is not None and new_dom["team_id"] != cur_dom["team_id"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"domain {new_domain_id} belongs to team "
+                        f"{new_dom['team_id']}, not the task's team "
+                        f"{cur_dom['team_id']}"
+                    ),
+                )
+
+        _patch_update(conn, "task", id, changes)
+        conn.commit()
+        row = conn.execute("SELECT * FROM task WHERE id = ?", (id,)).fetchone()
+        return _task(row)
+    finally:
+        conn.close()
+
+
+@router.patch("/artifacts/{id}", response_model=models.Artifact)
+def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
+    """Entity-page edit for an artifact — current-state only, NO history row.
+
+    Accepts `name`, `type`, `tags`, `summary`, `domain_id` (partial). `type` is
+    validated by the `ArtifactType` enum. `tags` is re-serialized to JSON text on
+    write. A non-null `domain_id` must exist and its team must equal the
+    artifact's team else 422; null is allowed (team-wide). 404 if missing. History
+    is report-only — this writes none.
+    """
+    conn = get_connection()
+    try:
+        artifact_row = conn.execute(
+            "SELECT * FROM artifact WHERE id = ?", (id,)
+        ).fetchone()
+        if artifact_row is None:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+
+        changes = body.model_dump(exclude_unset=True)
+
+        for field in ("name", "type"):
+            if field in changes and changes[field] is None:
+                raise HTTPException(
+                    status_code=422, detail=f"{field} cannot be null"
+                )
+
+        if "type" in changes:
+            try:
+                ArtifactType(changes["type"])
+            except ValueError:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unknown artifact type {changes['type']!r}",
+                )
+
+        if "domain_id" in changes and changes["domain_id"] is not None:
+            new_domain_id = changes["domain_id"]
+            new_dom = conn.execute(
+                "SELECT team_id FROM domain WHERE id = ?", (new_domain_id,)
+            ).fetchone()
+            if new_dom is None:
+                raise HTTPException(
+                    status_code=422, detail=f"Unknown domain id {new_domain_id}"
+                )
+            if new_dom["team_id"] != artifact_row["team_id"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"domain {new_domain_id} belongs to team "
+                        f"{new_dom['team_id']}, not the artifact's team "
+                        f"{artifact_row['team_id']}"
+                    ),
+                )
+
+        # tags: list[str] in the model, JSON text in the column.
+        if "tags" in changes:
+            changes["tags"] = json.dumps(changes["tags"])
+
+        _patch_update(conn, "artifact", id, changes)
+        conn.commit()
+        row = conn.execute("SELECT * FROM artifact WHERE id = ?", (id,)).fetchone()
+        return _artifact(row)
     finally:
         conn.close()

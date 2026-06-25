@@ -201,6 +201,84 @@ Feeds the **detail modal**: summary + full data + change history.
 }
 ```
 
+> **Wave-10 addition:** both detail envelopes now also carry `domain`
+> (`str | null`) — the placement's domain **name** (null when an artifact's
+> `domain_id` is null = the team-wide gutter), resolved via one
+> `SELECT name FROM domain WHERE id = ?`. History rows are unchanged
+> (dates-only `meeting_date`). Shapes become `{ task, domain, history }` and
+> `{ artifact, domain, history }`.
+
+### Team entities (picker source) — `GET /api/teams/{team_id}/entities` (Wave 10)
+
+Feeds the report editor's `@`-task / `#`-artifact mention picker. Returns the
+team's existing tasks + artifacts as a **picker-shaped projection** (NOT the full
+entity models — only the fields the picker renders plus the resolved domain
+name).
+
+```jsonc
+{
+  "tasks": [
+    { "id": 1, "name": "Clutter map", "status": "in-progress",
+      "domain_id": 1, "domain": "signal-processing" }
+  ],
+  "artifacts": [
+    { "id": 5, "name": "clutter-review", "type": "skill",
+      "domain_id": 1, "domain": "signal-processing" },
+    { "id": 9, "name": "team-context-pack", "type": "context",
+      "domain_id": null, "domain": null }   // team-wide (gutter)
+  ]
+}
+```
+
+- **Task → team:** `task → domain → domain.team_id` (tasks have no direct
+  `team_id`); `domain` = domain name (always present for tasks, since
+  `task.domain_id` is NOT NULL). `status` is the enum string value.
+- **Artifact → team:** `artifact.team_id`; **includes team-wide artifacts**
+  (`domain_id` null → `domain` null) via a LEFT JOIN. `type` is the enum string
+  value.
+- `404 { "detail": "Team not found" }` if the team does not exist; an **empty
+  team** returns `{ "tasks": [], "artifacts": [] }` (200).
+
+### Task edit (current-state) — `PATCH /api/tasks/{id}` (Wave 10)
+
+Entity-page edit. Accepts **only** `owner` and `domain_id` (partial). Returns the
+updated `Task`. **Writes NO `task_history` row** (history is report-only).
+
+```jsonc
+// request — all fields optional (partial PATCH)
+{ "owner": "Maya", "domain_id": 1 }
+```
+
+- `status` / `started_on` / `ended_on` are **report-derived** (set by report
+  replay) and **read-only** here: if supplied →
+  `422 { "detail": "status is report-derived; edit the source report" }`
+  (likewise for `started_on` / `ended_on`).
+- `domain_id` is NOT NULL for a task — null → `422 "domain_id cannot be null"`.
+  A supplied `domain_id` must exist (else `422 "Unknown domain id N"`) and its
+  `team_id` must equal the task's current team (resolved via the task's current
+  domain) else `422` cross-team.
+- `404 { "detail": "Task not found" }` if the task is missing.
+
+### Artifact edit (current-state) — `PATCH /api/artifacts/{id}` (Wave 10)
+
+Entity-page edit. Accepts `name`, `type`, `tags`, `summary`, `domain_id`
+(partial; `domain_id` nullable, null = team-wide). Returns the updated `Artifact`
+(`tags` parsed back to a list). **Writes NO `artifact_history` row.**
+
+```jsonc
+// request — all fields optional (partial PATCH)
+{ "name": "clutter-review", "type": "skill",
+  "tags": ["under_test"], "summary": "...", "domain_id": 1 }
+```
+
+- `type` is validated by the `ArtifactType` enum (`agent` / `skill` / `hook` /
+  `context`); an unknown value → `422 "Unknown artifact type '…'"`. `name` /
+  `type` may not be set to null (`422 "<field> cannot be null"`).
+- `tags` is re-serialized to JSON text on write and round-trips back as a list.
+- A non-null `domain_id` must exist and its `team_id` must equal
+  `artifact.team_id` else `422`; **null is allowed** (team-wide / gutter).
+- `404 { "detail": "Artifact not found" }` if the artifact is missing.
+
 ---
 
 ## 3. Reports API (Agent 1C — `routes/reports.py`)
