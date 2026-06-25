@@ -894,15 +894,17 @@ function RichMentionEditor({
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-    // Always suppress Enter / Shift+Enter — this editor is single-line.
-    // When the autocomplete popup is open, Enter picks the active item.
-    // When it is closed, Enter does nothing (no <br> inserted).
+    // Multi-line editing: when the @/# autocomplete popup is OPEN, Enter picks
+    // the highlighted candidate; otherwise Enter is a normal newline (handled by
+    // contentEditable — we do NOT preventDefault). Items are separate array
+    // elements, so a newline inside one item is fine.
     if (e.key === 'Enter') {
-      e.preventDefault();
       if (ac && candidates.length > 0) {
+        e.preventDefault();
         const c = candidates[acActive];
         if (c) pick(c);
       }
+      // popup closed → let the browser insert a newline (multi-line input)
       return;
     }
     if (!ac || candidates.length === 0) return;
@@ -1058,62 +1060,55 @@ function ActionItemsCard({
 }
 
 // ── Discussion / Issues note lists ──────────────────────────────────────────
+//
+// A REAL list: each item is its own `string[]` element (it may contain
+// newlines / multiple lines). The list maps 1:1 to the array — no `\n`-join
+// encoding. Stable row keys are owned here so identity survives empty,
+// in-progress items; the items[] array is the single source of order/content.
 
-interface NoteRow {
-  key: string;
-  text: string;
-}
-
-/** Self-contained list of @/#-aware note items. Owns its rows (incl. empty,
- *  in-progress ones) so list identity never depends on the joined string;
- *  reports the joined string (or null) up on every change. Seeded once from the
- *  initial joined string. */
+/** Self-contained list of @/#-aware multi-line note items. The parent owns the
+ *  `string[]`; this card adds/edits/deletes items 1:1 and reports the new array
+ *  up on every change. */
 function NoteListCard({
   title,
-  initial,
+  items,
+  keys,
   entities,
   addLabel,
   onChange,
 }: {
   title: string;
-  initial: string | null | undefined;
+  items: string[];
+  keys: string[];
   entities: TeamEntities;
   addLabel: string;
-  onChange: (joined: string | null) => void;
+  onChange: (nextItems: string[], nextKeys: string[]) => void;
 }) {
-  const [rows, setRows] = useState<NoteRow[]>(() =>
-    splitNotes(initial).map((text) => ({ key: nextKey(), text })),
-  );
-
-  function commit(next: NoteRow[]) {
-    setRows(next);
-    onChange(joinNotes(next.map((r) => r.text)));
-  }
   function patch(i: number, v: string) {
-    commit(rows.map((r, idx) => (idx === i ? { ...r, text: v } : r)));
+    onChange(items.map((t, idx) => (idx === i ? v : t)), keys);
   }
   function del(i: number) {
-    commit(rows.filter((_, idx) => idx !== i));
+    onChange(items.filter((_, idx) => idx !== i), keys.filter((_, idx) => idx !== i));
   }
   function add() {
-    commit([...rows, { key: nextKey(), text: '' }]);
+    onChange([...items, ''], [...keys, nextKey()]);
   }
 
   return (
     <div className="card">
       <div className="card-head">
         <span className="card-title">
-          {title} <span className="count">{rows.length}</span>
+          {title} <span className="count">{items.length}</span>
         </span>
       </div>
       <div className="card-body">
         <div className="note-list">
-          {rows.map((row, i) => (
-            <div className="note-item" key={row.key}>
+          {items.map((text, i) => (
+            <div className="note-item" key={keys[i]}>
               <span className="bullet" />
               <div className="note-rte-host">
                 <RichMentionEditor
-                  value={row.text}
+                  value={text}
                   onChange={(v) => patch(i, v)}
                   entities={entities}
                   placeholder="…"
@@ -1144,34 +1139,25 @@ export function nextKey(): string {
   return String(++_keyCtr);
 }
 
-// ── string <-> list helpers for discussion / issues ─────────────────────────
-
-/** Split a stored discussion/issues string into list items (one per line). */
-export function splitNotes(s: string | null | undefined): string[] {
-  if (!s) return [];
-  return s.split('\n').map((x) => x.trimEnd()).filter((x) => x.length > 0);
-}
-/** Join list items back into the single stored string (null when empty). */
-function joinNotes(items: string[]): string | null {
-  const kept = items.map((x) => x.trim()).filter(Boolean);
-  return kept.length > 0 ? kept.join('\n') : null;
-}
-
 // ── editor state container — keys live alongside data ───────────────────────
 
 export interface EditorKeys {
   tasks: string[];
   artifacts: string[];
   actionItems: string[];
+  discussion: string[];
+  issues: string[];
 }
 
-/** Seed stable keys for an initial report (one per table row). Discussion /
- *  issues manage their own row identity internally (NoteListCard). */
+/** Seed stable keys for an initial report (one per row — tables AND the
+ *  discussion/issues item lists, which are now real `string[]` arrays). */
 export function makeKeys(report: ReportJson): EditorKeys {
   return {
     tasks: (report.tasks ?? []).map(() => nextKey()),
     artifacts: (report.artifacts ?? []).map(() => nextKey()),
     actionItems: (report.action_items ?? []).map(() => nextKey()),
+    discussion: (report.discussion ?? []).map(() => nextKey()),
+    issues: (report.issues ?? []).map(() => nextKey()),
   };
 }
 
@@ -1228,8 +1214,12 @@ export function stripReportForSave(report: ReportJson): ReportJson {
     return line;
   });
 
-  if (report.discussion) out.discussion = report.discussion;
-  if (report.issues) out.issues = report.issues;
+  // discussion / issues: real `string[]`. Drop blank/whitespace-only items but
+  // keep order and any internal newlines of the surviving items.
+  const discussion = (report.discussion ?? []).filter((s) => s.trim().length > 0);
+  if (discussion.length > 0) out.discussion = discussion;
+  const issues = (report.issues ?? []).filter((s) => s.trim().length > 0);
+  if (issues.length > 0) out.issues = issues;
   return out;
 }
 
@@ -1336,18 +1326,26 @@ export function FlatReportEditor({
 
       <NoteListCard
         title="Discussion"
-        initial={report.discussion}
+        items={report.discussion ?? []}
+        keys={keys.discussion}
         entities={entities}
         addLabel="+ Add point"
-        onChange={(joined) => onReportChange({ ...report, discussion: joined })}
+        onChange={(discussion, nextKeys) => {
+          onReportChange({ ...report, discussion });
+          onKeysChange({ ...keys, discussion: nextKeys });
+        }}
       />
 
       <NoteListCard
         title="Issues"
-        initial={report.issues}
+        items={report.issues ?? []}
+        keys={keys.issues}
         entities={entities}
         addLabel="+ Add issue"
-        onChange={(joined) => onReportChange({ ...report, issues: joined })}
+        onChange={(issues, nextKeys) => {
+          onReportChange({ ...report, issues });
+          onKeysChange({ ...keys, issues: nextKeys });
+        }}
       />
     </div>
   );

@@ -22,7 +22,13 @@ export default function ReportEditPage() {
   const navigate = useNavigate();
 
   const [report, setReport] = useState<ReportJson | null>(null);
-  const [keys, setKeys] = useState<EditorKeys>({ tasks: [], artifacts: [], actionItems: [] });
+  const [keys, setKeys] = useState<EditorKeys>({
+    tasks: [],
+    artifacts: [],
+    actionItems: [],
+    discussion: [],
+    issues: [],
+  });
   const [entities, setEntities] = useState<TeamEntities>(EMPTY_ENTITIES);
   const [domains, setDomains] = useState<DomainOption[]>([]);
   const [loading, setLoading] = useState(true);

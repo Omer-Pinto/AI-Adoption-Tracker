@@ -58,14 +58,18 @@ export default function ArtifactDetailPage() {
     };
   }, [artifactId]);
 
-  function handleSaved(updated: Artifact) {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      const newDomain =
-        updated.domain_id === null ? null : domains.find((d) => d.id === updated.domain_id)?.name ?? prev.domain;
-      return { ...prev, artifact: updated, domain: newDomain };
-    });
+  // After a successful PATCH, re-read the authoritative detail from the backend
+  // (it resolves the domain NAME server-side, null = team-wide) instead of
+  // guessing from a local domains list that may have failed to load.
+  async function handleSaved() {
     setEditing(false);
+    try {
+      const fresh = await api.views.artifact(artifactId);
+      setDetail(fresh);
+    } catch {
+      // Non-fatal: the save succeeded; a transient refetch failure just leaves
+      // the prior detail on screen.
+    }
   }
 
   if (loading) {
@@ -142,7 +146,7 @@ export default function ArtifactDetailPage() {
                 artifact={artifact}
                 domains={domains}
                 onCancel={() => setEditing(false)}
-                onSaved={handleSaved}
+                onSaved={() => void handleSaved()}
               />
             ) : (
               <>
@@ -229,7 +233,7 @@ interface ArtifactEditFormProps {
   artifact: Artifact;
   domains: Domain[];
   onCancel: () => void;
-  onSaved: (updated: Artifact) => void;
+  onSaved: () => void;
 }
 
 const TEAM_WIDE = '__team_wide__';
@@ -277,8 +281,8 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
     }
 
     try {
-      const updated = await api.views.patchArtifact(artifact.id, body);
-      onSaved(updated);
+      await api.views.patchArtifact(artifact.id, body);
+      onSaved();
     } catch (e) {
       if (e instanceof ApiError) {
         setErr(e.status === 404 ? 'Artifact not found (404).' : e.message);

@@ -1,16 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '@/api';
-import type { Domain, Task, TaskDetail } from '@/types';
+import type { Domain, TaskDetail, TaskPatchBody, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
 
 // Route: "/tasks/:id" — full task detail page (link target for matched-entity
-// chips in the report editor). Mirrors the approved prototype's detail "page":
+// chips in the report editor). This is a MANAGER current-state edit interface:
 //   - a hero with the task name + a facts row,
-//   - status is READ-ONLY (report-derived) with a note pointing at the report,
-//   - a contextual Edit button that toggles editing of the EDITABLE fields only
-//     (owner + domain), saved via PATCH /api/tasks/{id},
+//   - a contextual Edit button toggling editing of status / owner / domain /
+//     started_on / ended_on, saved via PATCH /api/tasks/{id} (un-journaled),
 //   - a history timeline using DATES ONLY (meeting_date + status + change_note).
+
+// Editable status options (authoritative enum order from models.py).
+const STATUS_OPTS: { v: TaskStatus; l: string }[] = [
+  { v: 'planned', l: 'Planned' },
+  { v: 'in-progress', l: 'In progress' },
+  { v: 'finished_successfully', l: 'Finished successfully' },
+  { v: 'finished_with_issues', l: 'Finished with issues' },
+  { v: 'blocked', l: 'Blocked' },
+  { v: 'abandoned', l: 'Abandoned' },
+];
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -68,13 +77,19 @@ export default function TaskDetailPage() {
     };
   }, [taskId]);
 
-  function handleSaved(updated: Task) {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      const newDomain = domains.find((d) => d.id === updated.domain_id);
-      return { ...prev, task: updated, domain: newDomain ? newDomain.name : prev.domain };
-    });
+  // After a successful PATCH, re-read the authoritative detail from the backend
+  // (it resolves the domain NAME server-side) rather than guessing the name from
+  // a local domains list that may have failed to load. Keeps the header label
+  // in sync with the saved domain.
+  async function handleSaved() {
     setEditing(false);
+    try {
+      const fresh = await api.views.task(taskId);
+      setDetail(fresh);
+    } catch {
+      // Non-fatal: the save succeeded; a transient refetch failure just leaves
+      // the prior detail on screen.
+    }
   }
 
   if (loading) {
@@ -151,7 +166,7 @@ export default function TaskDetailPage() {
                 task={task}
                 domains={domains}
                 onCancel={() => setEditing(false)}
-                onSaved={handleSaved}
+                onSaved={() => void handleSaved()}
               />
             ) : (
               <div className="case-header-meta" style={{ borderTop: '1px solid #f1f2f4', paddingTop: 16 }}>
@@ -159,9 +174,6 @@ export default function TaskDetailPage() {
                   <div className="case-meta-label">Status</div>
                   <div className="case-meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <StatusBadge status={task.status} />
-                  </div>
-                  <div className="text-muted text-sm" style={{ marginTop: 4, maxWidth: 220 }}>
-                    Status &amp; dates come from reports — edit the source report.
                   </div>
                 </div>
                 <div className="case-meta-item">
@@ -232,30 +244,36 @@ export default function TaskDetailPage() {
   );
 }
 
-// ── Edit form — EDITABLE fields only: owner (text) + domain (dropdown) ───────
+// ── Edit form — manager current-state edit: status, owner, domain, dates ─────
 
 interface TaskEditFormProps {
-  task: Task;
+  task: TaskDetail['task'];
   domains: Domain[];
   onCancel: () => void;
-  onSaved: (updated: Task) => void;
+  onSaved: () => void;
 }
 
 function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
+  const [status, setStatus] = useState<TaskStatus>(task.status);
   const [owner, setOwner] = useState(task.owner ?? '');
   const [domainId, setDomainId] = useState<number>(task.domain_id);
+  const [startedOn, setStartedOn] = useState(task.started_on ?? '');
+  const [endedOn, setEndedOn] = useState(task.ended_on ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function save() {
     setSaving(true);
     setErr(null);
-    // Send ONLY the editable fields, and only when changed (task never sends
-    // status/started_on/ended_on — the backend 422s on those).
-    const body: { owner?: string | null; domain_id?: number } = {};
+    // Send ONLY the CHANGED fields among {status, owner, domain_id,
+    // started_on, ended_on} — the backend accepts all five (un-journaled).
+    const body: TaskPatchBody = {};
+    if (status !== task.status) body.status = status;
     const trimmed = owner.trim();
     if (trimmed !== (task.owner ?? '')) body.owner = trimmed === '' ? null : trimmed;
     if (domainId !== task.domain_id) body.domain_id = domainId;
+    if (startedOn !== (task.started_on ?? '')) body.started_on = startedOn === '' ? null : startedOn;
+    if (endedOn !== (task.ended_on ?? '')) body.ended_on = endedOn === '' ? null : endedOn;
 
     if (Object.keys(body).length === 0) {
       onCancel();
@@ -263,8 +281,8 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
     }
 
     try {
-      const updated = await api.views.patchTask(task.id, body);
-      onSaved(updated);
+      await api.views.patchTask(task.id, body);
+      onSaved();
     } catch (e) {
       if (e instanceof ApiError) {
         setErr(e.status === 404 ? 'Task not found (404).' : e.message);
@@ -283,6 +301,20 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
           {err}
         </div>
       )}
+      <div className="form-row">
+        <label className="form-label">Status</label>
+        <select
+          className="form-select"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as TaskStatus)}
+        >
+          {STATUS_OPTS.map((s) => (
+            <option key={s.v} value={s.v}>
+              {s.l}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="form-row">
         <label className="form-label">Owner</label>
         <input
@@ -310,8 +342,26 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
           ))}
         </select>
       </div>
+      <div className="form-row">
+        <label className="form-label">Started</label>
+        <input
+          className="form-input"
+          type="date"
+          value={startedOn}
+          onChange={(e) => setStartedOn(e.target.value)}
+        />
+      </div>
+      <div className="form-row">
+        <label className="form-label">Ended</label>
+        <input
+          className="form-input"
+          type="date"
+          value={endedOn}
+          onChange={(e) => setEndedOn(e.target.value)}
+        />
+      </div>
       <div className="text-muted text-sm" style={{ marginBottom: 12 }}>
-        Status, started &amp; ended dates are report-derived and edited in the source report.
+        Manual edits here aren't added to the report history.
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>

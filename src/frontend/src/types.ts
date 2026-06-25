@@ -171,8 +171,11 @@ export interface ReportJson {
   tasks?: ReportTaskLine[];
   artifacts?: ReportArtifactLine[];
   action_items?: ReportActionItemLine[];
-  discussion?: string | null;
-  issues?: string | null;
+  // Ordered lists of free-text items (each entry one discussion point / one
+  // issue; an item MAY itself contain newlines). Mirrors backend
+  // `ReportDocument.discussion`/`.issues: list[str]` (default []).
+  discussion?: string[];
+  issues?: string[];
 }
 
 /** Picker-shaped team entity projection — `GET /api/teams/{team_id}/entities`. */
@@ -225,11 +228,16 @@ export interface ArtifactDetail {
   history: ArtifactHistoryEntry[];
 }
 
-/** Body for `PATCH /api/tasks/{id}` — ONLY owner & domain_id are editable.
- *  status / started_on / ended_on are report-derived and 422 if sent. */
+/** Body for `PATCH /api/tasks/{id}` — manager current-state edit (un-journaled).
+ *  All of status / owner / domain_id / started_on / ended_on are editable
+ *  (partial PATCH). A bad `status` enum → 422; `domain_id` must be non-null and
+ *  same-team or it 422s. Manual edits here are NOT added to task_history. */
 export interface TaskPatchBody {
+  status?: TaskStatus;
   owner?: string | null;
   domain_id?: number;
+  started_on?: string | null;
+  ended_on?: string | null;
 }
 
 /** Body for `PATCH /api/artifacts/{id}` — domain_id nullable (null = team-wide). */

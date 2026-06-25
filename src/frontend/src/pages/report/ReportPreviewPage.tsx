@@ -35,7 +35,9 @@ export default function ReportPreviewPage() {
 
   const [report, setReport] = useState<ReportJson | null>(initialDraft);
   const [keys, setKeys] = useState<EditorKeys>(() =>
-    initialDraft ? makeKeys(initialDraft) : { tasks: [], artifacts: [], actionItems: [] },
+    initialDraft
+      ? makeKeys(initialDraft)
+      : { tasks: [], artifacts: [], actionItems: [], discussion: [], issues: [] },
   );
   const [entities, setEntities] = useState<TeamEntities>(EMPTY_ENTITIES);
   const [domains, setDomains] = useState<DomainOption[]>([]);
