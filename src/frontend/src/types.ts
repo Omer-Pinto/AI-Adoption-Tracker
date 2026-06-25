@@ -171,16 +171,36 @@ export interface Report {
 
 // ---- Composite view payloads (api_contract §2 — backend routes/views.py) ----
 
-/** Task detail wrapper — `GET /api/tasks/{id}` (contract §2). */
+/** Task detail wrapper — `GET /api/tasks/{id}` (contract §2). `domain` is the
+ *  resolved domain name (null for an unknown domain), surfaced by the backend. */
 export interface TaskDetail {
   task: Task;
+  domain: string | null;
   history: TaskHistoryEntry[];
 }
 
-/** Artifact detail wrapper — `GET /api/artifacts/{id}` (contract §2). */
+/** Artifact detail wrapper — `GET /api/artifacts/{id}` (contract §2). `domain` is
+ *  the resolved domain name (null = team-wide / domain_id null). */
 export interface ArtifactDetail {
   artifact: Artifact;
+  domain: string | null;
   history: ArtifactHistoryEntry[];
+}
+
+/** Body for `PATCH /api/tasks/{id}` — ONLY owner & domain_id are editable.
+ *  status / started_on / ended_on are report-derived and 422 if sent. */
+export interface TaskPatchBody {
+  owner?: string | null;
+  domain_id?: number;
+}
+
+/** Body for `PATCH /api/artifacts/{id}` — domain_id nullable (null = team-wide). */
+export interface ArtifactPatchBody {
+  name?: string;
+  type?: ArtifactType;
+  tags?: string[];
+  summary?: string | null;
+  domain_id?: number | null;
 }
 
 /**

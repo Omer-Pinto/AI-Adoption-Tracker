@@ -8,6 +8,7 @@
 import type {
   Artifact,
   ArtifactDetail,
+  ArtifactPatchBody,
   Champion,
   Domain,
   DomainPage,
@@ -17,6 +18,7 @@ import type {
   SearchValuesResult,
   Task,
   TaskDetail,
+  TaskPatchBody,
   Team,
   TeamPage,
   TeamPageIndexEntry,
@@ -95,6 +97,9 @@ export const api = {
     /** Filter domains by champion — `GET /api/domains?champion_id=<id>` */
     listByChampion: (championId: number): Promise<Domain[]> =>
       request(`/domains?champion_id=${encodeURIComponent(String(championId))}`),
+    /** Filter domains by team — `GET /api/domains?team_id=<id>` (entity edit picker). */
+    listByTeam: (teamId: number): Promise<Domain[]> =>
+      request(`/domains?team_id=${encodeURIComponent(String(teamId))}`),
     create: (body: DomainWriteBody): Promise<Domain> =>
       request('/domains', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: number, body: Partial<DomainWriteBody>): Promise<Domain> =>
@@ -119,6 +124,12 @@ export const api = {
       request(q ? `/artifacts?q=${encodeURIComponent(q)}` : '/artifacts'),
     // `GET /api/artifacts/{id}` → { artifact, history } wrapper.
     artifact: (artifactId: number): Promise<ArtifactDetail> => request(`/artifacts/${artifactId}`),
+    // `PATCH /api/tasks/{id}` — entity-page edit (owner, domain_id only). Returns updated Task.
+    patchTask: (taskId: number, body: TaskPatchBody): Promise<Task> =>
+      request(`/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    // `PATCH /api/artifacts/{id}` — entity-page edit. Returns updated Artifact.
+    patchArtifact: (artifactId: number, body: ArtifactPatchBody): Promise<Artifact> =>
+      request(`/artifacts/${artifactId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
 
   // ---- Reports (backend routes/reports.py — task_breakdown 1C) ----

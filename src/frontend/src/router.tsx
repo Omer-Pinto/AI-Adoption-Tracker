@@ -6,7 +6,9 @@ import DomainPage from '@/pages/domain/DomainPage';
 import DomainSetupPage from '@/pages/domain/DomainSetupPage';
 import ManagePage from '@/pages/manage/ManagePage';
 import ArtifactsPage from '@/pages/artifacts/ArtifactsPage';
+import ArtifactDetailPage from '@/pages/artifacts/ArtifactDetailPage';
 import TasksPage from '@/pages/tasks/TasksPage';
+import TaskDetailPage from '@/pages/tasks/TaskDetailPage';
 import ReportCreatePage from '@/pages/report/ReportCreatePage';
 import ReportPreviewPage from '@/pages/report/ReportPreviewPage';
 import ReportEditPage from '@/pages/report/ReportEditPage';
@@ -24,7 +26,9 @@ export const router = createBrowserRouter([
       { path: 'domains/extract', element: <DomainSetupPage /> },
       { path: 'domains/:domainId', element: <DomainPage /> },
       { path: 'artifacts', element: <ArtifactsPage /> },
+      { path: 'artifacts/:id', element: <ArtifactDetailPage /> },
       { path: 'tasks', element: <TasksPage /> },
+      { path: 'tasks/:id', element: <TaskDetailPage /> },
       { path: 'reports/new', element: <ReportCreatePage /> },
       { path: 'reports/:reportId/preview', element: <ReportPreviewPage /> },
       { path: 'reports/:reportId/edit', element: <ReportEditPage /> },

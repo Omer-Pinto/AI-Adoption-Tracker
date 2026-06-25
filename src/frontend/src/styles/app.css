@@ -888,3 +888,63 @@
   font-weight: 500;
 }
 .tags-input-note { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+/* ── Entity detail pages (Wave 10: task / artifact detail) ──────────────────
+   A hero + a dates-only history timeline. Matches the approved prototype's
+   route-swap detail view: eyebrow + big name, facts, then a timeline. */
+.detail-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+.detail-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: #1a1d23;
+}
+
+.detail-timeline { display: flex; flex-direction: column; }
+.detail-tl-row {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f2f4;
+}
+.detail-tl-row:last-child { border-bottom: none; }
+.detail-tl-dot {
+  flex-shrink: 0;
+  margin-top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4361ee;
+}
+.detail-tl-dot.dot-planned               { background: #9ca3af; }
+.detail-tl-dot.dot-in-progress           { background: #3b82f6; }
+.detail-tl-dot.dot-finished_successfully { background: #16a34a; }
+.detail-tl-dot.dot-finished_with_issues  { background: #d97706; }
+.detail-tl-dot.dot-blocked               { background: #ef4444; }
+.detail-tl-dot.dot-abandoned             { background: #6b7280; }
+.detail-tl-content { flex: 1; }
+.detail-tl-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.detail-tl-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+.detail-tl-text {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.55;
+  margin-top: 3px;
+}
