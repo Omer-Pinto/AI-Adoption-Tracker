@@ -503,8 +503,7 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
 
     * ``started_on`` = meeting_date of the earliest history row (spec §4/§6).
     * ``status``     = the latest row's status.
-    * ``owner``      = the latest row (by date, then id) that NAMED an owner;
-      falls back to whatever the task row already has if none ever did.
+    * ``owner``      = resolved by ``_latest_owner_from_journal`` (see below).
     * ``ended_on``   = user-supplied finish date (spec §5), ONLY when the latest
       status is terminal: the latest row's ``ended_on`` if set, else its
       ``meeting_date``. Never auto-computed.
@@ -514,7 +513,7 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     one fan-out the rows keep their applied order. (``report_id`` is no longer a
     valid tiebreak — manual rows have none.)"""
     rows = conn.execute(
-        "SELECT meeting_date, status_at_meeting, owner, ended_on "
+        "SELECT meeting_date, status_at_meeting, owner, ended_on, source "
         "FROM task_history WHERE task_id = ? "
         "ORDER BY meeting_date ASC, id ASC",
         (task_id,),
@@ -531,9 +530,6 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
         ended_on = latest_row["ended_on"] or latest_row["meeting_date"]
 
     owner = _latest_owner_from_journal(rows)
-    if owner is None:
-        cur = conn.execute("SELECT owner FROM task WHERE id = ?", (task_id,)).fetchone()
-        owner = cur["owner"] if cur else None
 
     conn.execute(
         "UPDATE task SET status = ?, owner = ?, started_on = ?, ended_on = ? "
@@ -543,10 +539,24 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
 
 
 def _latest_owner_from_journal(rows: list) -> str | None:
-    """Owner from the latest journal row (already date,id-ordered ASC) that
-    named one; None if no row ever carried an owner."""
+    """Resolve the task owner from the journal (date,id-ordered ASC).
+
+    Walk rows newest → oldest:
+
+    * ``source='manual'`` row — its ``owner`` is AUTHORITATIVE even when NULL
+      (an explicit clear). Stop immediately.
+    * ``source='report'`` row with a non-NULL owner — use it, stop.
+    * ``source='report'`` row with NULL owner — the report simply did not name
+      an owner that meeting; keep walking.
+
+    Returns ``None`` when no row has ever established an owner (the task row's
+    existing owner is left untouched by the caller)."""
     for row in reversed(rows):
-        if row["owner"]:
+        if row["source"] == "manual":
+            # Manual rows are always authoritative, including an explicit NULL clear.
+            return row["owner"]
+        # source == 'report'
+        if row["owner"] is not None:
             return row["owner"]
     return None
 
@@ -824,7 +834,13 @@ def apply_manual_task_edit(
         if row is None:
             raise EngineError(f"Unknown task id: {task_id}")
 
-        note = _describe_task_changes(row, fields)
+        note = _describe_task_changes(conn, row, fields)
+
+        # Suppress no-op: if nothing actually changed, skip the journal row and
+        # the recompute entirely — just return the unchanged entity.
+        if note == "Manual edit":
+            # _describe_task_changes returns bare "Manual edit" iff no field changed.
+            return row
 
         if fields:
             _apply_updates(conn, "task", task_id, fields)
@@ -880,6 +896,10 @@ def apply_manual_artifact_edit(
         note = _describe_artifact_changes(row, fields)
         change_kind = "moved" if domain_changed else "updated"
 
+        # Suppress no-op: if nothing actually changed, skip the journal row.
+        if note == "Manual edit":
+            return row
+
         if fields:
             _apply_updates(conn, "artifact", artifact_id, fields)
 
@@ -910,9 +930,12 @@ def _apply_updates(
     )
 
 
-def _describe_task_changes(row: sqlite3.Row, fields: dict) -> str:
+def _describe_task_changes(
+    conn: sqlite3.Connection, row: sqlite3.Row, fields: dict
+) -> str:
     """A terse human note for a manual task edit (only fields that actually
-    changed value), e.g. "status: in-progress → abandoned; owner → Dana"."""
+    changed value), e.g. "status: in-progress → abandoned; owner → Dana;
+    domain → Backend"."""
     parts: list[str] = []
     labels = {
         "status": "status",
@@ -928,7 +951,11 @@ def _describe_task_changes(row: sqlite3.Row, fields: dict) -> str:
         new = fields[col]
         if old == new:
             continue
-        if col in ("status",) and old is not None:
+        if col == "domain_id":
+            # Resolve domain name for a readable note; fall back to raw id.
+            new_name = _domain_name_for_id(conn, new) if new is not None else None
+            parts.append(f"domain → {new_name if new_name is not None else new}")
+        elif col == "status" and old is not None:
             parts.append(f"{label}: {old} → {new}")
         else:
             parts.append(f"{label} → {new}")

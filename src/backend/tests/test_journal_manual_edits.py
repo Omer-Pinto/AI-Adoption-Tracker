@@ -1,9 +1,13 @@
 """Self-contained proof for Wave 10: journaled manual edits + targeted report-edit.
 
 Runs against a THROWAWAY DB built from schema.sql in a temp dir (never touches the
-user's tracker.db). Drives the REAL engine functions. Run from src/backend/:
+user's tracker.db). Drives the REAL engine functions. Run from src/backend/tests/:
 
-    python3 test_journal_manual_edits.py
+    python3 -m pytest tests/test_journal_manual_edits.py -v
+
+or directly:
+
+    python3 tests/test_journal_manual_edits.py
 
 Each scenario prints PASS/FAIL; the process exits non-zero if any assertion fails.
 """
@@ -16,7 +20,10 @@ import sqlite3
 import sys
 import tempfile
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# Ensure src/backend/ is on the path so engine/models import cleanly.
+_BACKEND = pathlib.Path(__file__).resolve().parent.parent
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
 
 from models import (  # noqa: E402
     ArtifactChangeKind,
@@ -33,7 +40,7 @@ from reports.engine import (  # noqa: E402
     replay_report_edit,
 )
 
-SCHEMA = pathlib.Path(__file__).resolve().parent / "schema.sql"
+SCHEMA = _BACKEND / "schema.sql"
 TODAY = datetime.date.today().isoformat()
 
 _passed = 0
@@ -328,6 +335,153 @@ def scenario_5(db_dir: pathlib.Path) -> None:
                 p.unlink()
 
 
+# ── scenario 6: owner set → manual clear → owner stays NULL ─────────────────────
+
+def scenario_6(db_dir: pathlib.Path) -> None:
+    print("\n[6] owner set via report -> manual clear (owner=None) -> owner stays NULL")
+    conn = fresh_conn(db_dir / "s6.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2026-06-01", raw_notes="n",
+            tasks=[ReportTaskEntry(task="Alpha task", status=TaskStatus.in_progress,
+                                   owner="Dana", domain_id=domain_id,
+                                   domain="signal-processing")],
+        ))
+        tid = task_id_by_name(conn, champion_id, "Alpha task")
+
+        # Verify the report installed Dana as owner.
+        before = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("initial owner from report = Dana", before["owner"] == "Dana",
+              f"got {before['owner']}")
+
+        # Manual clear: explicitly set owner to None.
+        apply_manual_task_edit(conn, tid, {"owner": None})
+
+        after = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("owner is NULL after manual clear", after["owner"] is None,
+              f"got {after['owner']!r}")
+
+        # The manual row itself must carry owner=NULL.
+        manual_row = conn.execute(
+            "SELECT owner FROM task_history WHERE task_id = ? AND source = 'manual'",
+            (tid,),
+        ).fetchone()
+        check("manual journal row owner is NULL", manual_row is not None and manual_row["owner"] is None,
+              f"got {manual_row['owner'] if manual_row else 'no row'!r}")
+
+        # Force a recompute — must stay NULL (the manual clear is authoritative).
+        from reports.engine import _recompute_task_current_state
+        _recompute_task_current_state(conn, tid)
+        conn.commit()
+        recomputed = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("owner stays NULL after recompute (manual clear is authoritative)",
+              recomputed["owner"] is None, f"got {recomputed['owner']!r}")
+    finally:
+        conn.close()
+
+
+# ── scenario 7: manual clear → later report names owner → that owner wins ────────
+
+def scenario_7(db_dir: pathlib.Path) -> None:
+    print("\n[7] manual owner-clear -> a later report names an owner -> report owner wins")
+    conn = fresh_conn(db_dir / "s7.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2020-01-01", raw_notes="n",
+            tasks=[ReportTaskEntry(task="Beta task", status=TaskStatus.in_progress,
+                                   owner="Dana", domain_id=domain_id,
+                                   domain="signal-processing")],
+        ))
+        tid = task_id_by_name(conn, champion_id, "Beta task")
+
+        # Manual clear today.
+        apply_manual_task_edit(conn, tid, {"owner": None})
+        cleared = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("owner cleared to NULL by manual edit", cleared["owner"] is None,
+              f"got {cleared['owner']!r}")
+
+        # Later report (tomorrow) names "Maya" as owner.
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date=tomorrow, raw_notes="n",
+            tasks=[ReportTaskEntry(id=tid, task="Beta task",
+                                   status=TaskStatus.in_progress,
+                                   owner="Maya", domain_id=domain_id,
+                                   domain="signal-processing")],
+        ))
+
+        after = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("later report owner (Maya) wins over manual clear",
+              after["owner"] == "Maya", f"got {after['owner']!r}")
+    finally:
+        conn.close()
+
+
+# ── scenario 8: no-op PATCH → 0 new history rows ────────────────────────────────
+
+def scenario_8(db_dir: pathlib.Path) -> None:
+    print("\n[8] no-op PATCH (fields unchanged) -> 0 new history rows")
+    conn = fresh_conn(db_dir / "s8.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2026-06-10", raw_notes="n",
+            tasks=[ReportTaskEntry(task="Gamma task", status=TaskStatus.in_progress,
+                                   owner="Dana", domain_id=domain_id,
+                                   domain="signal-processing")],
+            artifacts=[ReportArtifactEntry(
+                artifact="My Agent", type=ArtifactType.agent,
+                change_kind=ArtifactChangeKind.added,
+                domain_id=domain_id, domain="signal-processing",
+            )],
+        ))
+        tid = task_id_by_name(conn, champion_id, "Gamma task")
+        art_id = conn.execute(
+            "SELECT id FROM artifact WHERE team_id = ?", (team_id,)
+        ).fetchone()["id"]
+
+        history_before = conn.execute(
+            "SELECT COUNT(*) c FROM task_history WHERE task_id = ?", (tid,)
+        ).fetchone()["c"]
+        art_history_before = conn.execute(
+            "SELECT COUNT(*) c FROM artifact_history WHERE artifact_id = ?", (art_id,)
+        ).fetchone()["c"]
+
+        # No-op task PATCH: same status and owner as what's already stored.
+        task_row = conn.execute("SELECT status, owner FROM task WHERE id = ?", (tid,)).fetchone()
+        apply_manual_task_edit(conn, tid, {"status": task_row["status"], "owner": task_row["owner"]})
+
+        history_after = conn.execute(
+            "SELECT COUNT(*) c FROM task_history WHERE task_id = ?", (tid,)
+        ).fetchone()["c"]
+        check("no-op task PATCH inserts 0 new task_history rows",
+              history_after == history_before,
+              f"before {history_before}, after {history_after}")
+
+        # No-op artifact PATCH: same name (no change).
+        art_row = conn.execute("SELECT name FROM artifact WHERE id = ?", (art_id,)).fetchone()
+        apply_manual_artifact_edit(conn, art_id, {"name": art_row["name"]})
+
+        art_history_after = conn.execute(
+            "SELECT COUNT(*) c FROM artifact_history WHERE artifact_id = ?", (art_id,)
+        ).fetchone()["c"]
+        check("no-op artifact PATCH inserts 0 new artifact_history rows",
+              art_history_after == art_history_before,
+              f"before {art_history_before}, after {art_history_after}")
+
+        # Confirm empty-fields dict is also a no-op.
+        apply_manual_task_edit(conn, tid, {})
+        history_empty = conn.execute(
+            "SELECT COUNT(*) c FROM task_history WHERE task_id = ?", (tid,)
+        ).fetchone()["c"]
+        check("empty-fields task PATCH inserts 0 new task_history rows",
+              history_empty == history_before, f"got {history_empty}")
+    finally:
+        conn.close()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="wave10_journal_") as td:
         db_dir = pathlib.Path(td)
@@ -336,6 +490,9 @@ def main() -> int:
         scenario_3(db_dir)
         scenario_4(db_dir)
         scenario_5(db_dir)
+        scenario_6(db_dir)
+        scenario_7(db_dir)
+        scenario_8(db_dir)
     print(f"\n=== {_passed} passed, {_failed} failed ===")
     return 1 if _failed else 0
 
