@@ -948,3 +948,243 @@
   line-height: 1.55;
   margin-top: 3px;
 }
+
+/* =======================================================
+   Wave 10 — Flat report editor (matches approved prototype
+   prototype/report-editor-prototype.html). Domains are the
+   ONE place color carries meaning; everything else is calm.
+   ======================================================= */
+.report-editor { --re-indigo: #4361ee; }
+
+/* Report header card */
+.report-editor .report-head {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 18px 22px; margin-bottom: 18px;
+}
+.report-editor .team-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+  color: #9ca3af; margin-bottom: 4px;
+}
+.report-editor .report-head-h1 {
+  font-size: 20px; font-weight: 700; margin: 0 0 12px; letter-spacing: -.2px; color: #1a1d23;
+}
+.report-editor .head-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.report-editor .meta-field { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #6b7280; }
+.report-editor .meta-field label {
+  font-weight: 600; color: #374151; font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+}
+.report-editor .meta-input {
+  border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 8px;
+  font-size: 12.5px; font-family: inherit; color: #1a1d23; background: #fff;
+}
+.report-editor .meta-input:focus { outline: 2px solid var(--re-indigo); outline-offset: 1px; border-color: var(--re-indigo); }
+.report-editor .meta-static { font-size: 13px; font-weight: 600; color: #1a1d23; }
+.report-editor .participants-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.report-editor .participants-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #9ca3af;
+}
+.report-editor .avatar {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;
+  font-size: 11px; font-weight: 600; padding: 3px 9px 3px 4px; border-radius: 20px;
+}
+.report-editor .avatar .dot {
+  width: 20px; height: 20px; border-radius: 50%; background: #6b7280; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+}
+.report-editor .participants-edit {
+  border: 1px dashed #e5e7eb; border-radius: 6px; padding: 3px 9px;
+  font-size: 12px; font-family: inherit; color: #1a1d23; background: transparent; min-width: 160px;
+}
+.report-editor .participants-edit:focus { outline: 2px solid var(--re-indigo); outline-offset: 1px; }
+
+/* Section card */
+.report-editor .card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 18px; overflow: visible;
+}
+.report-editor .card-head {
+  padding: 12px 18px; border-bottom: 1px solid #f1f2f4;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.report-editor .card-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #374151;
+}
+.report-editor .card-title .count { color: #9ca3af; font-weight: 600; margin-left: 5px; }
+.report-editor .card-body { padding: 14px 18px; }
+.report-editor .card-body.flush { padding: 0; overflow: hidden; border-radius: 0 0 11px 11px; }
+
+/* Domain legend */
+.report-editor .domain-legend {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 11px;
+  padding: 10px 18px; border-bottom: 1px solid #f1f2f4; background: #fafbfc; border-radius: 12px 12px 0 0;
+}
+.report-editor .dl-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #9ca3af; margin-right: 4px;
+}
+.report-editor .dl-item { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: #374151; }
+.report-editor .dl-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Flat tables */
+.report-editor table.flat, .report-editor table.ai-table { width: 100%; border-collapse: collapse; }
+.report-editor table.flat th, .report-editor table.ai-table th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af;
+  text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; background: #fafbfc; white-space: nowrap;
+}
+.report-editor table.flat td, .report-editor table.ai-table td {
+  font-size: 13px; padding: 9px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: middle;
+}
+.report-editor table.ai-table td { vertical-align: top; }
+.report-editor table.flat tr:last-child td, .report-editor table.ai-table tr:last-child td { border-bottom: none; }
+.report-editor table.flat tr:hover td { background: #fafafe; }
+.report-editor .name-td { min-width: 200px; }
+.report-editor .ai-text-td { min-width: 300px; }
+
+/* Inline editable cells */
+.report-editor .cell-input {
+  border: 1px solid transparent; border-radius: 5px; padding: 3px 7px;
+  font-size: 13px; font-family: inherit; color: #1a1d23; background: transparent; width: 100%; min-width: 60px;
+}
+.report-editor .cell-input:hover { border-color: #e5e7eb; background: #fff; }
+.report-editor .cell-input:focus { border-color: var(--re-indigo); background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
+.report-editor .owner-input { min-width: 70px; }
+.report-editor .note-input, .report-editor .summary-input { min-width: 100px; }
+.report-editor .tags-input { min-width: 80px; }
+
+.report-editor .cell-select {
+  border: 1px solid #e5e7eb; border-radius: 5px; padding: 4px 24px 4px 8px;
+  font-size: 12.5px; font-family: inherit; color: #1a1d23; background-color: #fff; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.report-editor .cell-select:hover { border-color: #cbd0d8; }
+.report-editor .cell-select:focus { outline: none; border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+
+.report-editor .cell-date {
+  border: 1px solid transparent; border-radius: 5px; padding: 3px 6px;
+  font-size: 12.5px; font-family: inherit; color: #1a1d23; background: transparent;
+}
+.report-editor .cell-date:hover { border-color: #e5e7eb; background: #fff; }
+.report-editor .cell-date:focus { outline: 2px solid var(--re-indigo); border-color: var(--re-indigo); background: #fff; }
+
+/* Status control */
+.report-editor .status-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #e5e7eb; border-radius: 5px; background: #fff; padding-left: 8px; white-space: nowrap;
+}
+.report-editor .status-wrap:hover { border-color: #cbd0d8; }
+.report-editor .status-wrap:focus-within { border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.report-editor .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #9ca3af; }
+.report-editor .status-sel {
+  border: none; background: transparent; padding: 4px 22px 4px 0;
+  font-size: 12.5px; font-weight: 600; color: #1a1d23; cursor: pointer; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.report-editor .status-sel:focus { outline: none; }
+.report-editor .sd-planned        { background: #d4b106; }
+.report-editor .sd-in-progress    { background: #4361ee; }
+.report-editor .sd-finished-ok    { background: #16a34a; }
+.report-editor .sd-finished-issues{ background: #d97706; }
+.report-editor .sd-blocked        { background: #dc2626; }
+.report-editor .sd-abandoned      { background: #9ca3af; }
+
+/* Domain select (per-domain color) */
+.report-editor .dom-sel {
+  border: 1px solid; border-radius: 5px; padding: 4px 22px 4px 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; appearance: none; -webkit-appearance: none; font-family: inherit; line-height: 1.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 7px center;
+}
+.report-editor .dom-sel:focus { outline: none; box-shadow: 0 0 0 2px rgba(67,97,238,.18); }
+
+/* Name cell — matched link / NEW two-line editor */
+.report-editor .matched-name { display: flex; align-items: center; gap: 8px; }
+.report-editor .name-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px;
+  color: var(--re-indigo); cursor: pointer; text-decoration: none; padding: 1px 0; border-bottom: 1px solid transparent;
+}
+.report-editor .name-chip:hover { border-bottom-color: var(--re-indigo); }
+.report-editor .name-chip .chip-ico-task { color: var(--re-indigo); }
+.report-editor .name-chip .chip-ico-artifact { color: #0891b2; }
+.report-editor .new-badge {
+  display: inline-flex; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: .5px;
+  text-transform: uppercase; background: #fff7ed; color: #b45309; padding: 1px 6px; border-radius: 4px;
+  border: 1px solid #fed7aa; line-height: 1.5;
+}
+.report-editor .name-cell { display: flex; flex-direction: column; gap: 5px; }
+.report-editor .name-cell .name-input { font-weight: 600; border-color: #e5e7eb; background: #fff; }
+.report-editor .name-actions { display: flex; align-items: center; gap: 8px; }
+.report-editor .linkrow-btn {
+  font-size: 11px; font-weight: 600; color: #6b7280; border: none; background: transparent;
+  padding: 0; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 3px;
+  border-bottom: 1px solid transparent;
+}
+.report-editor .linkrow-btn:hover { color: var(--re-indigo); border-bottom-color: var(--re-indigo); }
+.report-editor .unlink-btn {
+  font-size: 11px; font-weight: 600; color: #9ca3af; border: none; background: transparent;
+  padding: 1px 4px; border-radius: 4px; cursor: pointer; font-family: inherit; opacity: 0; transition: opacity .12s;
+}
+.report-editor table.flat tr:hover .unlink-btn { opacity: 1; }
+.report-editor .unlink-btn:hover { color: #b45309; background: #fff7ed; }
+
+/* delete + add-row buttons */
+.report-editor .del-btn {
+  color: #d1d5db; background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1;
+  padding: 2px 4px; border-radius: 4px;
+}
+.report-editor .del-btn:hover { color: #ef4444; background: #fef2f2; }
+.report-editor .add-row-btn {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #4b5563;
+  cursor: pointer; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 12px; margin: 12px 18px;
+}
+.report-editor .add-row-btn:hover { background: #f3f4f6; border-color: #cbd0d8; color: #1a1d23; }
+.report-editor .add-row-inline { margin: 12px 0 0; }
+.report-editor .hint-line { font-size: 11px; color: #9ca3af; margin: 6px 18px 12px; }
+.report-editor .card-body .hint-line { margin: 6px 0 0; }
+
+/* Rich-text editable areas */
+.report-editor .rte-wrap { position: relative; }
+.report-editor .rte {
+  border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; min-height: 38px;
+  font-size: 13.5px; line-height: 1.7; color: #2b2f36; background: #fff; outline: none;
+}
+.report-editor .rte:focus { border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
+.report-editor .rte:empty::before { content: attr(data-placeholder); color: #9ca3af; }
+
+/* Discussion / Issues note list */
+.report-editor .note-list { display: flex; flex-direction: column; gap: 8px; }
+.report-editor .note-item { display: flex; align-items: flex-start; gap: 8px; }
+.report-editor .note-item .bullet { width: 6px; height: 6px; border-radius: 50%; background: #cbd0d8; flex-shrink: 0; margin-top: 15px; }
+.report-editor .note-rte-host { flex: 1; }
+.report-editor .note-item .del-btn { margin-top: 8px; }
+
+/* Reference chips in rich text — neutral surface; icon SHAPE tells task vs artifact */
+.report-editor .ref-chip {
+  display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline;
+  padding: 1px 7px 1px 6px; border-radius: 5px; font-size: 12px; font-weight: 600; line-height: 1.4;
+  white-space: nowrap; border: 1px solid #e5e7eb; margin: 0 1px; background: #f3f4f6; color: #374151;
+}
+.report-editor .ref-chip .ent-ico { display: inline-flex; }
+.report-editor .ref-chip.chip-task .ent-ico { color: var(--re-indigo); }
+.report-editor .ref-chip.chip-artifact .ent-ico { color: #0891b2; }
+.report-editor .ent-ico { vertical-align: -1.5px; display: inline-flex; }
+
+/* Autocomplete / link-existing popups */
+.report-editor .ac-pop {
+  position: fixed; z-index: 4000; min-width: 240px; max-width: 320px; background: #fff;
+  border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,.18); overflow: hidden;
+}
+.report-editor .ac-head {
+  font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: #9ca3af; padding: 8px 12px 4px;
+}
+.report-editor .ac-search {
+  width: 100%; border: 1px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; font-size: 12.5px; font-family: inherit;
+}
+.report-editor .ac-search:focus { outline: none; border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.report-editor .ac-item { padding: 7px 12px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.report-editor .ac-item:hover, .report-editor .ac-item.ac-active { background: #eef2ff; }
+.report-editor .ac-item .nm { font-weight: 600; }
+.report-editor .ac-item .ac-id { margin-left: auto; font-size: 11px; color: #9ca3af; }
+.report-editor .ac-foot { padding: 5px 12px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f1f2f4; }

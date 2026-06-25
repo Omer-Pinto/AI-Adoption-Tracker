@@ -116,34 +116,51 @@ export interface ArtifactHistoryEntry {
 
 // ---- Report JSON (spec §4) ----
 
+// FLAT report shape (Waves 8/9) — mirrors src/backend/models.py exactly.
+// `ReportDocument` has top-level `tasks` / `artifacts` / `action_items` lists;
+// each line carries its own domain placement (`domain_id` + `domain`) and, for
+// tasks/artifacts, an optional matched-entity `id`.
+//
+// id semantics (OPPOSITE of domain_id):
+//   * `id` SET   → MATCHED existing task/artifact (the row's PK).
+//   * `id` null  → a NEW task/artifact to create at fan-out time.
+//   * `domain_id` SET  → matched existing domain (with `domain` = its name).
+//   * `domain_id` null → UNPLACED / team-wide (the per-champion "General" gutter);
+//     it does NOT mint a domain.
+//
+// The backend has `extra="forbid"`: a saved line must carry ONLY these keys.
+
 export interface ReportTaskLine {
-  task: string; // task name; backend resolves existing vs new against the DB
+  /** matched existing task PK; null/absent = NEW task to create. */
+  id?: number | null;
+  task: string;
   status: TaskStatus;
   owner?: string;
   note?: string;
   finished_on?: string; // optional per-task finish-date override (YYYY-MM-DD)
+  domain_id?: number | null;
+  domain?: string | null;
 }
 
 export interface ReportArtifactLine {
-  artifact: string; // artifact name; backend resolves existing vs new against the DB
+  /** matched existing artifact PK; null/absent = NEW artifact to create. */
+  id?: number | null;
+  artifact: string;
   type?: ArtifactType;
   tags?: ArtifactTag[];
+  summary?: string;
   change_kind?: ArtifactChangeKind;
   note?: string;
-}
-
-export interface ReportDomainBlock {
-  domain: string;
-  changes?: Partial<Pick<Domain, 'priority' | 'description'>>;
-  tasks?: ReportTaskLine[];
-  artifacts?: ReportArtifactLine[];
+  domain_id?: number | null;
+  domain?: string | null;
 }
 
 export interface ReportActionItemLine {
   text: string;
   owner?: string;
-  domain?: string;
   due_date?: string;
+  domain_id?: number | null;
+  domain?: string | null;
 }
 
 export interface ReportJson {
@@ -151,12 +168,33 @@ export interface ReportJson {
   meeting_date: string;
   participants?: string[];
   raw_notes: string;
-  domains?: ReportDomainBlock[];
-  /** Top-level team-wide artifacts (not assigned to any domain). */
+  tasks?: ReportTaskLine[];
   artifacts?: ReportArtifactLine[];
   action_items?: ReportActionItemLine[];
-  discussion?: string;
-  issues?: string;
+  discussion?: string | null;
+  issues?: string | null;
+}
+
+/** Picker-shaped team entity projection — `GET /api/teams/{team_id}/entities`. */
+export interface EntityPickerTask {
+  id: number;
+  name: string;
+  status: string;
+  domain_id: number;
+  domain: string | null;
+}
+
+export interface EntityPickerArtifact {
+  id: number;
+  name: string;
+  type: ArtifactType;
+  domain_id: number | null;
+  domain: string | null;
+}
+
+export interface TeamEntities {
+  tasks: EntityPickerTask[];
+  artifacts: EntityPickerArtifact[];
 }
 
 export interface Report {

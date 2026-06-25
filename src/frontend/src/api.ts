@@ -20,6 +20,7 @@ import type {
   TaskDetail,
   TaskPatchBody,
   Team,
+  TeamEntities,
   TeamPage,
   TeamPageIndexEntry,
 } from '@/types';
@@ -130,6 +131,10 @@ export const api = {
     // `PATCH /api/artifacts/{id}` — entity-page edit. Returns updated Artifact.
     patchArtifact: (artifactId: number, body: ArtifactPatchBody): Promise<Artifact> =>
       request(`/artifacts/${artifactId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    // `GET /api/teams/{team_id}/entities` — picker-shaped tasks + artifacts for the
+    // report editor's @-task / #-artifact mentions and link-existing pickers.
+    teamEntities: (teamId: number): Promise<TeamEntities> =>
+      request(`/teams/${teamId}/entities`),
   },
 
   // ---- Reports (backend routes/reports.py — task_breakdown 1C) ----
