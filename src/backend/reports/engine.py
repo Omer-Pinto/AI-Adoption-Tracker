@@ -10,9 +10,17 @@ Two write paths, each ONE SQLite transaction:
   history").
 
 * ``replay_report_edit`` — edit a saved report (spec §4 "Updating a saved
-  report"): delete the history rows this report created, swap the stored
-  ``report_json``, then recompute the current-state of every task/artifact the
-  champion's reports touch by replaying those reports in ``meeting_date`` order.
+  report"): a TARGETED re-apply — delete ONLY this report's own journal rows
+  (its ``report_id``; manual rows have a NULL ``report_id`` and survive), swap
+  the stored ``report_json``, re-apply this report's entries as fresh
+  ``source='report'`` rows (id back-filled, dup-safe), then recompute the
+  touched tasks' current-state from the journal. No full-timeline re-fan-out.
+
+* ``apply_manual_task_edit`` / ``apply_manual_artifact_edit`` — a direct
+  current-state edit from the UI, journaled as a ``source='manual'`` row so the
+  weekly story is not silently contradicted. The engine owns BOTH the entity
+  update and the journal row in one transaction; the route just validates +
+  delegates.
 
 Read helpers: ``build_draft_context`` (state hints for the LLM) and
 ``get_report_row`` (one report, with ``report_json`` left as a JSON string).
@@ -49,13 +57,16 @@ Design decisions (carried from Wave 2 Agent 2B):
 * **``started_on``** = date of the earliest history row.
 
 * **``ended_on``** — NEVER auto-computed from a trailing terminal-status run.
-  It is the user-supplied finish date: ``finished_on`` on the task entry if
-  present, otherwise the report's own ``meeting_date`` (only when the latest
-  status is terminal). See ``_ended_on_for_task``.
+  It is the user-supplied finish date, stored per-journal-row on
+  ``task_history.ended_on`` (``finished_on`` on a report entry, or the supplied
+  finish date on a manual edit). ``_recompute_task_current_state`` reads the
+  latest row's ``ended_on`` (falling back to its ``meeting_date``) only when the
+  latest status is terminal — purely from the journal, no report_json scrape.
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 import sqlite3
 
@@ -402,16 +413,16 @@ def _record_task_entry(
 ) -> tuple[int, bool]:
     """Resolve/create a task row, back-fill the entry, and append one history row.
 
-    Shared by the save path (``_apply_task_entry``) and the replay path
-    (``_replay_champion``) — they differ only in WHEN current-state is recomputed,
-    so that is left to the caller. Does NOT recompute current-state.
+    Shared by the save path (``_apply_task_entry``) and the report-edit re-apply
+    (``replay_report_edit``) — they differ only in WHEN current-state is
+    recomputed, so that is left to the caller. Does NOT recompute current-state.
 
     A task always needs a domain → falls back to 'General'. A MATCHED task
     (``entry.id`` set) is re-placed to its resolved domain so re-placement via the
     report works (decision: report placement is authoritative for an
     explicitly-referenced task). The resolved ids are back-filled onto the entry
-    so a saved/replayed report_json is id-complete (prevents duplicates on a
-    later replay).
+    so a saved/re-applied report_json is id-complete (prevents duplicates on a
+    later edit).
 
     Returns ``(task_id, created)`` where ``created`` is True when a brand-new
     task row was inserted (``entry.id`` was None)."""
@@ -435,9 +446,11 @@ def _record_task_entry(
 
     conn.execute(
         "INSERT INTO task_history "
-        "(task_id, report_id, meeting_date, status_at_meeting, change_note) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (task_id, report_id, meeting_date, entry.status.value, entry.note),
+        "(task_id, report_id, meeting_date, status_at_meeting, owner, ended_on, "
+        " change_note, source) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, 'report')",
+        (task_id, report_id, meeting_date, entry.status.value,
+         entry.owner, entry.finished_on, entry.note),
     )
     return task_id, created
 
@@ -482,18 +495,28 @@ def _create_task(
 
 
 def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> None:
-    """Set task.status/owner/started_on/ended_on from its full history journey.
+    """Set task.status/owner/started_on/ended_on PURELY from the journal.
+
+    The journal (``task_history``) is self-sufficient: every column the
+    current-state needs is stored on the rows themselves, so report and manual
+    entries are treated identically and ``report_json`` is never scraped.
 
     * ``started_on`` = meeting_date of the earliest history row (spec §4/§6).
-    * ``ended_on``   = user-supplied finish date (spec §5): ``finished_on`` on
-      the task entry if present, else the report's ``meeting_date`` — but ONLY
-      when the task's latest status is terminal.  Never auto-computed.
-    * ``owner``      = most recent report that named one.
-    * ``status``     = latest status."""
+    * ``status``     = the latest row's status.
+    * ``owner``      = the latest row (by date, then id) that NAMED an owner;
+      falls back to whatever the task row already has if none ever did.
+    * ``ended_on``   = user-supplied finish date (spec §5), ONLY when the latest
+      status is terminal: the latest row's ``ended_on`` if set, else its
+      ``meeting_date``. Never auto-computed.
+
+    Ordering key is (meeting_date, id): ``id`` is monotonic with insertion, so a
+    manual edit appended today sorts after a report on the same date, and within
+    one fan-out the rows keep their applied order. (``report_id`` is no longer a
+    valid tiebreak — manual rows have none.)"""
     rows = conn.execute(
-        "SELECT th.meeting_date, th.status_at_meeting, th.change_note, th.report_id "
-        "FROM task_history th WHERE th.task_id = ? "
-        "ORDER BY th.meeting_date ASC, th.report_id ASC",
+        "SELECT meeting_date, status_at_meeting, owner, ended_on "
+        "FROM task_history WHERE task_id = ? "
+        "ORDER BY meeting_date ASC, id ASC",
         (task_id,),
     ).fetchall()
     if not rows:
@@ -505,11 +528,12 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
 
     ended_on: str | None = None
     if latest_status in _TERMINAL_STATUSES:
-        ended_on = _ended_on_for_task(
-            conn, task_id, latest_row["report_id"], latest_row["meeting_date"]
-        )
+        ended_on = latest_row["ended_on"] or latest_row["meeting_date"]
 
-    owner = _latest_owner_for_task(conn, task_id)
+    owner = _latest_owner_from_journal(rows)
+    if owner is None:
+        cur = conn.execute("SELECT owner FROM task WHERE id = ?", (task_id,)).fetchone()
+        owner = cur["owner"] if cur else None
 
     conn.execute(
         "UPDATE task SET status = ?, owner = ?, started_on = ?, ended_on = ? "
@@ -518,66 +542,13 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     )
 
 
-def _task_entry_matches(entry: dict, task_id: int, task_name: str) -> bool:
-    """A flat task entry refers to *task_id*/*task_name* if its ``id`` matches
-    (preferred, now that report_json is id-complete) or, lacking an id, its name."""
-    eid = entry.get("id")
-    if eid is not None:
-        return eid == task_id
-    name = entry.get("task")
-    return bool(name) and _norm(name) == _norm(task_name)
-
-
-def _ended_on_for_task(
-    conn: sqlite3.Connection,
-    task_id: int,
-    report_id: int,
-    meeting_date: str,
-) -> str:
-    """Return the user-supplied finish date for a task that just turned terminal.
-
-    Reads the FLAT ``doc["tasks"]`` of *report_id*, matching the task by ``id``
-    (falling back to name), and returns its ``finished_on`` override, else the
-    report's ``meeting_date``. This is the ONLY place ``ended_on`` is derived."""
-    name_row = conn.execute("SELECT name FROM task WHERE id = ?", (task_id,)).fetchone()
-    if name_row is None:
-        return meeting_date
-    task_name = name_row["name"]
-
-    report_row = conn.execute(
-        "SELECT report_json, meeting_date FROM report WHERE id = ?", (report_id,)
-    ).fetchone()
-    if report_row is None:
-        return meeting_date
-
-    doc = json.loads(report_row["report_json"])
-    for entry in doc.get("tasks", []):
-        if _task_entry_matches(entry, task_id, task_name):
-            return entry.get("finished_on") or report_row["meeting_date"]
-    return meeting_date
-
-
-def _latest_owner_for_task(conn: sqlite3.Connection, task_id: int) -> str | None:
-    """Owner from the most recent report (by date) whose FLAT task entry for this
-    task carried an owner; falls back to whatever the task row already has."""
-    name_row = conn.execute("SELECT name FROM task WHERE id = ?", (task_id,)).fetchone()
-    if name_row is None:
-        return None
-    task_name = name_row["name"]
-    rows = conn.execute(
-        "SELECT r.report_json FROM task_history th "
-        "JOIN report r ON r.id = th.report_id "
-        "WHERE th.task_id = ? "
-        "ORDER BY th.meeting_date DESC, th.report_id DESC",
-        (task_id,),
-    ).fetchall()
-    for row in rows:
-        doc = json.loads(row["report_json"])
-        for entry in doc.get("tasks", []):
-            if _task_entry_matches(entry, task_id, task_name) and entry.get("owner"):
-                return entry["owner"]
-    cur = conn.execute("SELECT owner FROM task WHERE id = ?", (task_id,)).fetchone()
-    return cur["owner"] if cur else None
+def _latest_owner_from_journal(rows: list) -> str | None:
+    """Owner from the latest journal row (already date,id-ordered ASC) that
+    named one; None if no row ever carried an owner."""
+    for row in reversed(rows):
+        if row["owner"]:
+            return row["owner"]
+    return None
 
 
 def _apply_artifact_entry(
@@ -619,8 +590,8 @@ def _apply_artifact_entry(
 
     conn.execute(
         "INSERT INTO artifact_history "
-        "(artifact_id, report_id, meeting_date, change_kind, change_note) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "(artifact_id, report_id, meeting_date, change_kind, change_note, source) "
+        "VALUES (?, ?, ?, ?, ?, 'report')",
         (artifact_id, report_id, meeting_date, change_kind, entry.note),
     )
 
@@ -721,46 +692,63 @@ def _insert_action_item(
     )
 
 
-# ── edit + replay (PATCH /api/reports/{id}) ────────────────────────────────────
+# ── edit one report (PATCH /api/reports/{id}) ──────────────────────────────────
 
 def replay_report_edit(
     conn: sqlite3.Connection, report_id: int, doc: ReportDocument
 ) -> sqlite3.Row:
-    """Re-save an edited report and recompute current-state by replaying.
+    """Re-save an edited report with a TARGETED re-apply (no full timeline replay).
 
-    One transaction (spec §4 "Updating a saved report"):
-      1. delete the history rows + action items this report created,
-      2. overwrite the stored report_json (+ meeting_date),
-      3. replay ALL of this champion's reports in meeting_date order so every
-         touched current-state row reflects the corrected sequence.
+    Editing an already-saved OLD report once newer reports exist is not a real
+    use case, so the old full-champion re-fan-out is gone. We touch ONLY this
+    report's own rows, in one transaction:
 
-    The stored report_json is id-complete (back-filled at save), so replay is
-    purely id-based — no duplicate entities are created.
-    """
+      1. delete THIS report's journal + action-item rows — i.e. the rows whose
+         ``report_id`` is this report. Manual rows (``source='manual'``,
+         ``report_id IS NULL``) are NOT matched, so they are PRESERVED.
+      2. overwrite the stored report_json (+ meeting_date / champion).
+      3. re-apply the edited document's entries as fresh ``source='report'``
+         journal rows (id back-filled, so a brand-new entity created on edit is
+         created once and never duplicated — the Wave-9 guarantee), persisting
+         the id-complete doc back to report_json.
+      4. recompute current-state for every task this report's old OR new
+         entries touched, purely from the journal (the preserved manual rows
+         participate; if the meeting_date moved, the recompute reflects it).
+
+    The name ``replay_report_edit`` is kept for the public seam; the behaviour is
+    now a targeted re-apply, not a replay."""
     with conn:
         existing = get_report_row(conn, report_id)  # raises if missing
-        champion_id = existing["champion_id"]
+        old_champion_id = existing["champion_id"]
 
-        # 1. wipe everything this report wrote into the history/action tables.
+        # Tasks touched BEFORE the edit (so a task dropped from the doc still gets
+        # its current-state recomputed from whatever journal remains).
+        affected_tasks: set[int] = {
+            r["task_id"]
+            for r in conn.execute(
+                "SELECT DISTINCT task_id FROM task_history WHERE report_id = ?",
+                (report_id,),
+            ).fetchall()
+        }
+
+        # 1. wipe ONLY this report's rows. Manual rows have report_id IS NULL and
+        #    are not matched here — they survive the edit untouched.
         conn.execute("DELETE FROM task_history WHERE report_id = ?", (report_id,))
         conn.execute("DELETE FROM artifact_history WHERE report_id = ?", (report_id,))
         conn.execute("DELETE FROM action_item WHERE report_id = ?", (report_id,))
 
         # 2. swap the stored document.
-        new_champion_id = _resolve_champion_id(conn, doc.champion)
-
-        # Guard against a date already used by a *different* report for this
-        # champion (exclude self so re-submitting the same date is fine).
+        champion_id = _resolve_champion_id(conn, doc.champion)
+        team_id = _champion_team_id(conn, champion_id)
         _check_duplicate_date(
-            conn, new_champion_id, doc.meeting_date, exclude_report_id=report_id
+            conn, champion_id, doc.meeting_date, exclude_report_id=report_id
         )
-
         try:
             conn.execute(
                 "UPDATE report SET champion_id = ?, meeting_date = ?, report_json = ?, "
                 "schema_version = ? WHERE id = ?",
                 (
-                    new_champion_id,
+                    champion_id,
                     doc.meeting_date,
                     doc.model_dump_json(by_alias=True, exclude_none=True),
                     SCHEMA_VERSION,
@@ -775,148 +763,185 @@ def replay_report_edit(
                 ) from exc
             raise
 
-        # 3. replay this champion's whole timeline (both, if champion changed).
-        _replay_champion(conn, new_champion_id)
-        if new_champion_id != champion_id:
-            _replay_champion(conn, champion_id)
-
-    return get_report_row(conn, report_id)
-
-
-def _replay_champion(conn: sqlite3.Connection, champion_id: int) -> None:
-    """Rebuild history + current-state for one champion from stored report_json.
-
-    Idempotent: clears this champion's history rows, then re-applies every one of
-    the champion's reports in (meeting_date, id) order. Replay is purely id-based:
-    the stored report_json is id-complete, so a matched entry resolves to its
-    existing row and a (now-rare) entry without an id is created once.
-
-    Reports do NOT carry domain ``changes`` — replay never touches a domain's
-    description/priority (those are owned by the Smart-extract / management flow).
-    Current-state rows the timeline no longer references keep their last value."""
-    reports = conn.execute(
-        "SELECT id, meeting_date, report_json FROM report "
-        "WHERE champion_id = ? ORDER BY meeting_date ASC, id ASC",
-        (champion_id,),
-    ).fetchall()
-
-    team_id = _champion_team_id(conn, champion_id)
-    domain_ids = [
-        r["id"]
-        for r in conn.execute(
-            "SELECT id FROM domain WHERE champion_id = ?", (champion_id,)
-        ).fetchall()
-    ]
-    report_ids = [r["id"] for r in reports]
-
-    # Clear history for this champion's reports (re-derived below). Current-state
-    # rows are kept; their status/dates are recomputed as we replay.
-    if report_ids:
-        placeholders = ",".join("?" * len(report_ids))
-        conn.execute(
-            f"DELETE FROM task_history WHERE report_id IN ({placeholders})",
-            report_ids,
-        )
-        conn.execute(
-            f"DELETE FROM artifact_history WHERE report_id IN ({placeholders})",
-            report_ids,
-        )
-        conn.execute(
-            f"DELETE FROM action_item WHERE report_id IN ({placeholders})",
-            report_ids,
-        )
-
-    touched_tasks: set[int] = set()
-    # Artifact ids that already received a history row in THIS replay pass — the
-    # first row for an artifact is its `added` event.
-    seen_artifacts: set[int] = set()
-
-    for rep in reports:
-        doc = ReportDocument.model_validate_json(rep["report_json"])
-        doc_mutated = False
+        # 3. re-apply this report's entries as fresh source='report' rows. We
+        #    record-and-back-fill (no per-entry recompute), then recompute the
+        #    union of old + new tasks once at the end.
         for entry in doc.tasks:
-            # Same record-and-back-fill as the save path; replay defers the
-            # current-state recompute to after the whole timeline is applied.
-            task_id, created = _record_task_entry(
-                conn, rep["id"], rep["meeting_date"], champion_id, team_id, entry
+            task_id, _ = _record_task_entry(
+                conn, report_id, doc.meeting_date, champion_id, team_id, entry
             )
-            if created:
-                doc_mutated = True
-            touched_tasks.add(task_id)
+            affected_tasks.add(task_id)
         for entry in doc.artifacts:
-            pre_id = entry.id
-            _replay_artifact_entry(
-                conn, rep["id"], rep["meeting_date"], champion_id, team_id, entry, seen_artifacts
+            _apply_artifact_entry(
+                conn, report_id, doc.meeting_date, champion_id, team_id, entry
             )
-            if pre_id is None:
-                doc_mutated = True
         for item in doc.action_items:
             item_domain_id = _resolve_entry_domain_id(
                 conn, champion_id, team_id, item.domain_id, item.domain, needs_domain=False
             )
-            # Back-fill domain resolution onto the action item so stored doc
-            # reflects the resolved domain id (idempotent; low cost).
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, rep["id"], item_domain_id, item)
-        # Persist the id-complete document if any entry was newly created
-        # (had id=None at load time).  This makes ALL paths id-complete in
-        # storage: fresh save, edit-same-report, edit-other-report, and any
-        # brand-new entity created during replay.
-        if doc_mutated:
-            conn.execute(
-                "UPDATE report SET report_json = ? WHERE id = ?",
-                (doc.model_dump_json(by_alias=True, exclude_none=True), rep["id"]),
-            )
+            _insert_action_item(conn, report_id, item_domain_id, item)
 
-    for task_id in touched_tasks:
+        # Persist the id-complete document (entries created on edit now carry ids).
+        conn.execute(
+            "UPDATE report SET report_json = ? WHERE id = ?",
+            (doc.model_dump_json(by_alias=True, exclude_none=True), report_id),
+        )
+
+        # 4. recompute current-state for every touched task from the journal.
+        for task_id in affected_tasks:
+            _recompute_task_current_state(conn, task_id)
+
+    return get_report_row(conn, report_id)
+
+
+# ── manual entity edits (PATCH /api/tasks|artifacts/{id}) ──────────────────────
+# A direct current-state edit, journaled so the weekly story does not lie. The
+# engine owns BOTH the entity update and the journal row (SOLID: routes validate
+# + delegate; the engine keeps state and journal consistent in one transaction).
+
+def apply_manual_task_edit(
+    conn: sqlite3.Connection, task_id: int, fields: dict
+) -> sqlite3.Row:
+    """Apply a manual task current-state edit + journal it (one transaction).
+
+    ``fields`` are the already-validated columns to set (any of ``status`` [str],
+    ``owner``, ``domain_id``, ``started_on``, ``ended_on``). In one transaction:
+
+      1. UPDATE the supplied columns on the ``task`` row.
+      2. APPEND one ``source='manual'`` journal row dated TODAY carrying the
+         resulting ``status_at_meeting``, the new ``owner`` (so the journal stays
+         self-sufficient), an ``ended_on`` (set when the resulting status is
+         terminal: the supplied finish date, else today), and a ``change_note``
+         summarising what changed.
+      3. RECOMPUTE current-state from the journal so the manual row participates
+         (e.g. owner/ended_on derive consistently with report rows).
+
+    Returns the refreshed ``task`` row. Raises EngineError if the task is gone."""
+    with conn:
+        row = conn.execute("SELECT * FROM task WHERE id = ?", (task_id,)).fetchone()
+        if row is None:
+            raise EngineError(f"Unknown task id: {task_id}")
+
+        note = _describe_task_changes(row, fields)
+
+        if fields:
+            _apply_updates(conn, "task", task_id, fields)
+
+        # The resulting status drives whether this manual edit ends the task.
+        result = conn.execute(
+            "SELECT status, owner, ended_on FROM task WHERE id = ?", (task_id,)
+        ).fetchone()
+        status = result["status"]
+        today = datetime.date.today().isoformat()
+        ended_on = None
+        if status in _TERMINAL_STATUSES:
+            ended_on = result["ended_on"] or today
+
+        conn.execute(
+            "INSERT INTO task_history "
+            "(task_id, report_id, meeting_date, status_at_meeting, owner, ended_on, "
+            " change_note, source) "
+            "VALUES (?, NULL, ?, ?, ?, ?, ?, 'manual')",
+            (task_id, today, status, result["owner"], ended_on, note),
+        )
+
         _recompute_task_current_state(conn, task_id)
-    # Recompute any task in this champion's domains that lost all history.
-    if domain_ids:
-        placeholders = ",".join("?" * len(domain_ids))
-        for row in conn.execute(
-            f"SELECT id FROM task WHERE domain_id IN ({placeholders})", domain_ids
-        ).fetchall():
-            if row["id"] not in touched_tasks:
-                _recompute_task_current_state(conn, row["id"])
+
+    return conn.execute("SELECT * FROM task WHERE id = ?", (task_id,)).fetchone()
 
 
-def _replay_artifact_entry(
-    conn: sqlite3.Connection,
-    report_id: int,
-    meeting_date: str,
-    champion_id: int,
-    team_id: int,
-    entry: ReportArtifactEntry,
-    seen_artifacts: set[int],
+def apply_manual_artifact_edit(
+    conn: sqlite3.Connection, artifact_id: int, fields: dict
+) -> sqlite3.Row:
+    """Apply a manual artifact current-state edit + journal it (one transaction).
+
+    ``fields`` are the already-validated columns to set (``name``, ``type``,
+    ``tags`` [JSON text], ``summary``, ``domain_id``). In one transaction:
+
+      1. UPDATE the supplied columns on the ``artifact`` row.
+      2. APPEND one ``source='manual'`` ``artifact_history`` row dated TODAY with
+         ``change_kind`` = 'moved' if the domain changed else 'updated', plus a
+         ``change_note`` summarising what changed.
+
+    Artifact current-state lives on the ``artifact`` row, so no recompute is
+    needed. Returns the refreshed ``artifact`` row. Raises EngineError if gone."""
+    with conn:
+        row = conn.execute(
+            "SELECT * FROM artifact WHERE id = ?", (artifact_id,)
+        ).fetchone()
+        if row is None:
+            raise EngineError(f"Unknown artifact id: {artifact_id}")
+
+        domain_changed = (
+            "domain_id" in fields and fields["domain_id"] != row["domain_id"]
+        )
+        note = _describe_artifact_changes(row, fields)
+        change_kind = "moved" if domain_changed else "updated"
+
+        if fields:
+            _apply_updates(conn, "artifact", artifact_id, fields)
+
+        today = datetime.date.today().isoformat()
+        conn.execute(
+            "INSERT INTO artifact_history "
+            "(artifact_id, report_id, meeting_date, change_kind, change_note, source) "
+            "VALUES (?, NULL, ?, ?, ?, 'manual')",
+            (artifact_id, today, change_kind, note),
+        )
+
+    return conn.execute(
+        "SELECT * FROM artifact WHERE id = ?", (artifact_id,)
+    ).fetchone()
+
+
+def _apply_updates(
+    conn: sqlite3.Connection, table: str, row_id: int, changes: dict
 ) -> None:
-    domain_id = _resolve_entry_domain_id(
-        conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=False
-    )
-    name = entry.artifact
-    if entry.id is not None:
-        artifact_id = _verify_artifact_in_team(conn, entry.id, team_id)
-        if artifact_id not in seen_artifacts:
-            # First history row for this artifact in the replay = its `added` event.
-            change_kind = entry.change_kind.value if entry.change_kind else "added"
-        else:
-            change_kind = _infer_artifact_change_kind(conn, artifact_id, domain_id, entry)
-        _update_artifact(conn, artifact_id, domain_id, entry)
-    else:
-        if entry.type is None:
-            raise EngineError(f"artifact {name!r} is new but has no type")
-        artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
-        change_kind = entry.change_kind.value if entry.change_kind else "added"
-    seen_artifacts.add(artifact_id)
-    # Back-fill resolved ids onto the in-memory entry so the caller can detect
-    # that this was a newly-created artifact (pre_id was None) and persist the
-    # id-complete doc to report_json.
-    entry.id = artifact_id
-    entry.domain_id = domain_id
-    entry.domain = _domain_name_for_id(conn, domain_id)
+    """UPDATE only the supplied columns of ``table`` row ``row_id``. No-op when
+    ``changes`` is empty."""
+    if not changes:
+        return
+    assignments = ", ".join(f"{c} = ?" for c in changes)
     conn.execute(
-        "INSERT INTO artifact_history "
-        "(artifact_id, report_id, meeting_date, change_kind, change_note) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (artifact_id, report_id, meeting_date, change_kind, entry.note),
+        f"UPDATE {table} SET {assignments} WHERE id = ?",
+        [*changes.values(), row_id],
     )
+
+
+def _describe_task_changes(row: sqlite3.Row, fields: dict) -> str:
+    """A terse human note for a manual task edit (only fields that actually
+    changed value), e.g. "status: in-progress → abandoned; owner → Dana"."""
+    parts: list[str] = []
+    labels = {
+        "status": "status",
+        "owner": "owner",
+        "domain_id": "domain",
+        "started_on": "started_on",
+        "ended_on": "ended_on",
+    }
+    for col, label in labels.items():
+        if col not in fields:
+            continue
+        old = row[col]
+        new = fields[col]
+        if old == new:
+            continue
+        if col in ("status",) and old is not None:
+            parts.append(f"{label}: {old} → {new}")
+        else:
+            parts.append(f"{label} → {new}")
+    return "Manual edit (" + "; ".join(parts) + ")" if parts else "Manual edit"
+
+
+def _describe_artifact_changes(row: sqlite3.Row, fields: dict) -> str:
+    """A terse human note for a manual artifact edit (changed fields only)."""
+    parts: list[str] = []
+    for col in ("name", "type", "tags", "summary", "domain_id"):
+        if col not in fields:
+            continue
+        if row[col] == fields[col]:
+            continue
+        parts.append("domain" if col == "domain_id" else col)
+    return "Manual edit (" + ", ".join(parts) + ")" if parts else "Manual edit"

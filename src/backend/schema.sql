@@ -85,16 +85,33 @@ CREATE TABLE IF NOT EXISTS task (
 
 -- ── task_history (the weekly journey) ─────────────────────────────────────────
 -- One row per task per meeting it is discussed. No domain_id (reached via task).
+--
+-- The journal is SELF-SUFFICIENT: current-state (task.status/owner/started_on/
+-- ended_on) is derived PURELY from these columns, never by scraping report_json.
+-- That lets a manual edit (source='manual', report_id NULL — no owning report)
+-- participate in the recompute identically to a report-driven row.
+--   * owner    — the owner named at this meeting (NULL = not named here);
+--                current-state owner = the latest row that named one.
+--   * ended_on — the user-supplied finish date recorded at this meeting (NULL =
+--                none); when the latest status is terminal, current-state
+--                ended_on = that row's ended_on if set, else its meeting_date.
+--   * source   — 'report' (fanned out from a report) or 'manual' (a direct
+--                current-state edit, journaled so the story does not lie).
+-- report_id is NULLABLE: a manual entry has no owning report.
 CREATE TABLE IF NOT EXISTS task_history (
     id                INTEGER PRIMARY KEY,
     task_id           INTEGER NOT NULL REFERENCES task(id),
-    report_id         INTEGER NOT NULL REFERENCES report(id),
+    report_id         INTEGER REFERENCES report(id),     -- nullable: manual = NULL
     meeting_date      TEXT NOT NULL,
     status_at_meeting TEXT NOT NULL CHECK (status_at_meeting IN (
         'planned', 'in-progress', 'finished_successfully',
         'finished_with_issues', 'blocked', 'abandoned'
     )),
-    change_note       TEXT
+    owner             TEXT,                              -- owner named at this meeting
+    ended_on          TEXT,                              -- finish date recorded here
+    change_note       TEXT,
+    source            TEXT NOT NULL DEFAULT 'report'
+        CHECK (source IN ('report', 'manual'))
 );
 
 -- ── artifact (current state) ──────────────────────────────────────────────────
@@ -110,16 +127,21 @@ CREATE TABLE IF NOT EXISTS artifact (
 );
 
 -- ── artifact_history (one row only when it changes) ───────────────────────────
--- No domain_id (reached via artifact).
+-- No domain_id (reached via artifact). An event log: current-state lives on the
+-- `artifact` row, so this table just records change_kind + change_note + source.
+--   * source    — 'report' (fanned out) or 'manual' (a direct entity edit).
+-- report_id is NULLABLE: a manual entry has no owning report.
 CREATE TABLE IF NOT EXISTS artifact_history (
     id           INTEGER PRIMARY KEY,
     artifact_id  INTEGER NOT NULL REFERENCES artifact(id),
-    report_id    INTEGER NOT NULL REFERENCES report(id),
+    report_id    INTEGER REFERENCES report(id),     -- nullable: manual = NULL
     meeting_date TEXT NOT NULL,
     change_kind  TEXT NOT NULL CHECK (change_kind IN (
         'added', 'updated', 'retired', 'moved'
     )),
-    change_note  TEXT
+    change_note  TEXT,
+    source       TEXT NOT NULL DEFAULT 'report'
+        CHECK (source IN ('report', 'manual'))
 );
 
 -- ── action_item ───────────────────────────────────────────────────────────────

@@ -109,12 +109,21 @@ class Task(BaseModel):
 
 
 class TaskHistory(BaseModel):
+    """One journal row for a task at one meeting (report or manual edit).
+
+    Self-sufficient: `owner` and `ended_on` carry whatever the recompute needs,
+    so current-state is derived from these columns alone (never report_json).
+    `report_id` is None for a manual (`source='manual'`) entry.
+    """
     id: int
     task_id: int
-    report_id: int
+    report_id: int | None = None
     meeting_date: str
     status_at_meeting: TaskStatus
+    owner: str | None = None
+    ended_on: str | None = None
     change_note: str | None = None
+    source: str = "report"
 
 
 class Artifact(BaseModel):
@@ -128,12 +137,17 @@ class Artifact(BaseModel):
 
 
 class ArtifactHistory(BaseModel):
+    """One artifact change event (report or manual edit).
+
+    `report_id` is None for a manual (`source='manual'`) entry.
+    """
     id: int
     artifact_id: int
-    report_id: int
+    report_id: int | None = None
     meeting_date: str
     change_kind: ArtifactChangeKind
     change_note: str | None = None
+    source: str = "report"
 
 
 class ActionItem(BaseModel):

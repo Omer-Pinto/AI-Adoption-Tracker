@@ -28,6 +28,11 @@ from models import ArtifactType, TaskStatus
 import models
 from db import get_connection
 from domain_helpers import build_domain
+from reports import (
+    EngineError,
+    apply_manual_artifact_edit,
+    apply_manual_task_edit,
+)
 
 # Cross-agent seam (Agent 1D's `search` package). 1D adapts the vendored DSL
 # engine to expose these helpers; until then this import resolves against the
@@ -229,23 +234,6 @@ def _domain_name(conn: sqlite3.Connection, domain_id: int | None) -> str | None:
         "SELECT name FROM domain WHERE id = ?", (domain_id,)
     ).fetchone()
     return row["name"] if row is not None else None
-
-
-def _patch_update(
-    conn: sqlite3.Connection, table: str, row_id: int, changes: dict
-) -> None:
-    """UPDATE only the supplied columns of `table` row `row_id` (partial PATCH).
-
-    Mirrors `management._update`; kept local to views.py to avoid a cross-module
-    import for a one-liner. No-op when `changes` is empty.
-    """
-    if not changes:
-        return
-    assignments = ", ".join(f"{c} = ?" for c in changes)
-    conn.execute(
-        f"UPDATE {table} SET {assignments} WHERE id = ?",
-        [*changes.values(), row_id],
-    )
 
 
 # ── per-domain history fetchers (reached via task/artifact; no domain_id) ─────
@@ -555,17 +543,21 @@ def team_entities(team_id: int) -> TeamEntities:
 
 @router.patch("/tasks/{id}", response_model=models.Task)
 def patch_task(id: int, body: TaskPatch) -> models.Task:
-    """Manager edit for a task's current state — NO history row written.
+    """Manager edit for a task's current state — JOURNALED (source='manual').
 
     This is a management tool: the manager edits current-state directly. Accepts
     `status` (validated against `TaskStatus`), `owner`, `domain_id`, `started_on`,
-    `ended_on` (partial PATCH). The edit is saved to current-state but is
-    intentionally UN-JOURNALED — reports remain the only thing that journals
-    `task_history` (a later report-edit replay may recompute these fields).
+    `ended_on` (partial PATCH). The edit is BOTH saved to current-state AND
+    journaled: the engine appends one `source='manual'` `task_history` row dated
+    today so the weekly story does not silently contradict the current state.
+
+    SOLID: the route only validates (404 / cross-team 422 / status enum — already
+    enforced by Pydantic) and delegates; the engine owns the state+journal write
+    in one transaction.
 
     A non-null `domain_id` must exist (else 422) and its team must equal the task's
     current team (via current domain) else 422 cross-team. 404 if the task is
-    missing. History is report-only — this writes none.
+    missing.
     """
     conn = get_connection()
     try:
@@ -613,9 +605,11 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
                     ),
                 )
 
-        _patch_update(conn, "task", id, changes)
-        conn.commit()
-        row = conn.execute("SELECT * FROM task WHERE id = ?", (id,)).fetchone()
+        # Delegate the state update + manual journal row to the engine.
+        try:
+            row = apply_manual_task_edit(conn, id, changes)
+        except EngineError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         return _task(row)
     finally:
         conn.close()
@@ -623,13 +617,17 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
 
 @router.patch("/artifacts/{id}", response_model=models.Artifact)
 def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
-    """Entity-page edit for an artifact — current-state only, NO history row.
+    """Entity-page edit for an artifact — JOURNALED (source='manual').
 
     Accepts `name`, `type`, `tags`, `summary`, `domain_id` (partial). `type` is
     validated by the `ArtifactType` enum. `tags` is re-serialized to JSON text on
     write. A non-null `domain_id` must exist and its team must equal the
-    artifact's team else 422; null is allowed (team-wide). 404 if missing. History
-    is report-only — this writes none.
+    artifact's team else 422; null is allowed (team-wide). 404 if missing.
+
+    The edit is BOTH saved to current-state AND journaled: the engine appends one
+    `source='manual'` `artifact_history` row dated today (`change_kind` = 'moved'
+    if the domain changed else 'updated'). SOLID: the route validates + delegates;
+    the engine owns the state+journal write in one transaction.
     """
     conn = get_connection()
     try:
@@ -679,9 +677,11 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
         if "tags" in changes:
             changes["tags"] = json.dumps(changes["tags"])
 
-        _patch_update(conn, "artifact", id, changes)
-        conn.commit()
-        row = conn.execute("SELECT * FROM artifact WHERE id = ?", (id,)).fetchone()
+        # Delegate the state update + manual journal row to the engine.
+        try:
+            row = apply_manual_artifact_edit(conn, id, changes)
+        except EngineError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         return _artifact(row)
     finally:
         conn.close()
