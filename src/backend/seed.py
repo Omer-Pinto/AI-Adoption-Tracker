@@ -249,8 +249,8 @@ def seed_radar(conn) -> None:
                 domain="signal-processing",
             ),
         ],
-        discussion="demoed a meta-skill",
-        issues="champion flagged repo-access problem",
+        discussion=["demoed a meta-skill"],
+        issues=["champion flagged repo-access problem"],
     )
     row2 = fan_out_report(conn, doc_0615)
     print(f"[seed]   saved report id={row2['id']}")

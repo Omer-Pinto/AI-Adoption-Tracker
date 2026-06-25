@@ -259,12 +259,16 @@ ACTION ITEMS — no overlap with discussion/issues:
 (set "text", plus "owner" / "due_date" / domain_id+domain when stated). Do NOT \
 ALSO repeat that same item in "discussion" or "issues".
 
-CATCH-ALLS — discussion and issues:
-- "discussion" is the DEFAULT catch-all for any narrative, talking point, \
-context, or progress that is not a task, artifact, or action item.
-- "issues" is for problems, risks, blockers, or concerns.
-- Anything that fits no structured field MUST STILL be captured: put it in \
-"discussion", unless it is a problem/risk/blocker → then "issues". Never drop it.
+CATCH-ALLS — discussion and issues (each is a LIST of items):
+- "discussion" is a LIST of discussion points: the DEFAULT catch-all for any \
+narrative, talking point, context, or progress that is not a task, artifact, or \
+action item. Emit one list ENTRY per distinct point — multiple items, never one \
+merged blob. A single entry may span multiple lines if it is one coherent point.
+- "issues" is a LIST of problems, risks, blockers, or concerns. Emit one list \
+ENTRY per distinct problem/risk/blocker — multiple items, not one blob.
+- Anything that fits no structured field MUST STILL be captured: add it as an \
+entry in "discussion", unless it is a problem/risk/blocker → then add an entry in \
+"issues". Never drop it.
 
 COMPLETENESS — capture every piece of information (do not drop note lines):
 - EVERY piece of information in the notes must land somewhere in the output. \
@@ -273,7 +277,8 @@ Account for every line. Do not silently drop any item, field, or detail.
 "tasks" entry (with its best-fit domain_id, or null); a tool/artifact (with its \
 type/tags/summary/change) → an "artifacts" entry (with its best-fit domain_id, or \
 null if team-wide/unsure); a follow-up or to-do → an "action_items" entry; a \
-person present → "participants"; anything else → "discussion" or "issues".
+person present → "participants"; anything else → an entry in the "discussion" or \
+"issues" list.
 
 NO FABRICATION (reconciled with completeness):
 - For fields with no value, use null (or an empty list for list fields) rather \

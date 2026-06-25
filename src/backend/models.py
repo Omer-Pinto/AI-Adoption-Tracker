@@ -275,5 +275,8 @@ class ReportDocument(BaseModel):
     tasks: list[ReportTaskEntry] = Field(default_factory=list)
     artifacts: list[ReportArtifactEntry] = Field(default_factory=list)
     action_items: list[ReportActionItem] = Field(default_factory=list)
-    discussion: str | None = None
-    issues: str | None = None
+    # `discussion` / `issues` are ordered LISTS of free-text items (each entry one
+    # discussion point / one issue; an item may itself contain multiple lines).
+    # They live only inside report_json — not fanned out to any table.
+    discussion: list[str] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)

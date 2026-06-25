@@ -23,7 +23,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from models import ArtifactType
+from models import ArtifactType, TaskStatus
 
 import models
 from db import get_connection
@@ -134,16 +134,21 @@ class TeamEntities(BaseModel):
 # ── Wave-10 current-state PATCH request models (all-optional partial patch) ───
 
 class TaskPatch(BaseModel):
-    """Entity-page edit for a task: ONLY `owner` and `domain_id` are editable.
+    """Manager edit for a task's current state: `status`, `owner`, `domain_id`,
+    `started_on`, `ended_on` are all editable (partial PATCH).
 
-    `status`/`started_on`/`ended_on` are report-derived (set by report replay)
-    and rejected here — see the route. All fields optional (partial PATCH); only
-    supplied fields are written via `model_dump(exclude_unset=True)`.
+    This is the manager's direct current-state edit handle. The edit is saved to
+    current-state but is intentionally UN-JOURNALED: reports remain the only thing
+    that writes `task_history`. The owner accepts that a later report-edit replay
+    may recompute these fields.
+
+    `status` is typed as `TaskStatus`, so an invalid enum value is rejected as 422
+    by Pydantic. All fields optional; only supplied fields are written via
+    `model_dump(exclude_unset=True)`.
     """
+    status: TaskStatus | None = None
     owner: str | None = None
     domain_id: int | None = None
-    # Report-derived fields — present only so a supplied value can be REJECTED.
-    status: str | None = None
     started_on: str | None = None
     ended_on: str | None = None
 
@@ -550,13 +555,17 @@ def team_entities(team_id: int) -> TeamEntities:
 
 @router.patch("/tasks/{id}", response_model=models.Task)
 def patch_task(id: int, body: TaskPatch) -> models.Task:
-    """Entity-page edit for a task — current-state only, NO history row written.
+    """Manager edit for a task's current state — NO history row written.
 
-    Accepts ONLY `owner` and `domain_id` (partial). `status`/`started_on`/
-    `ended_on` are report-derived (set by report replay) and rejected with 422 if
-    supplied. A non-null `domain_id` must exist (else 422) and its team must equal
-    the task's current team (via current domain) else 422 cross-team. 404 if the
-    task is missing. History is report-only — this writes none.
+    This is a management tool: the manager edits current-state directly. Accepts
+    `status` (validated against `TaskStatus`), `owner`, `domain_id`, `started_on`,
+    `ended_on` (partial PATCH). The edit is saved to current-state but is
+    intentionally UN-JOURNALED — reports remain the only thing that journals
+    `task_history` (a later report-edit replay may recompute these fields).
+
+    A non-null `domain_id` must exist (else 422) and its team must equal the task's
+    current team (via current domain) else 422 cross-team. 404 if the task is
+    missing. History is report-only — this writes none.
     """
     conn = get_connection()
     try:
@@ -568,15 +577,12 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
 
         changes = body.model_dump(exclude_unset=True)
 
-        # Report-derived fields are read-only here (set by report replay).
-        for field in ("status", "started_on", "ended_on"):
-            if field in changes:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{field} is report-derived; edit the source report",
-                )
+        # `status` arrives as a TaskStatus enum (Pydantic already rejected an
+        # invalid value as 422); persist its string value in the TEXT column.
+        if "status" in changes and changes["status"] is not None:
+            changes["status"] = changes["status"].value
 
-        # owner may legitimately be set to null (clearing the owner); no guard.
+        # owner / status may be edited freely; null owner clears the owner.
 
         if "domain_id" in changes:
             new_domain_id = changes["domain_id"]

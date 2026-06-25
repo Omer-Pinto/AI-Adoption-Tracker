@@ -241,18 +241,21 @@ name).
 
 ### Task edit (current-state) — `PATCH /api/tasks/{id}` (Wave 10)
 
-Entity-page edit. Accepts **only** `owner` and `domain_id` (partial). Returns the
-updated `Task`. **Writes NO `task_history` row** (history is report-only).
+Manager edit of a task's **current state**. Accepts `status`, `owner`,
+`domain_id`, `started_on`, `ended_on` (partial). Returns the updated `Task`.
+**Writes NO `task_history` row** — this edit is intentionally **un-journaled**:
+reports remain the only thing that journals history (a later report-edit replay
+may recompute these fields).
 
 ```jsonc
 // request — all fields optional (partial PATCH)
-{ "owner": "Maya", "domain_id": 1 }
+{ "status": "blocked", "owner": "Maya", "domain_id": 1,
+  "started_on": "2026-06-01", "ended_on": null }
 ```
 
-- `status` / `started_on` / `ended_on` are **report-derived** (set by report
-  replay) and **read-only** here: if supplied →
-  `422 { "detail": "status is report-derived; edit the source report" }`
-  (likewise for `started_on` / `ended_on`).
+- `status` is validated against the task-status enum (`planned|in-progress|
+  finished_successfully|finished_with_issues|blocked|abandoned`); an invalid value
+  → `422`.
 - `domain_id` is NOT NULL for a task — null → `422 "domain_id cannot be null"`.
   A supplied `domain_id` must exist (else `422 "Unknown domain id N"`) and its
   `team_id` must equal the task's current team (resolved via the task's current
@@ -284,7 +287,10 @@ Entity-page edit. Accepts `name`, `type`, `tags`, `summary`, `domain_id`
 ## 3. Reports API (Agent 1C — `routes/reports.py`)
 
 The report document shape (request + response bodies marked `ReportDocument`) is
-`report_schema.json` / `models.ReportDocument` (§4 JSON).
+`report_schema.json` / `models.ReportDocument` (§4 JSON). Note `discussion` and
+`issues` are ordered **lists** of free-text items (`list[str]`, each entry one
+discussion point / one issue; an item may itself contain newlines), not a single
+joined string.
 
 ### Draft — `POST /api/reports/draft`
 
