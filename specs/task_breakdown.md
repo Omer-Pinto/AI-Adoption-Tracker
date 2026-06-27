@@ -405,7 +405,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 5. **Owner (item 4):** literal AI-Lead string = exactly **`"AI Lead"`** (item-10 filter depends on it). Task owner **defaults to the champion's actual name** (engine fills when entry owner empty; prompt also says so). Report-editor owner cell = **dropdown `{AI Lead, <champion name>, other}`**, "other"→free text; champion name threaded into `TasksCard`/`ActionItemsCard`. LLM **declares each action-item owner ∈ {champion name, `"AI Lead"`}**. Storage stays free `TEXT` / Pydantic `str` (dynamic champion name can't be a static enum — constrain via prompt + FE dropdown).
 6. **Domains constant "Context creation" (item 5):** ensure a per-champion **"Context creation"** domain with **`priority = "1"`**, created + injected into `build_draft_context` exactly like **"General"** (which stays `priority NULL` and remains the *unplaced fallback*). Both always present in the placement context sent to the LLM; "Context creation" participates in placement but is NOT the fallback. So user adds Backend+Frontend → **4 domains total** (those two + General + Context creation).
 7. **Team-page counts (item 9):** add to `TeamPage` model + `team_page()`: `open_tasks`, `closed_tasks`, `open_action_items`, `closed_action_items`, `meeting_count`, `domain_count`, `artifact_count` (closed = status ∈ terminal).
-8. **Delete endpoints (item 6):** `DELETE /api/champions/{id}` (cascade the champion's domains/reports/history/action-items in scope; clean 4xx on any blocked FK, never 500) and `DELETE /api/domains/{id}` (**reassign its tasks/artifacts to the champion's "General" domain, then delete**; **block deleting the "General"/"Context creation" constants** with a clear message). Purpose = tidying unused/misspelled/badly-named domains, not removing active ones.
+8. **Delete endpoints (item 6):** `DELETE /api/champions/{id}` — **blocked with a clear 409 if the champion has ANY reports** (never destroy meeting history); if no reports, delete the champion + its (empty) domains. Clean 4xx, never 500. And `DELETE /api/domains/{id}` (**reassign its tasks/artifacts to the champion's "General" domain, then delete**; **block deleting the "General"/"Context creation" constants** with a clear message). Purpose = tidying unused/misspelled/badly-named domains, not removing active ones.
 9. **Cross-team AI-Lead action items (item 10 backend):** `GET /api/ai-lead/action-items` → `[{id, text, team_name, champion_name, meeting_date, status, domain, report_id}]`, filter `action_item.owner = 'AI Lead'`, all teams, newest `meeting_date` first. (Shape may be refined by the item-10 design — additive only.)
 10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`); **Wave-13 agents reference, never edit them.** New api.ts methods (added by 12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
 
@@ -442,7 +442,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Drop cc_baseline/baseline_date from request models | `TeamCreate`, `TeamUpdate` (`management.py`) | contract #1 |
-| 2 | `DELETE /api/champions/{id}` | `management.py` — cascade champion scope; clean 4xx on FK, never 500 | contract #8 (confirm cascade-vs-block w/ Omer; default cascade) |
+| 2 | `DELETE /api/champions/{id}` | `management.py` — **409 if champion has any reports**; else delete champion + empty domains; clean 4xx, never 500 | contract #8 |
 | 3 | `DELETE /api/domains/{id}` | `management.py` — reassign tasks/artifacts → champion's "General", then delete; block deleting General/Context-creation | contract #8 |
 | 4 | Team-page counts | `TeamPage` model + `team_page()` return: open/closed tasks, open/closed action items, meeting_count, domain_count, artifact_count | contract #7; all derivable from data already loaded |
 | 5 | `TaskPatch.ended_on`→`due_date`; `_action_item` status | `views.py` | contracts #2/#4 |
@@ -496,14 +496,18 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 | 9 | Ensure `wont_fix` renders | `TasksPage.tsx` `dotClass`, `Badge.tsx` `StatusBadge`, `DomainStory.tsx` — verify the new status renders with the 12C CSS classes | item 8 |
 **Commit(s):** `Wave 13 Agent 13B: team page redesign (tiles + folds per approved mock) + action-item status + Won't Fix render`
 
-### Agent 13C: AI-Lead cross-team view (built per the Wave-11 design)
+### Agent 13C: AI-Lead cross-team view (built per the approved mock)
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/ai-lead/* (new), components/AppShell.tsx, router.tsx}` (consumes `api.aiLead.actionItems` from 12C)
+> **APPROVED DESIGN = source of truth:** `prototype/ai-lead-mock.html` (+ `prototype/ai-lead-mock.png`). Build to match it.
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | AI-Lead page | new page consuming `GET /api/ai-lead/action-items` — table of {content, team, meeting date, status} cross-teams | per the 11.3 design |
-| 2 | Nav item | `AppShell.tsx` — new top-level **"AI Lead"** `<NavLink>` | item 10 |
-| 3 | Route | `router.tsx` — register the page route | item 10 |
-**Commit(s):** `Wave 13 Agent 13C: AI-Lead cross-team action-items view`
+| 1 | "AI Lead" nav item | `AppShell.tsx` — new top-level **"AI Lead"** `<NavLink>` in the Overview section, with an open-count badge | item 10; personal cross-team view, NOT a team |
+| 2 | Route + page shell | `router.tsx` route → new `pages/ai-lead/AiLeadPage.tsx` | item 10 |
+| 3 | Cross-team table | consume `GET /api/ai-lead/action-items` (owner='AI Lead') → rows: action-item text, **team** chip, **meeting date**, **status**, **"Open report ↗"** link to the source report | per mock; 12B #6 |
+| 4 | Summary tiles | small counts: Open / Overdue / Blocked / Done | per mock |
+| 5 | Sort + group toggle | default "By priority" (overdue→blocked→in-progress→planned→done; closed greyed + sunk); "By team" toggle regroups into team sections | per mock |
+| 6 | Inline status edit + dates | status dropdown writes through (full set incl `wont_fix`); "no date" handled; overdue flagged **only when a meeting/due date exists** | per mock; item-8 status set |
+**Commit(s):** `Wave 13 Agent 13C: AI-Lead cross-team action-items view (per approved mock)`
 
 ### After Wave 13
 - Cherry-pick 13A–13C. **Full live walk of the 10-item list:** no CC Baseline; draft places into Backend/Frontend/**General**/**Context creation**; **owner dropdown** {AI Lead/champion/other} defaults champion; action items have LLM-declared **owner** + **status**; tasks show **"Due on"**; **"Won't Fix"** on task & action item; champion/domain **Delete** (domain→General; constants blocked); **team page** count tiles + folds; report columns **aligned**; participants **comma-add** + default champion + **AI Lead**; **"AI Lead" nav** lists cross-team action items owned by AI Lead with content/team/date/status.

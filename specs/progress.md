@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-27 | **Branch:** `mvp-spec` → **`mvp-improvements`** (base for Wave 11→14)
+> **Last updated:** 2026-06-27 | **Branch:** `mvp-improvements` (base for Wave 11→14) | **Wave 11 CLOSED**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜] 70% (94/135)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜] 70% (97/138)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 94 / 135 | 70% |
+| 🟢 Done | 97 / 138 | 70% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 41 (Wave 11: 3 · 12: 21 · 13: 14 · 14: 3) | 30% |
+| ⬜ Pending | 41 (Wave 12: 21 · 13: 17 · 14: 3) | 30% |
 
 ---
 
@@ -32,9 +32,9 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 8 | Done | 1/1 | 1/1 | 0/6 | 8A FLAT redesign (`194fef0`+`2d559ef`): top-level `tasks`/`artifacts`, entity `id` + domain `domain_id`/`domain` matching, `report_schema.json` deleted, `extra="forbid"`, `summary`. **G1 APPROVED by Omer**; G2 structured-output audit **PASS**. |
 | 9 | Done | 1/1 | 1/1 | 0/4 | Flat id-based engine (`d696420` + dup-fix `2554a35` + cleanup `c6f584a`). Team-scoped id-bearing `build_draft_context`; id-matched save with **id back-fill**; replay back-fills too so an entity added on EDIT can't duplicate (CRITICAL review catch, fixed+proven); domain-changes machinery removed; `summary`/`note` split; `seed.py` reseeded flat (§6 intact). Verified in worktree throwaway DB (no-dup across save/edit-add/re-edit; §6 trace); `import app` clean on mvp. Full live test needs Wave 10 editor UI. |
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
-| 11 | Not Started | — | — | 3/3 | **Contract & branch + item-10 design** (gate, NO code) — cut `mvp-improvements`, freeze the cross-agent contract, approve AI-Lead design. See `task_breakdown.md` Wave 11 |
+| 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
 | 12 | Not Started | 0/3 | 0/3 | 21/21 | **Backend + FE-foundation** (parallel) — 12A backend-core, 12B backend-routes, 12C FE-foundation+report-editor. Build the contract into code |
-| 13 | Not Started | 0/3 | 0/3 | 14/14 | **FE consumers** (parallel) — 13A manage, 13B viewers (team redesign per approved mock), 13C AI-Lead view. Branch off Wave-12 |
+| 13 | Not Started | 0/3 | 0/3 | 17/17 | **FE consumers** (parallel) — 13A manage, 13B viewers (team redesign mock), 13C AI-Lead view (mock). Branch off Wave-12 |
 | 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -318,16 +318,16 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 11 — Frozen Contract, branch & AI-Lead design (gate — NO code)
+## Wave 11 — Frozen Contract, branch & AI-Lead design (gate — NO code) — 🟢 DONE
 
 > **Wave mechanics:** a wave = fully-parallel independent agents; any dependency → a separate consecutive wave. The contract gets its own wave. Chain: contract (11) → backend + FE-foundation build it (12) → FE consumers branch off Wave-12 (13) → search (14). All on `mvp-improvements`. Full Frozen Contract in `task_breakdown.md` Wave 11.2.
 
-### Wave 11 — Gate tasks (orchestrator + Omer)
+### Wave 11 — Gate tasks (orchestrator + Omer) — CLOSED
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Commit specs to `mvp-spec`; cut `mvp-improvements` off it | ⬜ Pending | `mvp-spec` stays the revert point |
-| 2 | Delete local `tracker.db` ("leave no old db") | ⬜ Pending | Omer-authorized, this DB only; leave `.bak` |
-| 3 | Item-10 AI-Lead design gate with Omer (dedicated page + nav, MVP scope) | ⬜ Pending | the one item needing design; unblocks 13C |
+| 1 | Commit specs to `mvp-spec`; cut `mvp-improvements` off it | 🟢 Done | `d1b6f41`; `mvp-spec` intact as revert point |
+| 2 | Delete local `tracker.db` ("leave no old db") | 🟢 Done | removed; regenerates from new schema; `.bak` left |
+| 3 | Item-10 AI-Lead design + item-9 team-page design approved by Omer | 🟢 Done | mocks frozen: `prototype/team-page-mock.*`, `ai-lead-mock.*`; contract decisions all closed (due-date pickable, domain delete→General, champion delete 409-if-reports) |
 
 ---
 
@@ -351,7 +351,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Drop cc_baseline from `TeamCreate`/`TeamUpdate` | ⬜ Pending | item 2 |
-| 2 | `DELETE /api/champions/{id}` | ⬜ Pending | item 6 |
+| 2 | `DELETE /api/champions/{id}` (409 if has reports) | ⬜ Pending | item 6 |
 | 3 | `DELETE /api/domains/{id}` (reassign→General; block constants) | ⬜ Pending | item 6 |
 | 4 | Team-page counts on `TeamPage` | ⬜ Pending | item 9 |
 | 5 | `TaskPatch.due_date`; `_action_item` status | ⬜ Pending | items 7/8 |
@@ -395,11 +395,15 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 9 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
 
 ### Agent 13C: AI-Lead cross-team view (`frontend-developer`)
+> Design = `prototype/ai-lead-mock.html` (+ `.png`).
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | AI-Lead page (cross-team action items: content/team/date/status) | ⬜ Pending | consumes 12B #6 + 12C api |
-| 2 | "AI Lead" nav item (`AppShell`) | ⬜ Pending | per 11.3 design |
-| 3 | Route (`router.tsx`) | ⬜ Pending | |
+| 1 | "AI Lead" nav item + open-count badge (`AppShell`) | ⬜ Pending | item 10; not a team |
+| 2 | Route + page shell (`pages/ai-lead/*`) | ⬜ Pending | item 10 |
+| 3 | Cross-team table (text/team/date/status/Open-report) | ⬜ Pending | consumes 12B #6 |
+| 4 | Summary tiles (Open/Overdue/Blocked/Done) | ⬜ Pending | per mock |
+| 5 | Sort "By priority" + "By team" toggle | ⬜ Pending | per mock |
+| 6 | Inline status edit + no-date/overdue handling | ⬜ Pending | per mock |
 
 ---
 

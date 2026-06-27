@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Lead — my action items (mock)</title>
+<style>
+/* =======================================================
+   THROWAWAY MOCK — "AI Lead" personal cross-team action-item view.
+   Pure HTML + CSS + a little vanilla JS. No build, opens via file://.
+   Visual language lifted from team-page-mock.html / app.css.
+   ======================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --indigo: #4361ee;
+  --indigo-dark: #3451d1;
+  --slate: #1a1d23;
+  --bg: #f5f6f8;
+  --line: #e5e7eb;
+  --muted: #6b7280;
+  --surface: #fff;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--slate);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ---- App shell: dark sidebar + main ---- */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px; flex-shrink: 0; background: #1a1d23; color: #9ca3af;
+  position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+}
+.nav-logo { padding: 18px 20px 16px; border-bottom: 1px solid #2e3240; }
+.nav-logo-title { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .5px; text-transform: uppercase; }
+.nav-logo-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.nav-section { padding: 12px 0 4px; }
+.nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: #4b5563; padding: 0 20px 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px;
+  color: #9ca3af; cursor: pointer; text-decoration: none;
+}
+.nav-item:hover { background: #252932; color: #e5e7eb; }
+.nav-item.active { background: #252932; color: #fff; border-left: 3px solid var(--indigo); padding-left: 17px; }
+.nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-weight: 700; background: var(--indigo); color: #fff;
+  border-radius: 20px; min-width: 18px; height: 18px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-divider { border: none; border-top: 1px solid #2e3240; margin: 8px 0; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---- Top bar ---- */
+.top-bar {
+  background: #fff; border-bottom: 1px solid var(--line); padding: 0 28px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+}
+.top-bar-title { font-size: 15px; font-weight: 600; color: var(--slate); }
+.top-bar-sub { font-size: 12px; color: var(--muted); margin-left: 10px; }
+.top-bar-actions { display: flex; align-items: center; gap: 10px; }
+
+.page-body { padding: 22px 28px 48px; max-width: 1120px; }
+
+/* ---- Generic buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  text-decoration: none; white-space: nowrap; transition: background .15s;
+}
+.btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid var(--line); }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-sm { padding: 4px 10px; font-size: 11.5px; }
+
+/* ---- Identity strip ---- */
+.identity {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.id-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #4361ee, #8b5cf6); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;
+}
+.id-name { font-size: 17px; font-weight: 800; letter-spacing: -.2px; color: var(--slate); }
+.id-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.id-meta b { color: #374151; font-weight: 600; }
+
+/* ---- Summary tiles (light) ---- */
+.tile-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; max-width: 720px;
+}
+.tile {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+}
+.tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1);
+}
+.tile-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.tile-value { font-size: 25px; font-weight: 800; line-height: 1; color: var(--slate); font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 11px; color: #9ca3af; }
+.tile.acc-blue  { --accent: #3b82f6; }
+.tile.acc-red   { --accent: #dc2626; }
+.tile.acc-amber { --accent: #d97706; }
+.tile.acc-green { --accent: #16a34a; }
+
+/* ---- The list card ---- */
+.list-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.list-head {
+  padding: 13px 18px; border-bottom: 1px solid #f1f2f4;
+  display: flex; align-items: center; gap: 12px;
+}
+.list-title { font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #374151; }
+.list-title .count { color: #9ca3af; font-weight: 600; margin-left: 5px; }
+.list-spacer { flex: 1; }
+.sort-note { font-size: 11px; color: #9ca3af; }
+
+/* ---- Table ---- */
+table.ai-table { width: 100%; border-collapse: collapse; }
+table.ai-table th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af;
+  text-align: left; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; background: #fafbfc; white-space: nowrap;
+}
+table.ai-table td {
+  font-size: 13px; padding: 12px 16px; border-bottom: 1px solid #f1f2f4; vertical-align: top;
+}
+table.ai-table tr:last-child td { border-bottom: none; }
+table.ai-table tbody tr:hover td { background: #fafafe; }
+table.ai-table tr.is-closed td { background: #fcfcfd; }
+table.ai-table tr.is-closed:hover td { background: #fafafe; }
+
+.col-item { width: 46%; }
+.col-team { width: 130px; }
+.col-date { width: 116px; }
+.col-status { width: 170px; }
+.col-open { width: 116px; text-align: right; }
+
+.ai-text { font-size: 13.5px; color: var(--slate); font-weight: 500; line-height: 1.45; }
+tr.is-closed .ai-text { color: #9ca3af; }
+tr.st-abandoned .ai-text, tr.st-wont_fix .ai-text { text-decoration: line-through; }
+
+/* team chip with per-team color dot */
+.team-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: #374151;
+  background: #f8f9fb; border: 1px solid #eef0f3; border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+}
+.team-chip .tdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--tc, #94a3b8); }
+
+/* meeting date */
+.mtg-date { font-size: 12.5px; color: #374151; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mtg-none { font-size: 12px; color: #b6bcc6; font-style: italic; }
+.mtg-date.overdue { color: #dc2626; font-weight: 600; }
+.overdue-tag {
+  display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  color: #991b1b; background: #fee2e2; border-radius: 4px; padding: 1px 5px; margin-top: 3px;
+}
+
+/* editable status control (lifted from report-editor .status-wrap) */
+.status-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; padding-left: 9px; white-space: nowrap;
+}
+.status-wrap:hover { border-color: #cbd0d8; }
+.status-wrap:focus-within { border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #9ca3af; }
+.status-sel {
+  border: none; background: transparent; padding: 5px 22px 5px 0;
+  font-size: 12.5px; font-weight: 600; color: #1a1d23; cursor: pointer; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.status-sel:focus { outline: none; }
+.sd-planned                { background: #9ca3af; }
+.sd-in-progress            { background: #4361ee; }
+.sd-finished_successfully  { background: #16a34a; }
+.sd-finished_with_issues   { background: #d97706; }
+.sd-blocked                { background: #dc2626; }
+.sd-abandoned              { background: #9ca3af; }
+.sd-wont_fix               { background: #9ca3af; }
+
+/* group header rows (when grouping by team) */
+.group-row td {
+  background: #f5f6f8 !important; padding: 8px 16px;
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #6b7280;
+}
+.group-row .gh { display: inline-flex; align-items: center; gap: 7px; }
+.group-row .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc, #94a3b8); }
+.group-row .gcount { color: #9ca3af; font-weight: 700; margin-left: 4px; }
+
+/* view toggle */
+.seg {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: #fff;
+}
+.seg button {
+  border: none; background: #fff; font-family: inherit; font-size: 11.5px; font-weight: 600; color: #6b7280;
+  padding: 5px 12px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--indigo); color: #fff; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">AI Adoption</div>
+      <div class="nav-logo-sub">Tracker</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item"><span class="nav-icon">▦</span> Dashboard</a>
+      <a class="nav-item"><span class="nav-icon">◉</span> Teams</a>
+      <a class="nav-item"><span class="nav-icon">◆</span> Domains</a>
+      <a class="nav-item active"><span class="nav-icon">★</span> AI Lead <span class="nav-badge">5</span></a>
+    </div>
+    <hr class="nav-divider" />
+    <div class="nav-section">
+      <div class="nav-section-label">Workflow</div>
+      <a class="nav-item"><span class="nav-icon">✎</span> Reports</a>
+      <a class="nav-item"><span class="nav-icon">☑</span> Action items</a>
+      <a class="nav-item"><span class="nav-icon">⚙</span> Manage</a>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">AI Lead</span>
+        <span class="top-bar-sub">My action items across all teams</span>
+      </div>
+      <div class="top-bar-actions">
+        <div class="seg" id="view-seg">
+          <button data-view="priority" class="on">By priority</button>
+          <button data-view="team">By team</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ===== Identity strip ===== -->
+      <div class="identity">
+        <div class="id-avatar">O</div>
+        <div>
+          <div class="id-name">AI Lead — my action items</div>
+          <div class="id-meta">Owner <b>Omer</b> • action items assigned to me, pulled from every team's reports</div>
+        </div>
+      </div>
+
+      <!-- ===== Summary tiles (light) ===== -->
+      <div class="tile-grid">
+        <div class="tile acc-blue">
+          <div class="tile-label">Open</div>
+          <div class="tile-value">5</div>
+          <div class="tile-sub">planned · in&nbsp;progress · blocked</div>
+        </div>
+        <div class="tile acc-red">
+          <div class="tile-label">Overdue</div>
+          <div class="tile-value">2</div>
+          <div class="tile-sub">past meeting-set date</div>
+        </div>
+        <div class="tile acc-amber">
+          <div class="tile-label">Blocked</div>
+          <div class="tile-value">1</div>
+          <div class="tile-sub">needs unblocking</div>
+        </div>
+        <div class="tile acc-green">
+          <div class="tile-label">Done</div>
+          <div class="tile-value">2</div>
+          <div class="tile-sub">finished / closed</div>
+        </div>
+      </div>
+
+      <!-- ===== The cross-team list ===== -->
+      <div class="list-card">
+        <div class="list-head">
+          <span class="list-title">My action items <span class="count">7 across 4 teams</span></span>
+          <span class="list-spacer"></span>
+          <span class="sort-note" id="sort-note">Open &amp; overdue first · closed sink to the bottom</span>
+        </div>
+
+        <table class="ai-table">
+          <thead>
+            <tr>
+              <th class="col-item">Action item</th>
+              <th class="col-team">Team</th>
+              <th class="col-date">Meeting date</th>
+              <th class="col-status">Status</th>
+              <th class="col-open"></th>
+            </tr>
+          </thead>
+          <tbody id="rows"><!-- rendered by JS --></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- Seeded data: action items where owner = AI Lead (Omer) ---- */
+const TEAMS = {
+  Radar:    '#3b82f6',
+  Platform: '#8b5cf6',
+  Mobile:   '#16a34a',
+  Data:     '#d97706'
+};
+
+const STATUSES = [
+  ['planned',               'Planned'],
+  ['in-progress',           'In progress'],
+  ['blocked',               'Blocked'],
+  ['finished_with_issues',  'Finished (issues)'],
+  ['finished_successfully', 'Finished'],
+  ['abandoned',             'Abandoned'],
+  ['wont_fix',              "Won't fix"]
+];
+
+/* rank → lower sorts first (most actionable at the top) */
+const RANK = {
+  'blocked': 0, 'in-progress': 1, 'planned': 2,
+  'finished_with_issues': 3, 'finished_successfully': 4,
+  'abandoned': 5, 'wont_fix': 6
+};
+const CLOSED = new Set(['finished_successfully','finished_with_issues','abandoned','wont_fix']);
+const TODAY = '2026-06-27';
+
+const ITEMS = [
+  { text: "Unblock Radar's flaky integration tests — pair with backend on the CI agent", team: 'Radar',    date: '2026-06-24', status: 'blocked' },
+  { text: "Approve the shared pytest-runner skill for the org artifact catalog",          team: 'Platform', date: '2026-06-18', status: 'in-progress' },
+  { text: "Run a Claude Code onboarding session for the new Mobile hires",                team: 'Mobile',   date: '2026-06-12', status: 'in-progress' },
+  { text: "Define the cross-team CLAUDE.md convention and circulate a draft",             team: 'Platform', date: null,         status: 'planned' },
+  { text: "Evaluate an MCP server for read-only DB access; report back to Data champion", team: 'Data',     date: '2026-06-20', status: 'planned' },
+  { text: "Sign off on the React scaffolding agent rollout to the whole Mobile team",     team: 'Mobile',   date: '2026-06-10', status: 'finished_successfully' },
+  { text: "Retire the legacy prompt-template experiment and archive its notes",           team: 'Radar',    date: null,         status: 'abandoned' }
+];
+
+const rowsEl   = document.getElementById('rows');
+const sortNote = document.getElementById('sort-note');
+let view = 'priority';
+
+function isOverdue(it) {
+  return it.date && it.date < TODAY && !CLOSED.has(it.status);
+}
+
+function statusSelect(it, idx) {
+  const opts = STATUSES.map(([v, label]) =>
+    `<option value="${v}" ${v === it.status ? 'selected' : ''}>${label}</option>`).join('');
+  return `<span class="status-wrap">
+            <span class="status-dot sd-${it.status}" data-dot="${idx}"></span>
+            <select class="status-sel" data-idx="${idx}">${opts}</select>
+          </span>`;
+}
+
+function dateCell(it) {
+  if (!it.date) return `<span class="mtg-none">no date</span>`;
+  const od = isOverdue(it);
+  return `<span class="mtg-date${od ? ' overdue' : ''}">${it.date}</span>` +
+         (od ? `<div class="overdue-tag">Overdue</div>` : '');
+}
+
+function itemRow(it, idx) {
+  const closed = CLOSED.has(it.status);
+  return `<tr class="${closed ? 'is-closed ' : ''}st-${it.status}">
+    <td class="col-item"><div class="ai-text">${it.text}</div></td>
+    <td class="col-team"><span class="team-chip" style="--tc:${TEAMS[it.team]}"><span class="tdot"></span>${it.team}</span></td>
+    <td class="col-date">${dateCell(it)}</td>
+    <td class="col-status">${statusSelect(it, idx)}</td>
+    <td class="col-open"><a href="#" class="btn btn-secondary btn-sm" title="Open the report this item lives on">Open report ↗</a></td>
+  </tr>`;
+}
+
+function render() {
+  const indexed = ITEMS.map((it, idx) => ({ it, idx }));
+  let html = '';
+
+  if (view === 'priority') {
+    sortNote.textContent = 'Open & overdue first · closed sink to the bottom';
+    indexed.sort((a, b) => {
+      const oa = isOverdue(a.it) ? 0 : 1, ob = isOverdue(b.it) ? 0 : 1;
+      if (oa !== ob) return oa - ob;                         // overdue floats up
+      if (RANK[a.it.status] !== RANK[b.it.status]) return RANK[a.it.status] - RANK[b.it.status];
+      return (b.it.date || '') < (a.it.date || '') ? -1 : 1; // newer meeting first
+    });
+    html = indexed.map(o => itemRow(o.it, o.idx)).join('');
+  } else {
+    sortNote.textContent = 'Grouped by team · open items first within each';
+    Object.keys(TEAMS).forEach(team => {
+      const group = indexed.filter(o => o.it.team === team);
+      if (!group.length) return;
+      group.sort((a, b) => RANK[a.it.status] - RANK[b.it.status]);
+      const open = group.filter(o => !CLOSED.has(o.it.status)).length;
+      html += `<tr class="group-row"><td colspan="5"><span class="gh">
+                 <span class="gdot" style="--tc:${TEAMS[team]}"></span>${team}
+                 <span class="gcount">${group.length} item${group.length>1?'s':''} · ${open} open</span>
+               </span></td></tr>`;
+      html += group.map(o => itemRow(o.it, o.idx)).join('');
+    });
+  }
+  rowsEl.innerHTML = html;
+}
+
+/* status edit → update data, recolor the dot, re-sort */
+rowsEl.addEventListener('change', e => {
+  const sel = e.target.closest('.status-sel');
+  if (!sel) return;
+  ITEMS[+sel.dataset.idx].status = sel.value;
+  render();
+});
+
+/* view toggle */
+document.getElementById('view-seg').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#view-seg button').forEach(b => b.classList.toggle('on', b === btn));
+  view = btn.dataset.view;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
