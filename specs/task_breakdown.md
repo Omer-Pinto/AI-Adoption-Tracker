@@ -387,18 +387,135 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ---
 
-## Wave 11 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 11 — Frozen Contract, branch & AI-Lead design (gate — orchestrator + Omer; NO build code)
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (11A); implementation (11B+) is scoped from that spec once Omer approves it.
+> **Wave mechanics (Omer's correction):** a wave = agents that ALL run **fully parallel and independent**; ANY dependency → a **separate consecutive wave**. So the shared **contract sits in its own wave**, and within an agent one expert does its tasks sequentially. The dependency chain here is: shared contract → backend + FE-foundation build it in code → FE consumers branch off that. That is **4 waves**: **11** (contract/branch/design, no code), **12** (backend core + backend routes + FE-foundation/report-editor — parallel, each writes the contract into code on disjoint trees), **13** (FE consumers — manage, viewers, AI-Lead — parallel, each branches off Wave-12 so they share the contract, not each other), **14** (search). All Wave-11→14 work lives on **`mvp-improvements`** (off `mvp-spec`).
 
-### Agent 11A: Explore + design SearchBar/DSL integration
+### 11.1 — Branch & DB (orchestrator)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Commit these spec updates to `mvp-spec`, then create **`mvp-improvements` off `mvp-spec`** — base for all Wave 11→14 work | `mvp-spec` stays intact as the revert point; new branch is the road to v1.0 |
+| 2 | Delete local `src/backend/tracker.db` ("leave no old db"; regenerates from `schema.sql` on boot) | **Omer-authorized** (item 2): QA-only playground DB, not operational. Leave `tracker.db.bak`. One-time override of the never-wipe rule, this DB only |
+
+### 11.2 — FROZEN CONTRACT (orchestrator publishes; every Wave 12–13 agent obeys verbatim)
+1. **CC Baseline removed (item 2):** drop `team.cc_baseline` **and** `team.baseline_date` (paired capture date — meaningless alone). Gone from: `schema.sql`, `models.Team`, `TeamCreate`/`TeamUpdate`, `seed._create_team`, frontend `types.Team`, `TeamForm`. No replacement. (Leave the defensive `_SYSTEM_PROMPT` "Current Claude Code status is never a domain" line.)
+2. **Task due date (item 7):** rename the task finish field → **`due_date`**, with **free user-supplied date semantics like action items** (NOT gated by terminal status). DB `task.ended_on`/`task_history.ended_on`→`due_date`; `Task`/`TaskHistory`/`ReportTaskEntry.finished_on`→`due_date`; engine drops the terminal-status gate on the date; `TaskPatch.ended_on`→`due_date`; `search/service.py`+`compiler.py` `t.ended_on`→`t.due_date`; `seed` `finished_on=`→`due_date=`; frontend `ReportTaskLine.finished_on`→`due_date`, editor header **"Finished on"→"Due on"**.
+3. **`wont_fix` status (item 8):** add status token **`wont_fix`** (label **"Won't Fix"**), **terminal/closed**. `TaskStatus` enum + both task `CHECK`s + `_TERMINAL_STATUSES` (add `wont_fix`). Full set now: `planned, in-progress, finished_successfully, finished_with_issues, blocked, abandoned, wont_fix`.
+4. **Action-item status (item 8):** add `action_item.status` (`CHECK` = the full set incl `wont_fix`, **default `planned`**) and **drop the `resolved` column** (DB wiped → no migration). `ActionItem.resolved`→`ActionItem.status`; add `ReportActionItem.status` (default `planned`); engine `_insert_action_item` writes status; `_action_item` mapper + team-page counts use status (open = status ∉ terminal).
+5. **Owner (item 4):** literal AI-Lead string = exactly **`"AI Lead"`** (item-10 filter depends on it). Task owner **defaults to the champion's actual name** (engine fills when entry owner empty; prompt also says so). Report-editor owner cell = **dropdown `{AI Lead, <champion name>, other}`**, "other"→free text; champion name threaded into `TasksCard`/`ActionItemsCard`. LLM **declares each action-item owner ∈ {champion name, `"AI Lead"`}**. Storage stays free `TEXT` / Pydantic `str` (dynamic champion name can't be a static enum — constrain via prompt + FE dropdown).
+6. **Domains constant "Context creation" (item 5):** ensure a per-champion **"Context creation"** domain with **`priority = "1"`**, created + injected into `build_draft_context` exactly like **"General"** (which stays `priority NULL` and remains the *unplaced fallback*). Both always present in the placement context sent to the LLM; "Context creation" participates in placement but is NOT the fallback. So user adds Backend+Frontend → **4 domains total** (those two + General + Context creation).
+7. **Team-page counts (item 9):** add to `TeamPage` model + `team_page()`: `open_tasks`, `closed_tasks`, `open_action_items`, `closed_action_items`, `meeting_count`, `domain_count`, `artifact_count` (closed = status ∈ terminal).
+8. **Delete endpoints (item 6):** `DELETE /api/champions/{id}` (cascade the champion's domains/reports/history/action-items in scope; clean 4xx on any blocked FK, never 500) and `DELETE /api/domains/{id}` (**reassign its tasks/artifacts to the champion's "General" domain, then delete**; **block deleting the "General"/"Context creation" constants** with a clear message).
+9. **Cross-team AI-Lead action items (item 10 backend):** `GET /api/ai-lead/action-items` → `[{id, text, team_name, champion_name, meeting_date, status, domain, report_id}]`, filter `action_item.owner = 'AI Lead'`, all teams, newest `meeting_date` first. (Shape may be refined by the item-10 design — additive only.)
+10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`); **Wave-13 agents reference, never edit them.** New api.ts methods (added by 12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
+
+### 11.3 — Item-10 design gate (orchestrator + Omer — the one item that needs design)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Agree the AI-Lead view design | recommend a **dedicated top-level "AI Lead" page + nav** (NOT "AI Lead as a team", which Omer suspects is wrong); MVP = action items owned by `"AI Lead"`, cross-team, showing content / team / meeting date / status; settle any grouping/filter | approving it now lets the build (13C) run in Wave 13 |
+
+### After Wave 11
+- Branch `mvp-improvements` exists off `mvp-spec`; old `tracker.db` gone; contract frozen; item-10 design approved. **No code to cherry-pick.**
+
+---
+
+## Wave 12 — Backend core + Backend routes + FE-foundation/report-editor (3 agents, parallel)
+
+> All three build the Wave-11 contract **into code** and own **disjoint trees** (`src/backend/` non-routes / `src/backend/routes/` / `src/frontend/` foundation+report). 12A↔12B follow the proven Wave-1 model (parallel backend agents written to a frozen contract, cherry-picked together; runtime-verified post-merge). 12C is frontend — it compiles standalone against the contract (FE↔BE integration verified post-merge). **After this wave every shared name/enum/route/CSS-token/api-method exists in code**, so Wave-13 consumers depend only on a prior wave, never on each other.
+
+### Agent 12A: Backend core — data model, engine, prompt, seed, search
+**Type:** `python-pro` · **Scope:** `src/backend/{schema.sql, models.py, reports/engine.py, llm/interface.py, seed.py, search/service.py, search/compiler.py, search/autocomplete.py, tests/}` (disjoint from 12B's `routes/*`)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Remove cc_baseline + baseline_date | `schema.sql` team table, `models.Team`, `seed._create_team` (sig + INSERT + 2 call sites) | contract #1 |
+| 2 | Task `ended_on`/`finished_on` → `due_date`, decouple from terminal gate | schema (task + task_history), models (Task/TaskHistory/ReportTaskEntry), engine (`_record_task_entry`, `_recompute_task_current_state`, `apply_manual_task_edit`, `_TERMINAL_STATUSES` date sites), `search/service.py`+`compiler.py`, `seed.py` | contract #2; most cross-cutting rename |
+| 3 | Add `wont_fix` to status set | `TaskStatus` enum + both task `CHECK`s + `_TERMINAL_STATUSES` | contract #3 |
+| 4 | Action-item status (drop `resolved`) | `action_item` schema (status CHECK, default planned; remove resolved), `ActionItem.status`, `ReportActionItem.status`, engine `_insert_action_item` | contract #4 |
+| 5 | Owner: default champion + LLM-declared action-item owner | engine default-owner-to-champion when empty (`_create_task`/`_record_task_entry`); `_SYSTEM_PROMPT` — task owner defaults champion, action-item owner ∈ {champion, "AI Lead"} | contract #5; `champion_name` already in context |
+| 6 | "Context creation" constant domain (priority 1) | engine: `_CONTEXT_DOMAIN_NAME` + `_ensure_context_creation_domain` (sets `priority='1'`), call alongside `_ensure_general_domain` in `build_draft_context`; both in domains context; prompt notes both | contract #6; General stays NULL/fallback |
+| 7 | Fix + re-verify tests & seed | update `tests/test_journal_manual_edits.py` for owner/due_date/status; confirm `seed.py` still fans out §6 | run tests in worktree throwaway DB only |
+**Commit(s):** `Wave 12 Agent 12A: backend core (drop cc_baseline, due_date, wont_fix + action-item status, owner defaults, Context-creation domain)`
+**Gate after 12A:** orchestrator has **ai-engineer review** the `_SYSTEM_PROMPT` + structured-output diff (owner rules, action-item status, domain rules) before relying on it — per "consult experts."
+
+### Agent 12B: Backend routes — management, views, team counts, cross-team endpoint
+**Type:** `backend-developer` · **Scope:** `src/backend/routes/{management.py, views.py, reports.py}` (disjoint from 12A)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Drop cc_baseline/baseline_date from request models | `TeamCreate`, `TeamUpdate` (`management.py`) | contract #1 |
+| 2 | `DELETE /api/champions/{id}` | `management.py` — cascade champion scope; clean 4xx on FK, never 500 | contract #8 (confirm cascade-vs-block w/ Omer; default cascade) |
+| 3 | `DELETE /api/domains/{id}` | `management.py` — reassign tasks/artifacts → champion's "General", then delete; block deleting General/Context-creation | contract #8 |
+| 4 | Team-page counts | `TeamPage` model + `team_page()` return: open/closed tasks, open/closed action items, meeting_count, domain_count, artifact_count | contract #7; all derivable from data already loaded |
+| 5 | `TaskPatch.ended_on`→`due_date`; `_action_item` status | `views.py` | contracts #2/#4 |
+| 6 | `GET /api/ai-lead/action-items` (+ response model) | `views.py` — join action_item→report→champion→team, filter owner='AI Lead', newest first | contract #9; item-10 backend (consumed by 13C) |
+**Commit(s):** `Wave 12 Agent 12B: backend routes (cc_baseline removal, champion/domain delete, team counts, due_date/status, AI-Lead cross-team endpoint)`
+**Note:** writes against the frozen contract (12A's names); per-agent verify is build-level — runtime verified post-cherry-pick by orchestrator (same as Wave 1).
+
+### Agent 12C: Frontend foundation (types/css/api.ts) + report editor
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{types.ts, styles/app.css, api.ts, pages/report/*}` (**sole owner of the FE contract files** — establishes everything Wave-13 consumes; compiles standalone against the frozen contract)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | FE type contract | `types.ts` — `TaskStatus` += `'wont_fix'`; `ActionItem.status`; `ReportActionItemLine.status`; `ReportTaskLine.finished_on`→`due_date`; **drop `Team.cc_baseline`** | contracts #1–5/#10 |
+| 2 | FE css contract | `app.css` — status tokens (`status-wont_fix`/`dot-wont_fix`/`sd-wont_fix`/detail-tl, muted slate); table alignment fix (`.report-editor table.flat td` → `vertical-align: top`); participants css | items 1 + contract #10 |
+| 3 | api.ts methods | `api.ts` — `champions.delete`, `domains.delete` (DELETE `/api/champions|domains/{id}`); `aiLead.actionItems` (`GET /api/ai-lead/action-items`) | contracts #8/#9; consumed by 13A/13C |
+| 4 | Participants: comma-add + defaults | `reportEditor.tsx` `.participants-row` — commit a pill on `,` (and Enter); default `[champion, "AI Lead"]` pills when empty | item 3 |
+| 5 | Owner dropdown | `TasksCard` + `ActionItemsCard` owner cell → `<select>{AI Lead, <champion>, other}`; "other"→free text; thread champion from `FlatReportEditor` | items 3/4 (FE) |
+| 6 | "Finished on"→"Due on" | `reportEditor.tsx` `<th>` + field `finished_on`→`due_date` | item 7 (FE) |
+| 7 | Action-item status column + Won't Fix option | `ActionItemsCard` Status `<select>` (`STATUS_OPTS`/`StatusControl`) + `stripReportForSave` sanitizer; `STATUS_OPTS`+`statusCls` += Won't Fix | item 8 (FE editor) |
+**Commit(s):** `Wave 12 Agent 12C: FE foundation (types/css/api.ts) + report editor (alignment, participants, owner dropdown, Due on, action-item status, Won't Fix)`
+
+### After Wave 12
+- Cherry-pick 12A–12C onto `mvp-improvements`. Verify: backend boots + `import app` clean; `npm run build` green; new endpoints in `/docs`; report editor renders with the new columns. The FE contract (`types.ts`/`app.css`/`api.ts`) + backend endpoints now exist for Wave 13.
+
+---
+
+## Wave 13 — Frontend consumers: manage + viewers + AI-Lead view (3 agents, parallel)
+
+> Each branches off the **Wave-12-merged** base (so `types.ts`/`app.css`/`api.ts` + every endpoint already exist) and owns a **disjoint page tree**. They consume the contract; **none depends on another** (no shared file, no cross-agent need). All read `api.ts`/`types.ts`/`app.css` — none edits them.
+
+### Agent 13A: Manage — remove CC baseline + delete champions/domains
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*` (consumes `api.ts`/`types.ts` read-only)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Remove CC baseline from TeamForm | `TeamForm.tsx` — drop the "Current Claude Code status" textarea + `ccBaseline` state + `cc_baseline` submit field | item 2 (FE) |
+| 2 | Delete buttons (champions + domains) | `ManagePage.tsx` — Delete in the Champions & Domains action columns → `api.champions.delete`/`api.domains.delete` (from 12C) + confirm + `loadAll()` refresh | item 6 (FE) |
+**Commit(s):** `Wave 13 Agent 13A: manage (remove CC baseline, champion/domain delete)`
+
+### Agent 13B: Viewer pages — team redesign + status display
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/team/*, pages/tasks/*, pages/artifacts/*, components/Badge.tsx, components/DomainStory.tsx}` (consumes `types.ts`/`app.css` read-only; owns `team-page.css`)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Team page redesign — tile dashboard + foldable | `TeamPage.tsx` + `team-page.css` — top focused tile row of counts (open/closed tasks, open action items, meetings, domains, artifacts) from the new count fields; domains / reports / action-items as **collapsible sections (default folded)**; **open = today's behavior unchanged (editing etc.)** | item 9; **do not change section internals** |
+| 2 | Action items show status | `TeamPage.tsx` `ActionItemsList` — render status (badge/dropdown) instead of `resolved` | item 8 (FE team) |
+| 3 | "Won't Fix" on task detail | `TaskDetailPage.tsx` `STATUS_OPTS` += Won't Fix | item 8; references 12C's token/CSS |
+| 4 | Ensure `wont_fix` renders | `TasksPage.tsx` `dotClass`, `Badge.tsx` `StatusBadge`, `DomainStory.tsx` — verify the new status renders with the 12C CSS classes | item 8 |
+**Commit(s):** `Wave 13 Agent 13B: viewer pages (team dashboard + foldable, action-item status, Won't Fix render)`
+
+### Agent 13C: AI-Lead cross-team view (built per the Wave-11 design)
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/ai-lead/* (new), components/AppShell.tsx, router.tsx}` (consumes `api.aiLead.actionItems` from 12C)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | AI-Lead page | new page consuming `GET /api/ai-lead/action-items` — table of {content, team, meeting date, status} cross-teams | per the 11.3 design |
+| 2 | Nav item | `AppShell.tsx` — new top-level **"AI Lead"** `<NavLink>` | item 10 |
+| 3 | Route | `router.tsx` — register the page route | item 10 |
+**Commit(s):** `Wave 13 Agent 13C: AI-Lead cross-team action-items view`
+
+### After Wave 13
+- Cherry-pick 13A–13C. **Full live walk of the 10-item list:** no CC Baseline; draft places into Backend/Frontend/**General**/**Context creation**; **owner dropdown** {AI Lead/champion/other} defaults champion; action items have LLM-declared **owner** + **status**; tasks show **"Due on"**; **"Won't Fix"** on task & action item; champion/domain **Delete** (domain→General; constants blocked); **team page** count tiles + folds; report columns **aligned**; participants **comma-add** + default champion + **AI Lead**; **"AI Lead" nav** lists cross-team action items owned by AI Lead with content/team/date/status.
+
+---
+
+## Wave 14 — Search bar + DSL on entity pages (design first, then implement)
+
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (14A); implementation (14B+) is scoped from that spec once Omer approves it.
+
+### Agent 14A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 11 Agent 11A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 14 Agent 14A: SearchBar/DSL integration design spec`
 
-### After Wave 11 (11A)
-- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (11B+) from the approved spec.
+### After Wave 14 (14A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (14B+) from the approved spec.

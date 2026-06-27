@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-24 | **Branch:** `mvp-spec`
+> **Last updated:** 2026-06-27 | **Branch:** `mvp-spec` → **`mvp-improvements`** (base for Wave 11→14)
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (94/97)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜] 72% (94/130)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 94 / 97 | 97% |
+| 🟢 Done | 94 / 130 | 72% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 3 (Wave 11) | 3% |
+| ⬜ Pending | 36 (Wave 11: 3 · 12: 21 · 13: 9 · 14: 3) | 28% |
 
 ---
 
@@ -32,7 +32,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 8 | Done | 1/1 | 1/1 | 0/6 | 8A FLAT redesign (`194fef0`+`2d559ef`): top-level `tasks`/`artifacts`, entity `id` + domain `domain_id`/`domain` matching, `report_schema.json` deleted, `extra="forbid"`, `summary`. **G1 APPROVED by Omer**; G2 structured-output audit **PASS**. |
 | 9 | Done | 1/1 | 1/1 | 0/4 | Flat id-based engine (`d696420` + dup-fix `2554a35` + cleanup `c6f584a`). Team-scoped id-bearing `build_draft_context`; id-matched save with **id back-fill**; replay back-fills too so an entity added on EDIT can't duplicate (CRITICAL review catch, fixed+proven); domain-changes machinery removed; `summary`/`note` split; `seed.py` reseeded flat (§6 intact). Verified in worktree throwaway DB (no-dup across save/edit-add/re-edit; §6 trace); `import app` clean on mvp. Full live test needs Wave 10 editor UI. |
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
-| 11 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 11A explore+design; then implement (11B+). See `task_breakdown.md` Wave 11 |
+| 11 | Not Started | — | — | 3/3 | **Contract & branch + item-10 design** (gate, NO code) — cut `mvp-improvements`, freeze the cross-agent contract, approve AI-Lead design. See `task_breakdown.md` Wave 11 |
+| 12 | Not Started | 0/3 | 0/3 | 21/21 | **Backend + FE-foundation** (parallel) — 12A backend-core, 12B backend-routes, 12C FE-foundation+report-editor. Build the contract into code |
+| 13 | Not Started | 0/3 | 0/3 | 9/9 | **FE consumers** (parallel) — 13A manage, 13B viewers, 13C AI-Lead view. Branch off Wave-12 |
+| 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -315,11 +318,90 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 11 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 11 — Frozen Contract, branch & AI-Lead design (gate — NO code)
 
-> Opens with a design/exploration task (11A → `specs/search_integration.md`); implementation (11B+) is scoped from the approved spec. See `task_breakdown.md` Wave 11.
+> **Wave mechanics:** a wave = fully-parallel independent agents; any dependency → a separate consecutive wave. The contract gets its own wave. Chain: contract (11) → backend + FE-foundation build it (12) → FE consumers branch off Wave-12 (13) → search (14). All on `mvp-improvements`. Full Frozen Contract in `task_breakdown.md` Wave 11.2.
 
-### Agent 11A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+### Wave 11 — Gate tasks (orchestrator + Omer)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Commit specs to `mvp-spec`; cut `mvp-improvements` off it | ⬜ Pending | `mvp-spec` stays the revert point |
+| 2 | Delete local `tracker.db` ("leave no old db") | ⬜ Pending | Omer-authorized, this DB only; leave `.bak` |
+| 3 | Item-10 AI-Lead design gate with Omer (dedicated page + nav, MVP scope) | ⬜ Pending | the one item needing design; unblocks 13C |
+
+---
+
+## Wave 12 — Backend core + routes + FE-foundation/report-editor (3 agents, parallel)
+
+> Build the Wave-11 contract into code on disjoint trees. After this wave every shared name/enum/route/CSS-token/api-method exists, so Wave-13 consumers depend only on a prior wave.
+
+### Agent 12A: Backend core — schema, models, engine, prompt, seed, search (`python-pro`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Remove cc_baseline + baseline_date | ⬜ Pending | item 2 |
+| 2 | Task `ended_on`/`finished_on`→`due_date` + drop terminal gate | ⬜ Pending | item 7 — most cross-cutting |
+| 3 | Add `wont_fix` status (enum + CHECKs + terminal) | ⬜ Pending | item 8 |
+| 4 | Action-item status (drop `resolved`) | ⬜ Pending | item 8 |
+| 5 | Owner: default champion + LLM-declared action-item owner | ⬜ Pending | item 4 |
+| 6 | "Context creation" constant domain (priority 1) | ⬜ Pending | item 5 |
+| 7 | Fix + re-verify tests & seed | ⬜ Pending | throwaway DB only |
+| G | ai-engineer review of prompt/structured-output diff | ⬜ Pending | expert gate |
+
+### Agent 12B: Backend routes — management, views, counts, cross-team endpoint (`backend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Drop cc_baseline from `TeamCreate`/`TeamUpdate` | ⬜ Pending | item 2 |
+| 2 | `DELETE /api/champions/{id}` | ⬜ Pending | item 6 |
+| 3 | `DELETE /api/domains/{id}` (reassign→General; block constants) | ⬜ Pending | item 6 |
+| 4 | Team-page counts on `TeamPage` | ⬜ Pending | item 9 |
+| 5 | `TaskPatch.due_date`; `_action_item` status | ⬜ Pending | items 7/8 |
+| 6 | `GET /api/ai-lead/action-items` | ⬜ Pending | item 10 backend (consumed by 13C) |
+
+### Agent 12C: FE foundation (types/css/api.ts) + report editor (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | FE type contract (TaskStatus+wont_fix, action-item status, due_date, drop Team.cc_baseline) | ⬜ Pending | items 2/7/8 |
+| 2 | FE css contract (status tokens) + table alignment + participants css | ⬜ Pending | items 1/8 |
+| 3 | api.ts methods (`champions.delete`, `domains.delete`, `aiLead.actionItems`) | ⬜ Pending | items 6/10 |
+| 4 | Participants comma-add + default champion/AI Lead | ⬜ Pending | item 3 |
+| 5 | Owner dropdown {AI Lead/champion/other} | ⬜ Pending | items 3/4 |
+| 6 | "Finished on"→"Due on" | ⬜ Pending | item 7 |
+| 7 | Action-item status column + Won't Fix option | ⬜ Pending | item 8 |
+
+---
+
+## Wave 13 — FE consumers: manage + viewers + AI-Lead (3 agents, parallel)
+
+> Each branches off Wave-12 (types/css/api.ts + endpoints exist) and owns a disjoint page tree; reads the contract files, never edits them.
+
+### Agent 13A: Manage — remove CC baseline + delete (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Remove CC baseline from `TeamForm` | ⬜ Pending | item 2 |
+| 2 | Delete buttons (champions + domains) → `api.*.delete` | ⬜ Pending | item 6 |
+
+### Agent 13B: Viewer pages — team redesign + status display (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Team page tile dashboard + foldable sections | ⬜ Pending | item 9 — open=unchanged |
+| 2 | Action items show status (not resolved) | ⬜ Pending | item 8 |
+| 3 | "Won't Fix" on task detail | ⬜ Pending | item 8 |
+| 4 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
+
+### Agent 13C: AI-Lead cross-team view (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | AI-Lead page (cross-team action items: content/team/date/status) | ⬜ Pending | consumes 12B #6 + 12C api |
+| 2 | "AI Lead" nav item (`AppShell`) | ⬜ Pending | per 11.3 design |
+| 3 | Route (`router.tsx`) | ⬜ Pending | |
+
+---
+
+## Wave 14 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (14A → `specs/search_integration.md`); implementation (14B+) is scoped from the approved spec. See `task_breakdown.md` Wave 14.
+
+### Agent 14A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |
