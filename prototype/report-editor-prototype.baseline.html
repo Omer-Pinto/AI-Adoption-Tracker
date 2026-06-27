@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Report Editor</title>
+<style>
+/* =======================================================
+   THROWAWAY PROTOTYPE v2 — Variant B only, all-inline-editable
+   Pure HTML + CSS + vanilla JS. No CDNs, no network, no build.
+   Opens via file://.
+   ======================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --indigo: #4361ee;
+  --indigo-dark: #3451d1;
+  --slate: #1a1d23;
+  --bg: #f5f6f8;
+  --line: #e5e7eb;
+  --muted: #6b7280;
+  --surface: #fff;
+
+  /* Domain palette — each domain gets its own color; used ONLY for domains */
+  --d0: #3b82f6; /* Signal Processing — blue */
+  --d0-bg: #eff6ff;
+  --d0-border: #bfdbfe;
+  --d1: #8b5cf6; /* Tracking — violet */
+  --d1-bg: #f5f3ff;
+  --d1-border: #ddd6fe;
+  --d2: #10b981; /* Detection — emerald */
+  --d2-bg: #ecfdf5;
+  --d2-border: #a7f3d0;
+  --d3: #f59e0b; /* Calibration — amber */
+  --d3-bg: #fffbeb;
+  --d3-border: #fde68a;
+  --d-general: #9ca3af; /* Unplaced/General — grey */
+  --d-general-bg: #f9fafb;
+  --d-general-border: #e5e7eb;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--slate);
+  line-height: 1.5;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* ---- Layout ---- */
+.frame { max-width: 1080px; margin: 0 auto; padding: 22px 24px 60px; }
+
+/* ---- Report header card ---- */
+.report-head {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 22px; margin-bottom: 18px;
+}
+.report-head .team-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #9ca3af;
+  margin-bottom: 4px;
+}
+.report-head h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.head-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.meta-field { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.meta-field label { font-weight: 600; color: #374151; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+.meta-input {
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;
+  font-size: 12.5px; font-family: inherit; color: var(--slate); background: #fff;
+}
+.meta-input:focus { outline: 2px solid var(--indigo); outline-offset: 1px; border-color: var(--indigo); }
+.participants-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.avatar {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #f3f4f6; color: #374151; border: 1px solid var(--line);
+  font-size: 11px; font-weight: 600; padding: 3px 9px 3px 4px; border-radius: 20px;
+}
+.avatar .dot {
+  width: 20px; height: 20px; border-radius: 50%; background: #6b7280; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+}
+.participants-edit {
+  border: 1px dashed var(--line); border-radius: 6px; padding: 3px 9px;
+  font-size: 12px; font-family: inherit; color: var(--slate);
+  background: transparent; min-width: 140px;
+}
+.participants-edit:focus { outline: 2px solid var(--indigo); outline-offset: 1px; }
+
+/* ---- Section card ---- */
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  margin-bottom: 18px; overflow: visible;
+}
+.card-head {
+  padding: 12px 18px; border-bottom: 1px solid #f1f2f4;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #374151;
+}
+.card-title .count { color: #9ca3af; font-weight: 600; margin-left: 5px; }
+.card-body { padding: 14px 18px; }
+.card-body.flush { padding: 0; overflow: hidden; border-radius: 0 0 11px 11px; }
+
+/* ---- Domain color legend ---- */
+.domain-legend {
+  display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px;
+  padding: 10px 18px; border-bottom: 1px solid #f1f2f4; background: #fafbfc;
+  border-radius: 12px 12px 0 0;
+}
+.dl-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 600; color: #374151;
+}
+.dl-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* ---- Flat table ---- */
+table.flat { width: 100%; border-collapse: collapse; }
+table.flat th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af;
+  text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); background: #fafbfc;
+  white-space: nowrap;
+}
+table.flat td {
+  font-size: 13px; padding: 9px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: middle;
+}
+table.flat tr:last-child td { border-bottom: none; }
+table.flat tr:hover td { background: #fafafe; }
+table.flat .add-row td { background: transparent; }
+table.flat .add-row:hover td { background: #f7f8ff; }
+
+/* ---- Inline editable cells ---- */
+.cell-input {
+  border: 1px solid transparent; border-radius: 5px; padding: 3px 7px;
+  font-size: 13px; font-family: inherit; color: var(--slate); background: transparent;
+  width: 100%; min-width: 60px;
+}
+.cell-input:focus, .cell-input:hover {
+  border-color: var(--line); background: #fff; outline: none;
+}
+.cell-input:focus { border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
+
+.cell-select {
+  border: 1px solid transparent; border-radius: 5px; padding: 3px 6px;
+  font-size: 12.5px; font-family: inherit; color: var(--slate); background: transparent;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center; padding-right: 22px;
+}
+.cell-select:hover { border-color: var(--line); background-color: #fff; }
+.cell-select:focus { outline: 2px solid var(--indigo); outline-offset: 1px; border-color: var(--indigo); background-color: #fff; }
+
+/* Date input */
+.cell-date {
+  border: 1px solid transparent; border-radius: 5px; padding: 3px 6px;
+  font-size: 12.5px; font-family: inherit; color: var(--slate); background: transparent;
+}
+.cell-date:hover { border-color: var(--line); background: #fff; }
+.cell-date:focus { outline: 2px solid var(--indigo); border-color: var(--indigo); background: #fff; }
+
+/* ---- Status display chips (read-only display in status select wrapper) ---- */
+.status-wrap { position: relative; display: inline-block; }
+.status-sel {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid transparent; border-radius: 20px; padding: 2px 8px;
+  font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='currentColor' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center; padding-right: 18px;
+}
+.status-sel:focus { outline: 2px solid var(--indigo); outline-offset: 1px; }
+.status-sel:hover { border-color: rgba(0,0,0,.12); }
+.ss-planned        { background:#fef9c3; color:#92400e; border-color:#fde68a; }
+.ss-in-progress    { background:#dbeafe; color:#1d4ed8; border-color:#bfdbfe; }
+.ss-finished-ok    { background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
+.ss-finished-issues{ background:#fef3c7; color:#b45309; border-color:#fde68a; }
+.ss-blocked        { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+.ss-abandoned      { background:#f3f4f6; color:#4b5563; border-color:#e5e7eb; }
+
+/* ---- Domain select styled per-domain ---- */
+.dom-sel {
+  border: 1px solid; border-radius: 6px; padding: 2px 20px 2px 7px; font-size: 11px; font-weight: 600;
+  cursor: pointer; appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='currentColor' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center;
+}
+.dom-sel:focus { outline: 2px solid var(--indigo); outline-offset: 1px; }
+
+/* ---- Name cell: clickable link chip for matched, NEW badge for new ---- */
+.name-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px;
+  color: var(--indigo); cursor: pointer; text-decoration: none; padding: 2px 0;
+  border-bottom: 1px solid transparent;
+}
+.name-chip:hover { border-bottom-color: var(--indigo); }
+.new-badge {
+  font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+  background: #fde68a; color: #92400e; padding: 1px 5px; border-radius: 4px;
+  border: 1px solid #fcd34d; vertical-align: middle;
+}
+.name-cell { display: flex; align-items: center; gap: 6px; }
+.name-input-wrap { flex: 1; }
+
+/* link-to-existing button for NEW rows */
+.link-existing-btn {
+  font-size: 10px; color: var(--muted); border: 1px dashed #d1d5db; border-radius: 5px;
+  padding: 2px 6px; cursor: pointer; background: transparent; white-space: nowrap; font-family: inherit;
+}
+.link-existing-btn:hover { color: var(--indigo); border-color: var(--indigo); background: #eef2ff; }
+
+/* delete row button */
+.del-btn {
+  color: #d1d5db; background: none; border: none; cursor: pointer; font-size: 16px;
+  line-height: 1; padding: 2px 4px; border-radius: 4px;
+}
+.del-btn:hover { color: #ef4444; background: #fef2f2; }
+
+/* add row */
+.add-row-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--indigo); cursor: pointer;
+  background: transparent; border: 1px dashed var(--indigo); border-radius: 6px;
+  padding: 5px 12px; margin: 10px 18px;
+}
+.add-row-btn:hover { background: #eef2ff; }
+
+/* ---- Action items table ---- */
+.ai-table { width: 100%; border-collapse: collapse; }
+.ai-table th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af;
+  text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fafbfc;
+}
+.ai-table td {
+  font-size: 13px; padding: 8px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: top;
+}
+.ai-table tr:last-child td { border-bottom: none; }
+
+/* rich-text editable areas */
+.rte {
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 13px;
+  min-height: 60px; font-size: 13.5px; line-height: 1.85; color: #2b2f36;
+  background: #fff; outline: none;
+}
+.rte:focus { border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
+.rte[contenteditable] .ref-chip { user-select: all; }
+.hint-line { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+
+/* reference chips in rich text — subtle, icon+name only, no @ or # text */
+.ref-chip {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: baseline;
+  padding: 1px 7px 1px 5px; border-radius: 5px; font-size: 12px; font-weight: 600;
+  line-height: 1.4; cursor: pointer; white-space: nowrap; border: 1px solid transparent;
+  text-decoration: none; margin: 0 1px;
+}
+.ref-chip .ri { font-size: 10px; opacity: .7; }
+.chip-task    { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+.chip-task:hover { background: #e0e7ff; }
+.chip-artifact { background: #ecfeff; color: #0e7490; border-color: #a5f3fc; }
+.chip-artifact:hover { background: #cffafe; }
+
+/* ---- Autocomplete popup ---- */
+.ac-pop {
+  position: fixed; z-index: 4000; min-width: 240px; max-width: 320px;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(16,24,40,.18); overflow: hidden;
+}
+.ac-head { font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: #9ca3af; padding: 8px 12px 4px; }
+.ac-item {
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+}
+.ac-item:hover, .ac-item.ac-active { background: #eef2ff; }
+.ac-item .nm { font-weight: 600; }
+.ac-item .ac-id { margin-left: auto; font-size: 11px; color: #9ca3af; }
+.ac-foot { padding: 5px 12px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f1f2f4; }
+
+/* ---- Route panel (detail page) ---- */
+.route-panel {
+  position: fixed; inset: 0; background: var(--bg); z-index: 5000; overflow-y: auto;
+  animation: slideIn .16s ease;
+}
+@keyframes slideIn { from { transform: translateX(20px); opacity: .5; } to { transform: none; opacity: 1; } }
+.route-top {
+  background: #fff; border-bottom: 1px solid var(--line); padding: 0 24px; height: 52px;
+  display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 5;
+}
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  color: #374151; background: #f3f4f6; border: 1px solid var(--line); padding: 6px 12px;
+  border-radius: 7px; cursor: pointer; font-family: inherit;
+}
+.back-btn:hover { background: #e5e7eb; }
+.route-body { max-width: 860px; margin: 0 auto; padding: 26px 24px; }
+.detail-hero { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 18px; }
+.detail-hero .eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #9ca3af; margin-bottom: 4px; }
+.detail-hero h2 { font-size: 22px; font-weight: 800; margin-bottom: 14px; }
+.detail-facts { display: flex; gap: 24px; flex-wrap: wrap; }
+.fact .l { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; }
+.fact .v { font-size: 13.5px; font-weight: 600; color: #1a1d23; margin-top: 2px; }
+.edit-detail-btn {
+  margin-left: auto; font-size: 12px; font-weight: 600; color: var(--indigo);
+  background: #eef2ff; border: 1px solid #c7d2fe; padding: 5px 12px; border-radius: 7px; cursor: pointer; font-family: inherit;
+}
+.edit-detail-btn:hover { background: #e0e7ff; }
+
+/* ---- Timeline (dates only, no week numbers) ---- */
+.tl { display: flex; flex-direction: column; }
+.tl-row { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #f1f2f4; }
+.tl-row:last-child { border-bottom: none; }
+.tl-dotcol { width: 14px; display: flex; flex-direction: column; align-items: center; padding-top: 5px; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; }
+.tl-dot.green { background: #16a34a; } .tl-dot.grey { background: #9ca3af; } .tl-dot.red { background: #ef4444; }
+.tl-line { flex: 1; width: 2px; background: #eceef2; margin-top: 4px; }
+.tl-content { flex: 1; }
+.tl-date { font-size: 11px; font-weight: 700; color: #6b7280; font-variant-numeric: tabular-nums; }
+.tl-text { font-size: 13px; color: #374151; margin-top: 2px; }
+
+/* ---- Edit form inside detail page ---- */
+.edit-form { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 18px; }
+.ef-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.ef-field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
+.ef-field label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; }
+.ef-input, .ef-select {
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px;
+  font-size: 13px; font-family: inherit; color: var(--slate);
+}
+.ef-input:focus, .ef-select:focus { outline: 2px solid var(--indigo); border-color: var(--indigo); }
+
+/* ---- Generic buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+}
+.btn-primary { background: var(--indigo); color: #fff; }
+.btn-primary:hover { background: var(--indigo-dark); }
+.btn-ghost { background: #f3f4f6; color: #374151; border: 1px solid var(--line); }
+.btn-ghost:hover { background: #e5e7eb; }
+.btn-sm { padding: 4px 10px; font-size: 11.5px; }
+
+/* ---- Type tags (artifact type) — neutral tones only, no garish colors ---- */
+.type-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 600;
+  background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;
+}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="overlay"></div>
+
+<script>
+/* ========================================================================
+   DOMAIN CONFIG — each domain has its own color.
+   Index must match DOMAINS array.
+   ======================================================================== */
+const DOMAIN_COLORS = [
+  { bg:"#eff6ff", border:"#bfdbfe", text:"#1d4ed8", dot:"#3b82f6" }, // 0 Signal Processing
+  { bg:"#f5f3ff", border:"#ddd6fe", text:"#5b21b6", dot:"#8b5cf6" }, // 1 Tracking
+  { bg:"#ecfdf5", border:"#a7f3d0", text:"#065f46", dot:"#10b981" }, // 2 Detection
+  { bg:"#fffbeb", border:"#fde68a", text:"#92400e", dot:"#f59e0b" }, // 3 Calibration
+];
+const DOMAIN_GENERAL = { bg:"#f9fafb", border:"#e5e7eb", text:"#6b7280", dot:"#9ca3af" };
+
+const DOMAINS = ["Signal Processing", "Tracking", "Detection", "Calibration"];
+
+function domainColor(name){
+  const i = DOMAINS.indexOf(name);
+  return i >= 0 ? DOMAIN_COLORS[i] : DOMAIN_GENERAL;
+}
+
+/* ========================================================================
+   MOCK DATA
+   ======================================================================== */
+const CATALOG_TASKS = [
+  { id: 12, name: "Clutter map" },
+  { id: 8,  name: "CFAR tuning" },
+  { id: 21, name: "Track fusion" },
+  { id: 30, name: "Beam scheduler" },
+  { id: 14, name: "Range gating" },
+  { id: 19, name: "Sidelobe suppression" },
+];
+const CATALOG_ARTIFACTS = [
+  { id: 5,  name: "clutter-review", type: "skill" },
+  { id: 9,  name: "fusion-agent",   type: "agent" },
+  { id: 11, name: "lint-hook",      type: "hook" },
+  { id: 3,  name: "radar-context",  type: "context" },
+  { id: 17, name: "cfar-helper",    type: "skill" },
+];
+
+/* task history uses DATES only — no week numbers */
+const TASK_HISTORY = {
+  12: [
+    { date:"2026-06-24", dot:"",      text:"Pilot expanded to a second operator; clutter map now feeds the live tracker." },
+    { date:"2026-06-10", dot:"",      text:"Wired Clutter map output into the detection chain; early false-alarm drop noted." },
+    { date:"2026-05-27", dot:"green", text:"First working draft of the clutter map skill landed." },
+    { date:"2026-05-20", dot:"grey",  text:"Task created from champion meeting — scoped against Signal Processing." },
+  ],
+  8: [
+    { date:"2026-06-24", dot:"red",   text:"Abandoned — CFAR auto-tuning kept regressing on sparse scenes; folded into Detection instead." },
+    { date:"2026-05-27", dot:"",      text:"Tried a second tuning heuristic; marginal and brittle." },
+    { date:"2026-05-13", dot:"grey",  text:"Task created; goal was self-tuning CFAR thresholds." },
+  ],
+};
+const ARTIFACT_HISTORY = {
+  5: [
+    { date:"2026-06-24", dot:"",      text:"Caught two regressions in Clutter map output this cycle." },
+    { date:"2026-05-27", dot:"green", text:"Skill promoted from personal script to team catalog." },
+    { date:"2026-05-13", dot:"grey",  text:"First draft as local helper; not yet shared." },
+  ],
+};
+
+/* Mutable report data — rows are plain objects; isNew=true means no id yet */
+const report = {
+  team: "Radar",
+  champion: "Dana",
+  date: "2026-06-24",
+  participants: ["Dana", "Omer", "Lena", "Yuval"],
+
+  tasks: [
+    { _rid: 1, id: 12, name: "Clutter map",  status: "in-progress", owner: "Lena",  domain: "Signal Processing", finishedOn: "",    note: "",             isNew: false },
+    { _rid: 2, id:  8, name: "CFAR tuning",  status: "abandoned",   owner: "Yuval", domain: "Detection",         finishedOn: "2026-06-20", note: "Folded into Detection.", isNew: false },
+    { _rid: 3, id: null, name: "Doppler check", status: "planned",  owner: "Dana",  domain: null,                finishedOn: "",    note: "",             isNew: true  },
+  ],
+  artifacts: [
+    { _rid: 1, id:  5, name: "clutter-review", type: "skill",    tags: "review, regression", domain: "Signal Processing", changekind: "updated", summary: "Caught two regressions.", note: "",  isNew: false },
+    { _rid: 2, id: null, name: "radar-helper", type: "skill",    tags: "",                  domain: null,                changekind: "added",   summary: "",                        note: "",  isNew: true  },
+    { _rid: 3, id: null, name: "context pack", type: "context",  tags: "team-wide",          domain: null,                changekind: "added",   summary: "",                        note: "",  isNew: true  },
+  ],
+
+  actionItems: [
+    { _rid: 1, text: "Follow up: {{task:12:Clutter map}} needs a second pilot and {{artifact:5:clutter-review}} should gate it before merge.", owner: "Omer", due: "2026-07-01", domain: "Signal Processing" },
+    { _rid: 2, text: "Spin up {{task:null:Doppler check}} next sprint; reuse {{artifact:5:clutter-review}} as the review skill.",              owner: "Dana", due: "2026-07-08", domain: null },
+    { _rid: 3, text: "Retire {{task:8:CFAR tuning}} and migrate its notes into Detection.",                                                     owner: "Yuval", due: "",          domain: "Detection" },
+  ],
+
+  discussion: "Most of the meeting was about {{task:12:Clutter map}} — the live pilot is going well and {{artifact:5:clutter-review}} caught two regressions. Dana wants {{artifact:null:radar-helper}} promoted from a personal script to a shared skill. We also sketched {{task:null:Doppler check}} but it is not funded yet.",
+  issues:     "{{task:8:CFAR tuning}} is being abandoned — auto-tuning was too brittle. The {{artifact:null:context pack}} is still ad-hoc and lives in one person's repo; needs to become team-wide.",
+};
+
+let _ridCtr = 100;
+function newRid(){ return ++_ridCtr; }
+
+/* ========================================================================
+   UTILS
+   ======================================================================== */
+function esc(s){ return String(s||"").replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+const STATUS_OPTS = [
+  { v:"planned",          l:"Planned",             cls:"ss-planned" },
+  { v:"in-progress",      l:"In progress",         cls:"ss-in-progress" },
+  { v:"finished-ok",      l:"Finished successfully", cls:"ss-finished-ok" },
+  { v:"finished-issues",  l:"Finished w/ issues",  cls:"ss-finished-issues" },
+  { v:"blocked",          l:"Blocked",             cls:"ss-blocked" },
+  { v:"abandoned",        l:"Abandoned",           cls:"ss-abandoned" },
+];
+function statusLabel(v){ return (STATUS_OPTS.find(s=>s.v===v)||{l:v}).l; }
+function statusCls(v){   return (STATUS_OPTS.find(s=>s.v===v)||{cls:""}).cls; }
+
+const CHANGE_OPTS = ["added","updated","retired","moved"];
+const TYPE_OPTS   = ["agent","skill","hook","context"];
+
+function domainSelectHTML(val, key, includeTeamwide){
+  const c = domainColor(val);
+  const style = val
+    ? `background:${c.bg};color:${c.text};border-color:${c.border};`
+    : `background:#f9fafb;color:#9ca3af;border-color:#e5e7eb;`;
+  let opts = `<option value="">Unplaced / General</option>`;
+  DOMAINS.forEach(d => {
+    opts += `<option value="${esc(d)}"${val===d?" selected":""}>${esc(d)}</option>`;
+  });
+  return `<select class="dom-sel" style="${style}" data-domkey="${esc(key)}" title="Set domain">${opts}</select>`;
+}
+
+/* ========================================================================
+   TOKEN RENDERING — "{{task:ID:Name}}" -> inline reference chips
+   Chips show an icon (task-icon or artifact-icon), no literal @/# character.
+   For NEW refs (id null/"null"), render as plain italic (no link).
+   ======================================================================== */
+const TOKEN_RE = /\{\{(task|artifact):([^:}]+):([^}]+)\}\}/g;
+
+// SVG-style icon glyphs (text, no external assets)
+const TASK_ICON = "&#9654;"; // ▶ small right-pointing triangle = "task"
+const ART_ICON  = "&#9670;"; // ◆ small diamond = "artifact"
+
+function renderTokens(str){
+  if (!str) return "";
+  let out = "", last = 0, m;
+  TOKEN_RE.lastIndex = 0;
+  while((m = TOKEN_RE.exec(str))){
+    out += esc(str.slice(last, m.index));
+    const kind = m[1], rawId = m[2], name = m[3];
+    const id = (rawId && rawId !== "null") ? rawId : null;
+    out += refChipHTML(kind, id, name);
+    last = m.index + m[0].length;
+  }
+  out += esc(str.slice(last));
+  return out;
+}
+
+function refChipHTML(kind, id, name){
+  const safe = esc(name);
+  const icon = kind==="task" ? TASK_ICON : ART_ICON;
+  if (id && id !== "null"){
+    const cls = kind==="task" ? "chip-task" : "chip-artifact";
+    const open = kind==="task" ? "task" : "artifact";
+    return `<a class="ref-chip ${cls}" href="#" data-open="${open}" data-id="${id}"><span class="ri">${icon}</span>${safe}</a>`;
+  }
+  // NEW reference — subtle italic, not clickable
+  return `<em style="color:#6b7280;font-style:italic">${safe}</em>`;
+}
+
+/* DOM node version for inserting into contenteditable */
+function refChipNode(kind, id, name){
+  const el = document.createElement(id ? "a" : "em");
+  el.contentEditable = "false";
+  const icon = kind==="task" ? TASK_ICON : ART_ICON;
+  if (id){
+    el.className = "ref-chip " + (kind==="task" ? "chip-task" : "chip-artifact");
+    el.href = "#";
+    el.setAttribute("data-open", kind==="task"?"task":"artifact");
+    el.setAttribute("data-id", String(id));
+    el.innerHTML = `<span class="ri">${icon}</span>${esc(name)}`;
+  } else {
+    el.style.cssText = "color:#6b7280;font-style:italic";
+    el.textContent = name;
+  }
+  return el;
+}
+
+/* ========================================================================
+   DOMAIN SELECT: keep styling in sync when value changes
+   ======================================================================== */
+document.addEventListener("change", e => {
+  const sel = e.target.closest(".dom-sel");
+  if (!sel) return;
+  const c = domainColor(sel.value);
+  if (sel.value){
+    sel.style.background = c.bg;
+    sel.style.color      = c.text;
+    sel.style.borderColor= c.border;
+  } else {
+    sel.style.background  = "#f9fafb";
+    sel.style.color       = "#9ca3af";
+    sel.style.borderColor = "#e5e7eb";
+  }
+  // sync back to data
+  const key = sel.getAttribute("data-domkey");
+  if (key){
+    const [kind, ridStr] = key.split(":");
+    const rid = +ridStr;
+    if (kind==="t"){
+      const row = report.tasks.find(x=>x._rid===rid);
+      if (row) row.domain = sel.value || null;
+    } else {
+      const row = report.artifacts.find(x=>x._rid===rid);
+      if (row) row.domain = sel.value || null;
+    }
+  }
+});
+
+/* Status select: keep pill color in sync */
+document.addEventListener("change", e => {
+  const sel = e.target.closest(".status-sel");
+  if (!sel) return;
+  sel.className = "status-sel " + statusCls(sel.value);
+});
+
+/* ========================================================================
+   CHIP CLICK — task name chip or artifact name chip in tables
+   and ref-chip in rich text → open detail page
+   ======================================================================== */
+document.addEventListener("click", e => {
+  const opener = e.target.closest("[data-open]");
+  if (!opener) return;
+  e.preventDefault();
+  const kind = opener.getAttribute("data-open");
+  const id   = +opener.getAttribute("data-id");
+  if (kind==="task")     openTaskPage(id);
+  else                   openArtifactPage(id);
+});
+
+/* ========================================================================
+   DETAIL PAGES — both task and artifact open as a full-page route swap.
+   History timeline uses DATES ONLY (no week numbers).
+   Each page has an Edit button that converts to a full inline editor.
+   ======================================================================== */
+function findTask(id){ return report.tasks.find(t=>t.id===id) || CATALOG_TASKS.find(t=>t.id===id) || {id,name:"Task #"+id}; }
+function findArtifact(id){ return report.artifacts.find(a=>a.id===id) || CATALOG_ARTIFACTS.find(a=>a.id===id) || {id,name:"Artifact #"+id,type:"skill"}; }
+
+function openTaskPage(id){
+  const t = findTask(id);
+  const hist = TASK_HISTORY[id] || [
+    { date:"2026-06-24", dot:"",     text:"Referenced in this meeting's report." },
+    { date:"Earlier",    dot:"grey", text:"Task first created from a champion meeting." },
+  ];
+  const histRows = hist.map((h,i) => `
+    <div class="tl-row">
+      <div class="tl-dotcol">
+        <div class="tl-dot ${h.dot}"></div>
+        ${i<hist.length-1?'<div class="tl-line"></div>':''}
+      </div>
+      <div class="tl-content">
+        <div class="tl-date">${esc(h.date)}</div>
+        <div class="tl-text">${esc(h.text)}</div>
+      </div>
+    </div>`).join("");
+
+  const statusCl = statusCls(t.status||"planned");
+  const statusLbl = statusLabel(t.status||"planned");
+
+  document.getElementById("overlay").innerHTML = `
+    <div class="route-panel" role="dialog" aria-label="Task detail">
+      <div class="route-top">
+        <button class="back-btn" onclick="closeOverlay()">&larr; Back to report</button>
+        <span style="font-size:12px;color:#9ca3af;">Team ${esc(report.team)} / Task #${t.id}</span>
+        <button class="edit-detail-btn" onclick="openTaskEdit(${t.id})">Edit</button>
+      </div>
+      <div class="route-body">
+        <div class="detail-hero">
+          <div class="eyebrow">Task &middot; Team ${esc(report.team)}</div>
+          <h2>${esc(t.name)}</h2>
+          <div class="detail-facts">
+            <div class="fact"><div class="l">Status</div><div class="v"><span class="status-sel ${statusCl}" style="pointer-events:none">${esc(statusLbl)}</span></div></div>
+            <div class="fact"><div class="l">Owner</div><div class="v">${esc(t.owner||"—")}</div></div>
+            <div class="fact"><div class="l">Domain</div><div class="v">${domainChip(t.domain)}</div></div>
+            ${t.finishedOn ? `<div class="fact"><div class="l">Finished on</div><div class="v">${esc(t.finishedOn)}</div></div>` : ""}
+          </div>
+          ${t.note ? `<div style="margin-top:12px;font-size:13px;color:#374151;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;">Note</span><br>${esc(t.note)}</div>` : ""}
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">History</span></div>
+          <div class="card-body"><div class="tl">${histRows}</div></div>
+        </div>
+        <p style="font-size:12px;color:#9ca3af;">Prototype stub — a real task page shows full history, linked artifacts, and all action items referencing this task.</p>
+      </div>
+    </div>`;
+}
+
+function openTaskEdit(id){
+  const t = findTask(id);
+  const statusOpts = STATUS_OPTS.map(s=>`<option value="${s.v}"${t.status===s.v?" selected":""}>${s.l}</option>`).join("");
+  const domOpts = `<option value="">Unplaced / General</option>` + DOMAINS.map(d=>`<option value="${esc(d)}"${t.domain===d?" selected":""}>${esc(d)}</option>`).join("");
+
+  document.getElementById("overlay").innerHTML = `
+    <div class="route-panel" role="dialog" aria-label="Edit task">
+      <div class="route-top">
+        <button class="back-btn" onclick="openTaskPage(${id})">&larr; Cancel</button>
+        <span style="font-size:12px;color:#9ca3af;">Editing Task #${id}</span>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openTaskPage(${id})">Save</button>
+      </div>
+      <div class="route-body">
+        <div class="edit-form">
+          <div class="ef-row">
+            <div class="ef-field" style="flex:2">
+              <label>Name</label>
+              <input class="ef-input" value="${esc(t.name)}" oninput="findTask(${id}).name=this.value">
+            </div>
+            <div class="ef-field">
+              <label>Status</label>
+              <select class="ef-select" onchange="findTask(${id}).status=this.value">${statusOpts}</select>
+            </div>
+          </div>
+          <div class="ef-row">
+            <div class="ef-field">
+              <label>Owner</label>
+              <input class="ef-input" value="${esc(t.owner||"")}" oninput="findTask(${id}).owner=this.value">
+            </div>
+            <div class="ef-field">
+              <label>Domain</label>
+              <select class="ef-select" onchange="findTask(${id}).domain=this.value||null">${domOpts}</select>
+            </div>
+            <div class="ef-field">
+              <label>Finished on</label>
+              <input class="ef-input" type="date" value="${esc(t.finishedOn||"")}" oninput="findTask(${id}).finishedOn=this.value">
+            </div>
+          </div>
+          <div class="ef-row">
+            <div class="ef-field" style="flex:1">
+              <label>Note</label>
+              <input class="ef-input" value="${esc(t.note||"")}" oninput="findTask(${id}).note=this.value" placeholder="Optional note">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openArtifactPage(id){
+  const a = findArtifact(id);
+  const hist = ARTIFACT_HISTORY[id] || [
+    { date:"2026-06-24", dot:"",     text:"Referenced in this meeting's report." },
+    { date:"Earlier",    dot:"grey", text:"Artifact first noted in the catalog." },
+  ];
+  const histRows = hist.map((h,i) => `
+    <div class="tl-row">
+      <div class="tl-dotcol">
+        <div class="tl-dot ${h.dot}"></div>
+        ${i<hist.length-1?'<div class="tl-line"></div>':''}
+      </div>
+      <div class="tl-content">
+        <div class="tl-date">${esc(h.date)}</div>
+        <div class="tl-text">${esc(h.text)}</div>
+      </div>
+    </div>`).join("");
+
+  document.getElementById("overlay").innerHTML = `
+    <div class="route-panel" role="dialog" aria-label="Artifact detail">
+      <div class="route-top">
+        <button class="back-btn" onclick="closeOverlay()">&larr; Back to report</button>
+        <span style="font-size:12px;color:#9ca3af;">Team ${esc(report.team)} / Artifact #${a.id}</span>
+        <button class="edit-detail-btn" onclick="openArtifactEdit(${a.id})">Edit</button>
+      </div>
+      <div class="route-body">
+        <div class="detail-hero">
+          <div class="eyebrow">Artifact &middot; Team ${esc(report.team)}</div>
+          <h2>${esc(a.name)}</h2>
+          <div class="detail-facts">
+            <div class="fact"><div class="l">Type</div><div class="v"><span class="type-tag">${esc(a.type||"skill")}</span></div></div>
+            <div class="fact"><div class="l">Domain</div><div class="v">${domainChip(a.domain)}</div></div>
+            <div class="fact"><div class="l">Change</div><div class="v">${esc(a.changekind||"—")}</div></div>
+            ${a.tags ? `<div class="fact"><div class="l">Tags</div><div class="v">${esc(a.tags)}</div></div>` : ""}
+          </div>
+          ${a.summary ? `<div style="margin-top:12px;font-size:13px;color:#374151;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;">Summary</span><br>${esc(a.summary)}</div>` : ""}
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">History</span></div>
+          <div class="card-body"><div class="tl">${histRows}</div></div>
+        </div>
+        <p style="font-size:12px;color:#9ca3af;">Prototype stub — a real artifact page shows full history, linked tasks, and all action items referencing this artifact.</p>
+      </div>
+    </div>`;
+}
+
+function openArtifactEdit(id){
+  const a = findArtifact(id);
+  const typeOpts = TYPE_OPTS.map(t=>`<option value="${t}"${a.type===t?" selected":""}>${t}</option>`).join("");
+  const changeOpts = CHANGE_OPTS.map(c=>`<option value="${c}"${a.changekind===c?" selected":""}>${c}</option>`).join("");
+  const domOpts = `<option value="">Unplaced / General</option>` + DOMAINS.map(d=>`<option value="${esc(d)}"${a.domain===d?" selected":""}>${esc(d)}</option>`).join("");
+
+  document.getElementById("overlay").innerHTML = `
+    <div class="route-panel" role="dialog" aria-label="Edit artifact">
+      <div class="route-top">
+        <button class="back-btn" onclick="openArtifactPage(${id})">&larr; Cancel</button>
+        <span style="font-size:12px;color:#9ca3af;">Editing Artifact #${id}</span>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openArtifactPage(${id})">Save</button>
+      </div>
+      <div class="route-body">
+        <div class="edit-form">
+          <div class="ef-row">
+            <div class="ef-field" style="flex:2">
+              <label>Name</label>
+              <input class="ef-input" value="${esc(a.name)}" oninput="findArtifact(${id}).name=this.value">
+            </div>
+            <div class="ef-field">
+              <label>Type</label>
+              <select class="ef-select" onchange="findArtifact(${id}).type=this.value">${typeOpts}</select>
+            </div>
+            <div class="ef-field">
+              <label>Change</label>
+              <select class="ef-select" onchange="findArtifact(${id}).changekind=this.value">${changeOpts}</select>
+            </div>
+          </div>
+          <div class="ef-row">
+            <div class="ef-field">
+              <label>Domain</label>
+              <select class="ef-select" onchange="findArtifact(${id}).domain=this.value||null">${domOpts}</select>
+            </div>
+            <div class="ef-field">
+              <label>Tags</label>
+              <input class="ef-input" value="${esc(a.tags||"")}" oninput="findArtifact(${id}).tags=this.value" placeholder="Comma-separated">
+            </div>
+          </div>
+          <div class="ef-row">
+            <div class="ef-field">
+              <label>Summary</label>
+              <input class="ef-input" value="${esc(a.summary||"")}" oninput="findArtifact(${id}).summary=this.value" placeholder="Optional summary">
+            </div>
+            <div class="ef-field">
+              <label>Note</label>
+              <input class="ef-input" value="${esc(a.note||"")}" oninput="findArtifact(${id}).note=this.value" placeholder="Optional note">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function domainChip(name){
+  if (!name) return `<span style="color:#9ca3af">—</span>`;
+  const c = domainColor(name);
+  return `<span style="background:${c.bg};color:${c.text};border:1px solid ${c.border};border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">${esc(name)}</span>`;
+}
+
+function closeOverlay(){ document.getElementById("overlay").innerHTML = ""; }
+document.addEventListener("keydown", e => { if (e.key==="Escape") closeOverlay(); });
+
+/* ========================================================================
+   LINK-TO-EXISTING PICKER for NEW rows
+   Shows a small dropdown near the button to pick an existing entity id.
+   On pick, clears isNew and sets the id.
+   ======================================================================== */
+function linkExistingTask(rid){
+  const row = report.tasks.find(t=>t._rid===rid); if (!row) return;
+  const items = CATALOG_TASKS.map(t=>
+    `<div class="ac-item" style="cursor:pointer" onclick="doLinkTask(${rid},${t.id},'${esc(t.name)}')">`+
+    `<span class="nm">${esc(t.name)}</span><span class="ac-id">#${t.id}</span></div>`).join("");
+  showSmallPicker("link-task-"+rid,
+    `<div class="ac-head">Link to existing task</div>${items}<div class="ac-foot">Click to match — removes NEW badge</div>`);
+}
+function doLinkTask(rid, id, name){
+  const row = report.tasks.find(t=>t._rid===rid); if (!row) return;
+  row.id = id; row.name = name; row.isNew = false;
+  closeSmallPicker(); render();
+}
+
+function linkExistingArtifact(rid){
+  const row = report.artifacts.find(a=>a._rid===rid); if (!row) return;
+  const items = CATALOG_ARTIFACTS.map(a=>
+    `<div class="ac-item" style="cursor:pointer" onclick="doLinkArtifact(${rid},${a.id},'${esc(a.name)}','${a.type}')">`+
+    `<span class="nm">${esc(a.name)}</span><span class="ac-id">${a.type} #${a.id}</span></div>`).join("");
+  showSmallPicker("link-art-"+rid,
+    `<div class="ac-head">Link to existing artifact</div>${items}<div class="ac-foot">Click to match — removes NEW badge</div>`);
+}
+function doLinkArtifact(rid, id, name, type){
+  const row = report.artifacts.find(a=>a._rid===rid); if (!row) return;
+  row.id = id; row.name = name; row.type = type; row.isNew = false;
+  closeSmallPicker(); render();
+}
+
+let _pickerEl = null;
+function showSmallPicker(trigId, html){
+  closeSmallPicker();
+  const trig = document.querySelector("[data-picker-id='"+trigId+"']");
+  const pop = document.createElement("div");
+  pop.className = "ac-pop"; pop.id = "small-picker";
+  pop.innerHTML = html;
+  if (trig){
+    const rect = trig.getBoundingClientRect();
+    pop.style.left = Math.min(rect.left, window.innerWidth-340)+"px";
+    pop.style.top  = (rect.bottom+4)+"px";
+  } else {
+    pop.style.left = "200px"; pop.style.top = "200px";
+  }
+  document.body.appendChild(pop);
+  _pickerEl = pop;
+}
+function closeSmallPicker(){
+  if (_pickerEl){ _pickerEl.remove(); _pickerEl = null; }
+}
+document.addEventListener("click", e => {
+  if (_pickerEl && !_pickerEl.contains(e.target) && !e.target.closest("[data-picker-id]")) closeSmallPicker();
+});
+
+/* ========================================================================
+   @ / # AUTOCOMPLETE in contenteditable rich-text fields
+   Trigger chars are keyboard shortcuts; on pick, inserts a subtle icon-chip.
+   The literal @ or # is NOT rendered; the chip carries a task-icon or artifact-icon.
+   ======================================================================== */
+let acState = null;
+
+function closeAC(){
+  if (acState && acState.pop) acState.pop.remove();
+  acState = null;
+}
+
+function handleRteInput(host){
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return closeAC();
+  const range = sel.getRangeAt(0);
+  const node = range.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE) return closeAC();
+  const text = node.textContent.slice(0, range.startOffset);
+  const m = /([@#])([\w\- ]*)$/.exec(text);
+  if (!m) return closeAC();
+  const trigger = m[1], query = m[2];
+  const kind = trigger==="@" ? "task" : "artifact";
+  const pool = kind==="task" ? CATALOG_TASKS : CATALOG_ARTIFACTS;
+  const q = query.trim().toLowerCase();
+  const items = pool.filter(x => !q || x.name.toLowerCase().includes(q)).slice(0,8);
+  showAC(host, node, range.startOffset, m[0].length, kind, query, items);
+}
+
+function showAC(host, textNode, caretOff, matchLen, kind, query, items){
+  closeAC();
+  const pop = document.createElement("div");
+  pop.className = "ac-pop";
+  const headLabel = kind==="task" ? "Tasks (@ trigger)" : "Artifacts (# trigger)";
+  let html = `<div class="ac-head">${headLabel}</div>`;
+  items.forEach((it,i) => {
+    const sub = it.type ? `<span class="type-tag" style="font-size:10px;padding:1px 5px">${esc(it.type)}</span>` : "";
+    html += `<div class="ac-item${i===0?" ac-active":""}" data-i="${i}"><span class="nm">${esc(it.name)}</span>${sub}<span class="ac-id">#${it.id}</span></div>`;
+  });
+  html += `<div class="ac-foot">&uarr;&darr; navigate, Enter pick, Esc dismiss</div>`;
+  pop.innerHTML = html;
+
+  const rect = caretClientRect(textNode, caretOff);
+  pop.style.left = Math.min(rect.left, window.innerWidth-340)+"px";
+  pop.style.top  = (rect.bottom+4)+"px";
+  document.body.appendChild(pop);
+
+  acState = { host, textNode, caretOff, matchLen, kind, query, items, active:0, pop };
+  pop.querySelectorAll(".ac-item").forEach(el => {
+    el.addEventListener("mousedown", ev => {
+      ev.preventDefault();
+      pickAC(+el.getAttribute("data-i"));
+    });
+  });
+}
+
+function caretClientRect(textNode, offset){
+  try {
+    const r = document.createRange();
+    r.setStart(textNode, Math.min(offset, textNode.length));
+    r.collapse(true);
+    const rect = r.getBoundingClientRect();
+    if (rect.left || rect.top) return rect;
+  } catch(e){}
+  if (acState && acState.host){
+    const r = acState.host.getBoundingClientRect();
+    return { left: r.left, bottom: r.bottom };
+  }
+  return { left:80, bottom:120 };
+}
+
+function pickAC(i){
+  if (!acState) return;
+  const { textNode, caretOff, matchLen, kind, items, host } = acState;
+  const full = textNode.textContent;
+  const before = full.slice(0, caretOff - matchLen);
+  const after  = full.slice(caretOff);
+  const it = items[i];
+  if (!it) return closeAC();
+  const chip = refChipNode(kind, it.id, it.name);
+  const beforeNode = document.createTextNode(before);
+  const afterNode  = document.createTextNode(" " + after);
+  const parent = textNode.parentNode;
+  parent.replaceChild(afterNode, textNode);
+  parent.insertBefore(chip, afterNode);
+  parent.insertBefore(beforeNode, chip);
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.setStart(afterNode, 1);
+  r.collapse(true);
+  sel.removeAllRanges(); sel.addRange(r);
+  closeAC();
+  host.focus();
+}
+
+function rteKeydown(e){
+  if (!acState) return;
+  const items = acState.pop.querySelectorAll(".ac-item");
+  if (e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    items[acState.active].classList.remove("ac-active");
+    acState.active = e.key==="ArrowDown"
+      ? Math.min(acState.active+1, items.length-1)
+      : Math.max(acState.active-1, 0);
+    items[acState.active].classList.add("ac-active");
+  } else if (e.key==="Enter"){
+    e.preventDefault();
+    pickAC(acState.active);
+  } else if (e.key==="Escape"){
+    e.preventDefault(); closeAC();
+  }
+}
+
+function wireRte(el){
+  el.addEventListener("input",   () => handleRteInput(el));
+  el.addEventListener("keydown", rteKeydown);
+  el.addEventListener("blur",    () => setTimeout(closeAC, 160));
+}
+
+/* ========================================================================
+   RENDER — single Variant B screen
+   ======================================================================== */
+function domainLegend(){
+  const items = DOMAINS.map((d,i) => {
+    const c = DOMAIN_COLORS[i];
+    return `<span class="dl-item"><span class="dl-dot" style="background:${c.dot}"></span>${esc(d)}</span>`;
+  }).join("");
+  const g = DOMAIN_GENERAL;
+  return `<div class="domain-legend">`+
+    `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-right:4px">Domains:</span>`+
+    items +
+    `<span class="dl-item"><span class="dl-dot" style="background:${g.dot}"></span>Unplaced / General</span>`+
+    `</div>`;
+}
+
+function taskTableHTML(){
+  const statusOptsHTML = STATUS_OPTS.map(s=>`<option value="${s.v}">${s.l}</option>`).join("");
+  const rows = report.tasks.map(t => {
+    const rid = t._rid;
+    const domSel = domainSelectHTML(t.domain, "t:"+rid, false);
+    const statusCl = statusCls(t.status);
+    const statusOpts = STATUS_OPTS.map(s=>`<option value="${s.v}"${t.status===s.v?" selected":""}>${s.l}</option>`).join("");
+
+    let nameCell;
+    if (t.id){
+      nameCell = `<a class="name-chip" href="#" data-open="task" data-id="${t.id}">${esc(t.name)}</a>`;
+    } else {
+      nameCell = `
+        <div class="name-cell">
+          <span class="new-badge">NEW</span>
+          <div class="name-input-wrap">
+            <input class="cell-input" value="${esc(t.name)}"
+              oninput="report.tasks.find(x=>x._rid===${rid}).name=this.value"
+              style="font-weight:600">
+          </div>
+          <button class="link-existing-btn" data-picker-id="link-task-${rid}"
+            onclick="linkExistingTask(${rid})">link existing&hellip;</button>
+        </div>`;
+    }
+
+    return `<tr data-trid="${rid}">
+      <td style="min-width:170px">${nameCell}</td>
+      <td><select class="status-sel ${statusCl}" data-trid="${rid}" onchange="report.tasks.find(x=>x._rid===${rid}).status=this.value;this.className='status-sel '+statusCls(this.value)">${statusOpts}</select></td>
+      <td><input class="cell-input" value="${esc(t.owner||"")}" placeholder="owner" oninput="report.tasks.find(x=>x._rid===${rid}).owner=this.value" style="min-width:70px"></td>
+      <td>${domSel}</td>
+      <td><input class="cell-date" type="date" value="${esc(t.finishedOn||"")}" oninput="report.tasks.find(x=>x._rid===${rid}).finishedOn=this.value"></td>
+      <td><input class="cell-input" value="${esc(t.note||"")}" placeholder="note" oninput="report.tasks.find(x=>x._rid===${rid}).note=this.value" style="min-width:100px"></td>
+      <td><button class="del-btn" onclick="deleteTask(${rid})" title="Remove row">&times;</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<table class="flat">
+    <thead><tr>
+      <th>Name</th><th>Status</th><th>Owner</th><th>Domain</th><th>Finished on</th><th>Note</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function artifactTableHTML(){
+  const rows = report.artifacts.map(a => {
+    const rid = a._rid;
+    const domSel = domainSelectHTML(a.domain, "a:"+rid, true);
+    const typeOpts = TYPE_OPTS.map(t=>`<option value="${t}"${a.type===t?" selected":""}>${t}</option>`).join("");
+    const changeOpts = CHANGE_OPTS.map(c=>`<option value="${c}"${a.changekind===c?" selected":""}>${c}</option>`).join("");
+
+    let nameCell;
+    if (a.id){
+      nameCell = `<a class="name-chip" href="#" data-open="artifact" data-id="${a.id}">${esc(a.name)}</a>`;
+    } else {
+      nameCell = `
+        <div class="name-cell">
+          <span class="new-badge">NEW</span>
+          <div class="name-input-wrap">
+            <input class="cell-input" value="${esc(a.name)}"
+              oninput="report.artifacts.find(x=>x._rid===${rid}).name=this.value"
+              style="font-weight:600">
+          </div>
+          <button class="link-existing-btn" data-picker-id="link-art-${rid}"
+            onclick="linkExistingArtifact(${rid})">link existing&hellip;</button>
+        </div>`;
+    }
+
+    return `<tr data-arid="${rid}">
+      <td style="min-width:160px">${nameCell}</td>
+      <td><select class="cell-select" onchange="report.artifacts.find(x=>x._rid===${rid}).type=this.value">${typeOpts}</select></td>
+      <td><input class="cell-input" value="${esc(a.tags||"")}" placeholder="tags" oninput="report.artifacts.find(x=>x._rid===${rid}).tags=this.value" style="min-width:80px"></td>
+      <td>${domSel}</td>
+      <td><select class="cell-select" onchange="report.artifacts.find(x=>x._rid===${rid}).changekind=this.value">${changeOpts}</select></td>
+      <td><input class="cell-input" value="${esc(a.summary||"")}" placeholder="summary" oninput="report.artifacts.find(x=>x._rid===${rid}).summary=this.value" style="min-width:100px"></td>
+      <td><input class="cell-input" value="${esc(a.note||"")}" placeholder="note" oninput="report.artifacts.find(x=>x._rid===${rid}).note=this.value" style="min-width:80px"></td>
+      <td><button class="del-btn" onclick="deleteArtifact(${rid})" title="Remove row">&times;</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<table class="flat">
+    <thead><tr>
+      <th>Name</th><th>Type</th><th>Tags</th><th>Domain</th><th>Change</th><th>Summary</th><th>Note</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function aiTableHTML(){
+  const rows = report.actionItems.map(ai => {
+    const rid = ai._rid;
+    const domSel = domainSelectHTML(ai.domain, "ai:"+rid, false);
+    return `<tr data-airid="${rid}">
+      <td style="min-width:300px">
+        <div class="rte ai-rte" contenteditable="true" data-airid="${rid}">${renderTokens(ai.text)}</div>
+      </td>
+      <td><input class="cell-input" value="${esc(ai.owner||"")}" placeholder="owner" oninput="report.actionItems.find(x=>x._rid===${rid}).owner=this.value" style="min-width:70px"></td>
+      <td><input class="cell-date" type="date" value="${esc(ai.due||"")}" oninput="report.actionItems.find(x=>x._rid===${rid}).due=this.value"></td>
+      <td>${domSel}</td>
+      <td><button class="del-btn" onclick="deleteAI(${rid})" title="Remove row">&times;</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<table class="ai-table">
+    <thead><tr>
+      <th>Action item (type @ task or # artifact)</th><th>Owner</th><th>Due</th><th>Domain</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function deleteTask(rid){ report.tasks = report.tasks.filter(t=>t._rid!==rid); render(); }
+function deleteArtifact(rid){ report.artifacts = report.artifacts.filter(a=>a._rid!==rid); render(); }
+function deleteAI(rid){ report.actionItems = report.actionItems.filter(a=>a._rid!==rid); render(); }
+
+function addTask(){
+  report.tasks.push({ _rid:newRid(), id:null, name:"", status:"planned", owner:"", domain:null, finishedOn:"", note:"", isNew:true });
+  render();
+}
+function addArtifact(){
+  report.artifacts.push({ _rid:newRid(), id:null, name:"", type:"skill", tags:"", domain:null, changekind:"added", summary:"", note:"", isNew:true });
+  render();
+}
+function addAI(){
+  report.actionItems.push({ _rid:newRid(), text:"", owner:"", due:"", domain:null });
+  render();
+}
+
+function render(){
+  closeAC(); closeSmallPicker();
+
+  const participantAvatars = report.participants.map(p =>
+    `<span class="avatar"><span class="dot">${esc(p[0])}</span>${esc(p)}</span>`).join("");
+
+  const html = `<div class="frame">
+
+    <div class="report-head">
+      <div class="team-eyebrow">Team ${esc(report.team)} &middot; Report editor</div>
+      <h1>Report — champion ${esc(report.champion)}</h1>
+      <div class="head-row">
+        <div class="meta-field">
+          <label>Meeting date</label>
+          <input class="meta-input" type="date" value="${esc(report.date)}" oninput="report.date=this.value">
+        </div>
+        <div class="meta-field">
+          <label>Champion</label>
+          <input class="meta-input" value="${esc(report.champion)}" oninput="report.champion=this.value" style="min-width:100px">
+        </div>
+      </div>
+      <div class="participants-row">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af">Participants:</span>
+        ${participantAvatars}
+        <input class="participants-edit" value="${esc(report.participants.join(", "))}"
+          placeholder="Comma-separated names"
+          oninput="report.participants=this.value.split(',').map(x=>x.trim()).filter(Boolean)">
+      </div>
+    </div>
+
+    <div class="card">
+      ${domainLegend()}
+      <div class="card-head">
+        <span class="card-title">Tasks <span class="count">${report.tasks.length}</span></span>
+      </div>
+      <div class="card-body flush">
+        ${taskTableHTML()}
+      </div>
+      <button class="add-row-btn" onclick="addTask()">+ Add task</button>
+    </div>
+
+    <div class="card">
+      ${domainLegend()}
+      <div class="card-head">
+        <span class="card-title">Artifacts <span class="count">${report.artifacts.length}</span></span>
+      </div>
+      <div class="card-body flush">
+        ${artifactTableHTML()}
+      </div>
+      <button class="add-row-btn" onclick="addArtifact()">+ Add artifact</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Action items <span class="count">${report.actionItems.length}</span></span>
+      </div>
+      <div class="card-body flush">
+        ${aiTableHTML()}
+      </div>
+      <button class="add-row-btn" onclick="addAI()">+ Add action item</button>
+      <div class="hint-line" style="padding:0 18px 12px">Type <strong>@</strong> inside the text cell for a task reference, <strong>#</strong> for an artifact reference — picks insert a subtle icon-chip, not the raw character.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Discussion</span></div>
+      <div class="card-body">
+        <div class="rte" id="rte-disc" contenteditable="true">${renderTokens(report.discussion)}</div>
+        <div class="hint-line">Type <strong>@</strong> for a task, <strong>#</strong> for an artifact — inserts a linked icon-chip mid-text.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Issues</span></div>
+      <div class="card-body">
+        <div class="rte" id="rte-issues" contenteditable="true">${renderTokens(report.issues)}</div>
+        <div class="hint-line">Same @/# triggers as Discussion.</div>
+      </div>
+    </div>
+
+  </div>`;
+
+  document.getElementById("app").innerHTML = html;
+
+  // Wire up rich-text editors
+  document.querySelectorAll(".rte").forEach(el => wireRte(el));
+}
+
+render();
+</script>
+</body>
+</html>

@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜] 72% (94/130)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜⬜] 70% (94/135)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 94 / 130 | 72% |
+| 🟢 Done | 94 / 135 | 70% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 36 (Wave 11: 3 · 12: 21 · 13: 9 · 14: 3) | 28% |
+| ⬜ Pending | 41 (Wave 11: 3 · 12: 21 · 13: 14 · 14: 3) | 30% |
 
 ---
 
@@ -34,7 +34,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
 | 11 | Not Started | — | — | 3/3 | **Contract & branch + item-10 design** (gate, NO code) — cut `mvp-improvements`, freeze the cross-agent contract, approve AI-Lead design. See `task_breakdown.md` Wave 11 |
 | 12 | Not Started | 0/3 | 0/3 | 21/21 | **Backend + FE-foundation** (parallel) — 12A backend-core, 12B backend-routes, 12C FE-foundation+report-editor. Build the contract into code |
-| 13 | Not Started | 0/3 | 0/3 | 9/9 | **FE consumers** (parallel) — 13A manage, 13B viewers, 13C AI-Lead view. Branch off Wave-12 |
+| 13 | Not Started | 0/3 | 0/3 | 14/14 | **FE consumers** (parallel) — 13A manage, 13B viewers (team redesign per approved mock), 13C AI-Lead view. Branch off Wave-12 |
 | 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -381,12 +381,18 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 2 | Delete buttons (champions + domains) → `api.*.delete` | ⬜ Pending | item 6 |
 
 ### Agent 13B: Viewer pages — team redesign + status display (`frontend-developer`)
+> Design = `prototype/team-page-mock.html` (+ `.png`/`-expanded.png`). Tasks 1–6 = item 9; 7–9 = item 8.
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Team page tile dashboard + foldable sections | ⬜ Pending | item 9 — open=unchanged |
-| 2 | Action items show status (not resolved) | ⬜ Pending | item 8 |
-| 3 | "Won't Fix" on task detail | ⬜ Pending | item 8 |
-| 4 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
+| 1 | Identity strip (no CC Baseline) | ⬜ Pending | item 9 |
+| 2 | Tile dashboard — 6 count tiles + click-to-fold | ⬜ Pending | item 9; counts from 12B #4 |
+| 3 | Foldable sections (Domains/Artifacts/Reports/Actions, default collapsed) | ⬜ Pending | item 9; Artifacts = new fold |
+| 4 | Section internals unchanged when expanded | ⬜ Pending | item 9 — do NOT redesign |
+| 5 | Last-meeting + overdue (only if `due_date` exists) | ⬜ Pending | item 9 |
+| 6 | team-page.css per mock | ⬜ Pending | item 9 |
+| 7 | Action items show status (not resolved) | ⬜ Pending | item 8 |
+| 8 | "Won't Fix" on task detail | ⬜ Pending | item 8 |
+| 9 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
 
 ### Agent 13C: AI-Lead cross-team view (`frontend-developer`)
 | # | Task | Status | Notes |

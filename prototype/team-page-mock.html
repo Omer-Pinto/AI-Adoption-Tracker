@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Team page — redesign mock</title>
+<style>
+/* =======================================================
+   THROWAWAY MOCK — redesigned Team page
+   Pure HTML + CSS + a little vanilla JS. No build, opens via file://.
+   Visual language lifted from design-system.css / app.css /
+   team-page.css / report-editor-prototype.html.
+   ======================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --indigo: #4361ee;
+  --indigo-dark: #3451d1;
+  --slate: #1a1d23;
+  --bg: #f5f6f8;
+  --line: #e5e7eb;
+  --muted: #6b7280;
+  --surface: #fff;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--slate);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ---- App shell: dark sidebar + main ---- */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px; flex-shrink: 0; background: #1a1d23; color: #9ca3af;
+  position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+}
+.nav-logo { padding: 18px 20px 16px; border-bottom: 1px solid #2e3240; }
+.nav-logo-title { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .5px; text-transform: uppercase; }
+.nav-logo-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.nav-section { padding: 12px 0 4px; }
+.nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: #4b5563; padding: 0 20px 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px;
+  color: #9ca3af; cursor: pointer; text-decoration: none;
+}
+.nav-item:hover { background: #252932; color: #e5e7eb; }
+.nav-item.active { background: #252932; color: #fff; border-left: 3px solid var(--indigo); padding-left: 17px; }
+.nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.nav-divider { border: none; border-top: 1px solid #2e3240; margin: 8px 0; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---- Top bar ---- */
+.top-bar {
+  background: #fff; border-bottom: 1px solid var(--line); padding: 0 28px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+}
+.top-bar-title { font-size: 15px; font-weight: 600; color: var(--slate); }
+.top-bar-sub { font-size: 12px; color: var(--muted); margin-left: 10px; }
+.top-bar-actions { display: flex; align-items: center; gap: 10px; }
+
+.page-body { padding: 22px 28px 48px; max-width: 1180px; }
+
+/* ---- Generic buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  text-decoration: none; white-space: nowrap; transition: background .15s;
+}
+.btn-primary { background: var(--indigo); color: #fff; }
+.btn-primary:hover { background: var(--indigo-dark); }
+.btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid var(--line); }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-sm { padding: 4px 10px; font-size: 11.5px; }
+
+/* =======================================================
+   ZONE 1 — Compact identity strip + tile dashboard
+   ======================================================= */
+.identity {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.id-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #4361ee, #8b5cf6); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;
+}
+.id-name { font-size: 17px; font-weight: 800; letter-spacing: -.2px; color: var(--slate); }
+.id-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.id-meta b { color: #374151; font-weight: 600; }
+.id-spacer { flex: 1; }
+.id-baseline {
+  font-size: 12px; color: #374151; background: #fff; border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; max-width: 360px;
+}
+.id-baseline .l { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; display: block; margin-bottom: 2px; }
+
+/* Tile dashboard — tight, scannable */
+.tile-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 26px;
+}
+.tile {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px;
+  display: flex; flex-direction: column; gap: 7px; cursor: pointer;
+  transition: box-shadow .15s, border-color .15s, transform .08s;
+  position: relative; overflow: hidden;
+}
+.tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1);
+}
+.tile:hover { box-shadow: 0 4px 14px rgba(16,24,40,.08); border-color: #cbd0d8; }
+.tile:active { transform: translateY(1px); }
+.tile-top { display: flex; align-items: center; justify-content: space-between; }
+.tile-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+}
+.tile-ico { color: var(--accent, #94a3b8); display: inline-flex; }
+.tile-value { font-size: 27px; font-weight: 800; line-height: 1; color: var(--slate); font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 11px; color: #9ca3af; }
+.tile-sub .pos { color: #16a34a; font-weight: 600; }
+.tile-sub .warn { color: #d97706; font-weight: 600; }
+.tile-sub .bad { color: #dc2626; font-weight: 600; }
+
+/* accent variants */
+.tile.acc-blue   { --accent: #3b82f6; }
+.tile.acc-green  { --accent: #16a34a; }
+.tile.acc-amber  { --accent: #d97706; }
+.tile.acc-indigo { --accent: #6366f1; }
+.tile.acc-violet { --accent: #8b5cf6; }
+.tile.acc-slate  { --accent: #64748b; }
+
+/* =======================================================
+   ZONE 2 — Foldable sections (native <details>)
+   ======================================================= */
+.fold {
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  margin-bottom: 14px; overflow: hidden;
+}
+.fold > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 12px; padding: 15px 20px;
+  background: #fff;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold[open] > summary { border-bottom: 1px solid #f1f2f4; }
+.fold > summary:hover { background: #fafbfc; }
+.chev {
+  flex-shrink: 0; color: #9ca3af; transition: transform .18s ease; display: inline-flex;
+}
+.fold[open] > summary .chev { transform: rotate(90deg); color: var(--indigo); }
+.fold-title { font-size: 14px; font-weight: 700; color: var(--slate); letter-spacing: -.1px; }
+.fold-count {
+  font-size: 11px; font-weight: 700; color: #4b5563; background: #f3f4f6; border: 1px solid var(--line);
+  border-radius: 20px; padding: 2px 10px; min-width: 24px; text-align: center;
+}
+.fold-spacer { flex: 1; }
+.fold-hint { font-size: 11.5px; color: #9ca3af; }
+.fold[open] > summary .fold-hint::after { content: "Collapse"; }
+.fold:not([open]) > summary .fold-hint::after { content: "Expand"; }
+.fold-pills { display: flex; gap: 6px; align-items: center; }
+.mini-pill {
+  font-size: 10.5px; font-weight: 600; color: #6b7280; background: #f8f9fb;
+  border: 1px solid #eef0f3; border-radius: 5px; padding: 2px 7px;
+}
+.fold-body { padding: 16px 20px 20px; background: #fcfcfd; }
+
+/* =======================================================
+   Domain cards (reproduced "as today")
+   ======================================================= */
+.domain-card {
+  background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--dc, #cbd5e1);
+  border-radius: 10px; margin-bottom: 12px; overflow: hidden;
+}
+.domain-card:last-child { margin-bottom: 0; }
+.domain-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 13px 16px; border-bottom: 1px solid #f3f4f6; background: #fafafa;
+}
+.domain-card-title { font-size: 15px; font-weight: 700; }
+.domain-card-title a { color: var(--slate); text-decoration: none; }
+.domain-card-title a:hover { color: var(--indigo); }
+.domain-card-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; max-width: 520px; }
+.domain-head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.priority-badge {
+  display: inline-block; font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px; white-space: nowrap;
+}
+.prio-high { background: #fee2e2; color: #991b1b; }
+.prio-med  { background: #fef9c3; color: #854d0e; }
+.prio-low  { background: #f3f4f6; color: #4b5563; }
+
+.domain-card-body { padding: 14px 16px; }
+.domain-card-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.domain-col-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #9ca3af; margin-bottom: 9px;
+}
+.task-pill { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.task-pill .tname { font-size: 12.5px; color: #374151; }
+.task-pill.done .tname { color: #9ca3af; }
+.task-pill.abandoned .tname { text-decoration: line-through; color: #9ca3af; }
+.artifact-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 500; margin: 0 4px 6px 0; background: #f3f4f6; color: #374151;
+  border: 1px solid var(--line); cursor: pointer; transition: background .1s;
+}
+.artifact-pill:hover { background: #e5e7eb; }
+
+/* status chips (matches app.css .status-*) */
+.status-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.status-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; flex-shrink: 0; }
+.st-planned               { background: #f3f4f6; color: #4b5563; }
+.st-in-progress           { background: #dbeafe; color: #1d4ed8; }
+.st-finished_successfully { background: #dcfce7; color: #15803d; }
+.st-finished_with_issues  { background: #fef9c3; color: #92400e; }
+.st-blocked               { background: #fee2e2; color: #991b1b; }
+.st-abandoned             { background: #f3f4f6; color: #9ca3af; }
+.st-wont_fix              { background: #f3f4f6; color: #9ca3af; }
+
+/* artifact type tag */
+.type-tag { font-size: 10px; padding: 2px 7px; border-radius: 5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.tt-skill   { background: #ede9fe; color: #5b21b6; }
+.tt-agent   { background: #dbeafe; color: #1e40af; }
+.tt-hook    { background: #fce7f3; color: #9d174d; }
+.tt-context { background: #f0fdf4; color: #14532d; }
+
+/* =======================================================
+   Reports list
+   ======================================================= */
+.report-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin-bottom: 8px;
+}
+.report-row:last-child { margin-bottom: 0; }
+.report-date { font-size: 13.5px; font-weight: 700; color: var(--slate); font-variant-numeric: tabular-nums; }
+.report-label { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+/* =======================================================
+   Action items list
+   ======================================================= */
+.ai-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; margin-bottom: 8px;
+}
+.ai-row:last-child { margin-bottom: 0; }
+.ai-row.resolved { opacity: .68; }
+.ai-main { flex: 1; min-width: 0; }
+.ai-text { font-size: 13px; color: var(--slate); font-weight: 500; }
+.ai-row.resolved .ai-text { text-decoration: line-through; color: var(--muted); }
+.ai-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ai-owner {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: #374151;
+  background: #f3f4f6; border-radius: 20px; padding: 2px 9px 2px 3px; font-size: 11px;
+}
+.ai-owner .dot { width: 18px; height: 18px; border-radius: 50%; background: #64748b; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; }
+.ai-due { font-variant-numeric: tabular-nums; }
+.ai-due.overdue { color: #dc2626; font-weight: 600; }
+
+.empty-note { font-size: 13px; color: #9ca3af; font-style: italic; padding: 6px 2px; }
+.flash { animation: flash 1.1s ease; }
+@keyframes flash { 0% { box-shadow: 0 0 0 3px rgba(67,97,238,.35); } 100% { box-shadow: 0 0 0 0 rgba(67,97,238,0); } }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">AI Adoption</div>
+      <div class="nav-logo-sub">Tracker</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item"><span class="nav-icon">▦</span> Dashboard</a>
+      <a class="nav-item active"><span class="nav-icon">◉</span> Teams</a>
+      <a class="nav-item"><span class="nav-icon">◆</span> Domains</a>
+    </div>
+    <hr class="nav-divider" />
+    <div class="nav-section">
+      <div class="nav-section-label">Workflow</div>
+      <a class="nav-item"><span class="nav-icon">✎</span> Reports</a>
+      <a class="nav-item"><span class="nav-icon">☑</span> Action items</a>
+      <a class="nav-item"><span class="nav-icon">⚙</span> Manage</a>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+    <div class="top-bar">
+      <div>
+        <span class="top-bar-title">Team Radar</span>
+        <span class="top-bar-sub">Champion portfolio • Dana • since 2026-02-03</span>
+      </div>
+      <div class="top-bar-actions">
+        <button class="btn btn-primary btn-sm">+ Create report</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ===== Identity strip ===== -->
+      <div class="identity">
+        <div class="id-avatar">D</div>
+        <div>
+          <div class="id-name">Radar</div>
+          <div class="id-meta">Champion <b>Dana</b> • since <b>2026-02-03</b> • <b>4</b> domains</div>
+        </div>
+        <div class="id-spacer"></div>
+      </div>
+
+      <!-- ===== ZONE 1: tile dashboard ===== -->
+      <div class="tile-grid">
+        <div class="tile acc-blue" data-target="fold-domains" title="Jump to Domains → tasks">
+          <div class="tile-top">
+            <span class="tile-label">Open tasks</span>
+            <span class="tile-ico">▣</span>
+          </div>
+          <div class="tile-value">6</div>
+          <div class="tile-sub"><span class="bad">1 blocked</span> • 5 active</div>
+        </div>
+
+        <div class="tile acc-green" data-target="fold-domains" title="Jump to Domains → tasks">
+          <div class="tile-top">
+            <span class="tile-label">Closed tasks</span>
+            <span class="tile-ico">✓</span>
+          </div>
+          <div class="tile-value">2</div>
+          <div class="tile-sub"><span class="pos">2 finished</span> • 1 abandoned</div>
+        </div>
+
+        <div class="tile acc-amber" data-target="fold-actions" title="Jump to Action items">
+          <div class="tile-top">
+            <span class="tile-label">Open actions</span>
+            <span class="tile-ico">☑</span>
+          </div>
+          <div class="tile-value">4</div>
+          <div class="tile-sub"><span class="warn">1 overdue</span> • 1 closed</div>
+        </div>
+
+        <div class="tile acc-slate" data-target="fold-reports" title="Jump to Reports">
+          <div class="tile-top">
+            <span class="tile-label">Meetings</span>
+            <span class="tile-ico">✎</span>
+          </div>
+          <div class="tile-value">4</div>
+          <div class="tile-sub">last: 2026-06-24</div>
+        </div>
+
+        <div class="tile acc-indigo" data-target="fold-domains" title="Jump to Domains">
+          <div class="tile-top">
+            <span class="tile-label">Domains</span>
+            <span class="tile-ico">◆</span>
+          </div>
+          <div class="tile-value">4</div>
+          <div class="tile-sub">+ General catch-all</div>
+        </div>
+
+        <div class="tile acc-violet" data-target="fold-artifacts" title="Jump to Artifacts">
+          <div class="tile-top">
+            <span class="tile-label">Artifacts</span>
+            <span class="tile-ico">◈</span>
+          </div>
+          <div class="tile-value">6</div>
+          <div class="tile-sub">skills · agents · context</div>
+        </div>
+      </div>
+
+      <!-- ===== ZONE 2: foldable sections ===== -->
+
+      <!-- Domains -->
+      <details class="fold" id="fold-domains">
+        <summary>
+          <span class="chev">▶</span>
+          <span class="fold-title">Domains</span>
+          <span class="fold-count">4</span>
+          <span class="fold-spacer"></span>
+          <span class="fold-pills">
+            <span class="mini-pill">6 open tasks</span>
+            <span class="mini-pill">6 artifacts</span>
+          </span>
+          <span class="fold-hint"></span>
+        </summary>
+        <div class="fold-body">
+
+          <!-- Backend -->
+          <div class="domain-card" style="--dc:#3b82f6">
+            <div class="domain-card-header">
+              <div>
+                <div class="domain-card-title"><a href="#">Backend</a></div>
+                <div class="domain-card-meta">APIs, database, test automation and CI for the radar services.</div>
+              </div>
+              <div class="domain-head-right">
+                <span class="priority-badge prio-high">Priority High</span>
+                <a href="#" class="btn btn-secondary btn-sm">View domain</a>
+              </div>
+            </div>
+            <div class="domain-card-body">
+              <div class="domain-card-cols">
+                <div>
+                  <div class="domain-col-label">Tasks</div>
+                  <div class="task-pill"><span class="status-chip st-in-progress">In progress</span><span class="tname">Migrate test suite to Claude Code</span></div>
+                  <div class="task-pill"><span class="status-chip st-blocked">Blocked</span><span class="tname">Flaky integration tests</span></div>
+                  <div class="task-pill done"><span class="status-chip st-finished_successfully">Finished</span><span class="tname">Auto-generate API docs</span></div>
+                </div>
+                <div>
+                  <div class="domain-col-label">Artifacts</div>
+                  <span class="artifact-pill"><span class="type-tag tt-skill">skill</span> pytest-runner</span>
+                  <span class="artifact-pill"><span class="type-tag tt-context">context</span> db-context</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Frontend -->
+          <div class="domain-card" style="--dc:#8b5cf6">
+            <div class="domain-card-header">
+              <div>
+                <div class="domain-card-title"><a href="#">Frontend</a></div>
+                <div class="domain-card-meta">React UI, component scaffolding and Storybook coverage.</div>
+              </div>
+              <div class="domain-head-right">
+                <span class="priority-badge prio-med">Priority Medium</span>
+                <a href="#" class="btn btn-secondary btn-sm">View domain</a>
+              </div>
+            </div>
+            <div class="domain-card-body">
+              <div class="domain-card-cols">
+                <div>
+                  <div class="domain-col-label">Tasks</div>
+                  <div class="task-pill"><span class="status-chip st-in-progress">In progress</span><span class="tname">Component scaffolding agent</span></div>
+                  <div class="task-pill"><span class="status-chip st-planned">Planned</span><span class="tname">Storybook generation</span></div>
+                </div>
+                <div>
+                  <div class="domain-col-label">Artifacts</div>
+                  <span class="artifact-pill"><span class="type-tag tt-agent">agent</span> react-scaffold</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Context creation -->
+          <div class="domain-card" style="--dc:#10b981">
+            <div class="domain-card-header">
+              <div>
+                <div class="domain-card-title"><a href="#">Context creation</a></div>
+                <div class="domain-card-meta">CLAUDE.md files, onboarding packs and repo context for the team.</div>
+              </div>
+              <div class="domain-head-right">
+                <span class="priority-badge prio-high">Priority High</span>
+                <a href="#" class="btn btn-secondary btn-sm">View domain</a>
+              </div>
+            </div>
+            <div class="domain-card-body">
+              <div class="domain-card-cols">
+                <div>
+                  <div class="domain-col-label">Tasks</div>
+                  <div class="task-pill"><span class="status-chip st-in-progress">In progress</span><span class="tname">Repo onboarding context pack</span></div>
+                  <div class="task-pill done"><span class="status-chip st-finished_successfully">Finished</span><span class="tname">Write CLAUDE.md for monorepo</span></div>
+                </div>
+                <div>
+                  <div class="domain-col-label">Artifacts</div>
+                  <span class="artifact-pill"><span class="type-tag tt-context">context</span> monorepo-claude-md</span>
+                  <span class="artifact-pill"><span class="type-tag tt-context">context</span> onboarding-pack</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- General (catch-all) -->
+          <div class="domain-card" style="--dc:#9ca3af">
+            <div class="domain-card-header">
+              <div>
+                <div class="domain-card-title"><a href="#">General</a></div>
+                <div class="domain-card-meta">Catch-all for items not yet placed in a specific domain.</div>
+              </div>
+              <div class="domain-head-right">
+                <span class="priority-badge prio-low">Priority Low</span>
+                <a href="#" class="btn btn-secondary btn-sm">View domain</a>
+              </div>
+            </div>
+            <div class="domain-card-body">
+              <div class="domain-card-cols">
+                <div>
+                  <div class="domain-col-label">Tasks</div>
+                  <div class="task-pill"><span class="status-chip st-planned">Planned</span><span class="tname">Evaluate MCP servers</span></div>
+                  <div class="task-pill abandoned"><span class="status-chip st-abandoned">Abandoned</span><span class="tname">Old prompt-template experiment</span></div>
+                </div>
+                <div>
+                  <div class="domain-col-label">Artifacts</div>
+                  <span class="artifact-pill"><span class="type-tag tt-hook">hook</span> lint-hook</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- Artifacts (team-wide) -->
+      <details class="fold" id="fold-artifacts">
+        <summary>
+          <span class="chev">▶</span>
+          <span class="fold-title">Artifacts</span>
+          <span class="fold-count">6</span>
+          <span class="fold-spacer"></span>
+          <span class="fold-pills">
+            <span class="mini-pill">2 skills</span>
+            <span class="mini-pill">1 agent</span>
+            <span class="mini-pill">2 context</span>
+            <span class="mini-pill">1 hook</span>
+          </span>
+          <span class="fold-hint"></span>
+        </summary>
+        <div class="fold-body">
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span class="artifact-pill"><span class="type-tag tt-skill">skill</span> pytest-runner</span>
+            <span class="artifact-pill"><span class="type-tag tt-context">context</span> db-context</span>
+            <span class="artifact-pill"><span class="type-tag tt-agent">agent</span> react-scaffold</span>
+            <span class="artifact-pill"><span class="type-tag tt-context">context</span> monorepo-claude-md</span>
+            <span class="artifact-pill"><span class="type-tag tt-context">context</span> onboarding-pack</span>
+            <span class="artifact-pill"><span class="type-tag tt-hook">hook</span> lint-hook</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- Reports -->
+      <details class="fold" id="fold-reports">
+        <summary>
+          <span class="chev">▶</span>
+          <span class="fold-title">Reports</span>
+          <span class="fold-count">4</span>
+          <span class="fold-spacer"></span>
+          <span class="fold-pills"><span class="mini-pill">last meeting 2026-06-24</span></span>
+          <span class="fold-hint"></span>
+        </summary>
+        <div class="fold-body">
+          <div class="report-row">
+            <div>
+              <div class="report-date">2026-06-24</div>
+              <div class="report-label">Champion meeting • Dana</div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">View / Edit</a>
+          </div>
+          <div class="report-row">
+            <div>
+              <div class="report-date">2026-06-10</div>
+              <div class="report-label">Champion meeting • Dana</div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">View / Edit</a>
+          </div>
+          <div class="report-row">
+            <div>
+              <div class="report-date">2026-05-27</div>
+              <div class="report-label">Champion meeting • Dana</div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">View / Edit</a>
+          </div>
+          <div class="report-row">
+            <div>
+              <div class="report-date">2026-05-13</div>
+              <div class="report-label">Champion meeting • Dana</div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">View / Edit</a>
+          </div>
+        </div>
+      </details>
+
+      <!-- Action items -->
+      <details class="fold" id="fold-actions">
+        <summary>
+          <span class="chev">▶</span>
+          <span class="fold-title">Action items</span>
+          <span class="fold-count">5</span>
+          <span class="fold-spacer"></span>
+          <span class="fold-pills">
+            <span class="mini-pill">4 open</span>
+            <span class="mini-pill">1 overdue</span>
+          </span>
+          <span class="fold-hint"></span>
+        </summary>
+        <div class="fold-body">
+          <div class="ai-row">
+            <div class="ai-main">
+              <div class="ai-text">Pair with backend team to unblock the flaky integration tests</div>
+              <div class="ai-meta">
+                <span class="ai-owner"><span class="dot">O</span> Omer</span>
+                <span class="ai-due">Due 2026-07-01</span> •
+                <span class="status-chip st-in-progress">In progress</span>
+              </div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">Edit report</a>
+          </div>
+
+          <div class="ai-row">
+            <div class="ai-main">
+              <div class="ai-text">Promote pytest-runner from Dana's setup to the team catalog</div>
+              <div class="ai-meta">
+                <span class="ai-owner"><span class="dot">D</span> Dana</span>
+                <span class="ai-due">Due 2026-07-05</span> •
+                <span class="status-chip st-planned">Planned</span>
+              </div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">Edit report</a>
+          </div>
+
+          <div class="ai-row">
+            <div class="ai-main">
+              <div class="ai-text">Trial an MCP server for read-only DB access in the radar services</div>
+              <div class="ai-meta">
+                <span class="ai-owner"><span class="dot">Y</span> Yuval</span>
+                <span class="ai-due">Due 2026-07-08</span> •
+                <span class="status-chip st-planned">Planned</span>
+              </div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">Edit report</a>
+          </div>
+
+          <div class="ai-row">
+            <div class="ai-main">
+              <div class="ai-text">Retire the old prompt-template experiment and archive its notes</div>
+              <div class="ai-meta">
+                <span class="ai-owner"><span class="dot">D</span> Dana</span>
+                <span class="ai-due overdue">Due 2026-06-18 (overdue)</span> •
+                <span class="status-chip st-blocked">Blocked</span>
+              </div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">Edit report</a>
+          </div>
+
+          <div class="ai-row resolved">
+            <div class="ai-main">
+              <div class="ai-text">Document CLAUDE.md conventions for the monorepo</div>
+              <div class="ai-meta">
+                <span class="ai-owner"><span class="dot">L</span> Lena</span>
+                <span class="ai-due">Due 2026-06-20</span> •
+                <span class="status-chip st-finished_successfully">Finished</span>
+              </div>
+            </div>
+            <a href="#" class="btn btn-secondary btn-sm">Edit report</a>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* Tiles deep-link into the matching fold: open it, scroll to it, flash it.
+   Folding itself is native <details> — works with zero JS. */
+document.querySelectorAll('.tile[data-target]').forEach(function (tile) {
+  tile.addEventListener('click', function () {
+    var el = document.getElementById(tile.getAttribute('data-target'));
+    if (!el) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.remove('flash');
+    void el.offsetWidth;            /* restart the flash animation */
+    el.classList.add('flash');
+  });
+});
+</script>
+</body>
+</html>
