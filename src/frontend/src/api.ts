@@ -75,7 +75,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       detail ?? `${init?.method ?? 'GET'} ${path} → ${res.status}`,
     );
   }
-  return res.json() as Promise<T>;
+  // DELETE endpoints return 204 No Content (empty body); tolerate that —
+  // and stay robust if the backend later returns a JSON body.
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
