@@ -35,14 +35,10 @@ router = APIRouter(prefix="/api", tags=["management"])
 
 class TeamCreate(BaseModel):
     name: str
-    cc_baseline: str | None = None
-    baseline_date: str | None = None
 
 
 class TeamUpdate(BaseModel):
     name: str | None = None
-    cc_baseline: str | None = None
-    baseline_date: str | None = None
 
 
 class ChampionCreate(BaseModel):
@@ -77,7 +73,34 @@ class DomainUpdate(BaseModel):
     cross_domain_ids: list[int] | None = None
 
 
+# ── constants ────────────────────────────────────────────────────────────────
+# System-provided domains the user may never delete (FROZEN CONTRACT, Wave 12).
+_GENERAL_DOMAIN_NAME = "General"
+_UNDELETABLE_DOMAIN_NAMES = {"general", "context creation"}
+
+
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+def _ensure_general_domain(
+    conn: sqlite3.Connection, champion_id: int, team_id: int
+) -> int:
+    """Find (or create) this champion's 'General' catch-all domain; return its id.
+
+    Mirrors the report engine's catch-all bucket so a domain-delete can reassign
+    orphaned tasks/artifacts. Plain-SQL to match this module's style (management
+    never reaches into the engine)."""
+    for row in conn.execute(
+        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+    ).fetchall():
+        if row["name"].strip().lower() == _GENERAL_DOMAIN_NAME.lower():
+            return row["id"]
+    cur = conn.execute(
+        "INSERT INTO domain (team_id, champion_id, name, description) VALUES (?, ?, ?, ?)",
+        (team_id, champion_id, _GENERAL_DOMAIN_NAME,
+         "Catch-all for items not yet assigned to a specific domain."),
+    )
+    return cur.lastrowid
+
 
 def _insert(conn: sqlite3.Connection, table: str, data: dict) -> int:
     """INSERT `data` into `table`; return the new row id."""
@@ -283,6 +306,37 @@ def update_champion(champion_id: int, body: ChampionUpdate) -> Champion:
     return Champion(**dict(row))
 
 
+@router.delete("/champions/{champion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_champion(champion_id: int) -> None:
+    """Delete a champion and its (now-empty) domains.
+
+    Guards meeting history: if the champion has ANY reports, refuse with 409 —
+    deleting would destroy the fanned-out timeline. A champion with no reports has
+    no tasks/artifacts (both are report-driven), so its domains are empty and are
+    removed alongside it (domain_link rows cascade). 404 if the champion is
+    unknown."""
+    conn = get_connection()
+    try:
+        if _fetch(conn, "champion", champion_id) is None:
+            raise HTTPException(status_code=404, detail="Champion not found")
+        report_count = conn.execute(
+            "SELECT COUNT(*) AS n FROM report WHERE champion_id = ?", (champion_id,)
+        ).fetchone()["n"]
+        if report_count:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Champion {champion_id} has {report_count} report(s); "
+                    "delete is blocked to preserve meeting history."
+                ),
+            )
+        conn.execute("DELETE FROM domain WHERE champion_id = ?", (champion_id,))
+        conn.execute("DELETE FROM champion WHERE id = ?", (champion_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── domains ──────────────────────────────────────────────────────────────────
 
 class DomainExtractRequest(BaseModel):
@@ -394,5 +448,44 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
             _reconcile_links(conn, domain_id, cross_domain_ids)
         conn.commit()
         return build_domain(conn, domain_id)
+    finally:
+        conn.close()
+
+
+@router.delete("/domains/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_domain(domain_id: int) -> None:
+    """Delete a domain, reassigning its tasks & artifacts to the champion's
+    'General' catch-all first.
+
+    Blocks (409) deleting the system-provided constant domains 'General' and
+    'Context creation'. Tasks (NOT NULL domain_id) and artifacts in the deleted
+    domain are re-parented to 'General' (ensured) so nothing is orphaned; the
+    domain's cross-links cascade. 404 if the domain is unknown."""
+    conn = get_connection()
+    try:
+        row = _fetch(conn, "domain", domain_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Domain not found")
+        if row["name"].strip().lower() in _UNDELETABLE_DOMAIN_NAMES:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Domain {row['name']!r} is a system domain and cannot be "
+                    "deleted."
+                ),
+            )
+        general_id = _ensure_general_domain(
+            conn, row["champion_id"], row["team_id"]
+        )
+        conn.execute(
+            "UPDATE task SET domain_id = ? WHERE domain_id = ?",
+            (general_id, domain_id),
+        )
+        conn.execute(
+            "UPDATE artifact SET domain_id = ? WHERE domain_id = ?",
+            (general_id, domain_id),
+        )
+        conn.execute("DELETE FROM domain WHERE id = ?", (domain_id,))
+        conn.commit()
     finally:
         conn.close()

@@ -42,6 +42,18 @@ from search import ParseError, filter_artifacts, filter_tasks
 
 router = APIRouter(prefix="/api", tags=["views"])
 
+# Terminal / "closed" status tokens (FROZEN CONTRACT, Wave 12). A task or action
+# item is OPEN when its status is NOT in this set (planned, in-progress, blocked).
+_TERMINAL_STATUSES = {
+    "finished_successfully",
+    "finished_with_issues",
+    "abandoned",
+    "wont_fix",
+}
+
+# AI-Lead literal owner string (FROZEN CONTRACT).
+_AI_LEAD_OWNER = "AI Lead"
+
 
 # ── local composite response models (not in models.py) ──────────────────────
 # Field names match the contract §2 shapes EXACTLY.
@@ -65,13 +77,25 @@ class DomainBlock(BaseModel):
 
 
 class TeamPage(BaseModel):
-    """The hub: a champion's portfolio of domains, labeled by team (contract §2)."""
+    """The hub: a champion's portfolio of domains, labeled by team (contract §2).
+
+    The `*_count` / open-closed fields are summary tallies over the data already
+    loaded for the page (Wave 12). "Closed" uses the terminal status set; "open"
+    is everything else.
+    """
     team: models.Team
     champion: models.Champion
     domains: list[DomainBlock]
     all_team_artifacts: list[models.Artifact]
     reports: list[models.Report]
     action_items: list[models.ActionItem]
+    open_tasks: int
+    closed_tasks: int
+    open_action_items: int
+    closed_action_items: int
+    meeting_count: int
+    domain_count: int
+    artifact_count: int
 
 
 class DomainPage(BaseModel):
@@ -140,7 +164,7 @@ class TeamEntities(BaseModel):
 
 class TaskPatch(BaseModel):
     """Manager edit for a task's current state: `status`, `owner`, `domain_id`,
-    `started_on`, `ended_on` are all editable (partial PATCH).
+    `started_on`, `due_date` are all editable (partial PATCH).
 
     This is the manager's direct current-state edit handle. The edit is saved to
     current-state but is intentionally UN-JOURNALED: reports remain the only thing
@@ -155,7 +179,7 @@ class TaskPatch(BaseModel):
     owner: str | None = None
     domain_id: int | None = None
     started_on: str | None = None
-    ended_on: str | None = None
+    due_date: str | None = None
 
 
 class ArtifactPatch(BaseModel):
@@ -169,6 +193,23 @@ class ArtifactPatch(BaseModel):
     tags: list[str] | None = None
     summary: str | None = None
     domain_id: int | None = None
+
+
+class AILeadActionItem(BaseModel):
+    """One AI-Lead-owned action item, flattened across ALL teams (Wave 12).
+
+    The cross-team AI-Lead worklist: every action item whose `owner` is the
+    literal 'AI Lead', resolved against its report/champion/team and (optional)
+    domain. `domain` is null when the item is unplaced/team-wide.
+    """
+    id: int
+    text: str
+    team_name: str
+    champion_name: str
+    meeting_date: str
+    status: str
+    domain: str | None = None
+    report_id: int
 
 
 # `from __future__ import annotations` makes the model field annotations strings;
@@ -219,9 +260,8 @@ def _artifact_history(row: sqlite3.Row) -> models.ArtifactHistory:
 
 
 def _action_item(row: sqlite3.Row) -> models.ActionItem:
-    d = dict(row)
-    d["resolved"] = bool(d.get("resolved"))
-    return models.ActionItem(**d)
+    # `status` is a plain TEXT column (Wave 12; `resolved` is gone) — pass through.
+    return models.ActionItem(**dict(row))
 
 
 # ── Wave-10 helpers ──────────────────────────────────────────────────────────
@@ -383,6 +423,25 @@ def team_page(id: int) -> TeamPage:
         ).fetchall()
         action_items = [_action_item(r) for r in action_rows]
 
+        # ── summary tallies over the data already loaded above (Wave 12) ──────
+        # Closed = status in the terminal set; open = everything else.
+        open_tasks = closed_tasks = 0
+        artifact_count = len(all_team_artifacts)
+        for block in domains:
+            artifact_count += len(block.artifacts)
+            for t in block.tasks:
+                if t.status.value in _TERMINAL_STATUSES:
+                    closed_tasks += 1
+                else:
+                    open_tasks += 1
+
+        open_action_items = closed_action_items = 0
+        for r in action_rows:
+            if r["status"] in _TERMINAL_STATUSES:
+                closed_action_items += 1
+            else:
+                open_action_items += 1
+
         return TeamPage(
             team=team,
             champion=champion,
@@ -390,6 +449,13 @@ def team_page(id: int) -> TeamPage:
             all_team_artifacts=all_team_artifacts,
             reports=reports,
             action_items=action_items,
+            open_tasks=open_tasks,
+            closed_tasks=closed_tasks,
+            open_action_items=open_action_items,
+            closed_action_items=closed_action_items,
+            meeting_count=len(reports),
+            domain_count=len(domains),
+            artifact_count=artifact_count,
         )
     finally:
         conn.close()
@@ -547,7 +613,7 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
 
     This is a management tool: the manager edits current-state directly. Accepts
     `status` (validated against `TaskStatus`), `owner`, `domain_id`, `started_on`,
-    `ended_on` (partial PATCH). The edit is BOTH saved to current-state AND
+    `due_date` (partial PATCH). The edit is BOTH saved to current-state AND
     journaled: the engine appends one `source='manual'` `task_history` row dated
     today so the weekly story does not silently contradict the current state.
 
@@ -683,5 +749,43 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
         except EngineError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return _artifact(row)
+    finally:
+        conn.close()
+
+
+# ── Wave-12: cross-team AI-Lead worklist ─────────────────────────────────────
+
+@router.get("/ai-lead/action-items", response_model=list[AILeadActionItem])
+def ai_lead_action_items() -> list[AILeadActionItem]:
+    """Every action item owned by the AI Lead, across ALL teams (newest first).
+
+    Flattens each `action_item` (owner = 'AI Lead') against its report
+    (meeting_date, report_id), champion (name, team_id) and team (name); `domain`
+    is resolved via the nullable `action_item.domain_id` (null = unplaced/team-wide).
+    Ordered by meeting_date DESC (id DESC for same-date ties)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                ai.id          AS id,
+                ai.text        AS text,
+                t.name         AS team_name,
+                c.name         AS champion_name,
+                r.meeting_date AS meeting_date,
+                ai.status      AS status,
+                d.name         AS domain,
+                r.id           AS report_id
+            FROM action_item ai
+            JOIN report r   ON r.id = ai.report_id
+            JOIN champion c ON c.id = r.champion_id
+            JOIN team t     ON t.id = c.team_id
+            LEFT JOIN domain d ON d.id = ai.domain_id
+            WHERE ai.owner = ?
+            ORDER BY r.meeting_date DESC, ai.id DESC
+            """,
+            (_AI_LEAD_OWNER,),
+        ).fetchall()
+        return [AILeadActionItem(**dict(r)) for r in rows]
     finally:
         conn.close()
