@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-27 | **Branch:** `mvp-improvements` (base for Wave 11→14) | **Wave 11 CLOSED**
+> **Last updated:** 2026-06-27 | **Branch:** `mvp-improvements` | **Waves 11–12 DONE**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜⬜⬜] 70% (97/138)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 86% (118/138)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 97 / 138 | 70% |
+| 🟢 Done | 118 / 138 | 86% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 41 (Wave 12: 21 · 13: 17 · 14: 3) | 30% |
+| ⬜ Pending | 20 (Wave 13: 17 · 14: 3) | 14% |
 
 ---
 
@@ -33,8 +33,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 9 | Done | 1/1 | 1/1 | 0/4 | Flat id-based engine (`d696420` + dup-fix `2554a35` + cleanup `c6f584a`). Team-scoped id-bearing `build_draft_context`; id-matched save with **id back-fill**; replay back-fills too so an entity added on EDIT can't duplicate (CRITICAL review catch, fixed+proven); domain-changes machinery removed; `summary`/`note` split; `seed.py` reseeded flat (§6 intact). Verified in worktree throwaway DB (no-dup across save/edit-add/re-edit; §6 trace); `import app` clean on mvp. Full live test needs Wave 10 editor UI. |
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
 | 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
-| 12 | Not Started | 0/3 | 0/3 | 21/21 | **Backend + FE-foundation** (parallel) — 12A backend-core, 12B backend-routes, 12C FE-foundation+report-editor. Build the contract into code |
-| 13 | Not Started | 0/3 | 0/3 | 17/17 | **FE consumers** (parallel) — 13A manage, 13B viewers (team redesign mock), 13C AI-Lead view (mock). Branch off Wave-12 |
+| 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
+| 13 | Not Started | 0/3 | 0/3 | 17/17 | **FE consumers** (parallel) — 13A manage, 13B viewers (team mock), 13C AI-Lead view (mock). Branch off Wave-12. **⚠ See Wave-13 prep note** — backend renames ripple into ~6 FE files; boundaries need a tweak before launch |
 | 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -331,42 +331,44 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 12 — Backend core + routes + FE-foundation/report-editor (3 agents, parallel)
+## Wave 12 — Backend core + routes + FE-foundation/report-editor (3 agents, parallel) — 🟢 DONE
 
-> Build the Wave-11 contract into code on disjoint trees. After this wave every shared name/enum/route/CSS-token/api-method exists, so Wave-13 consumers depend only on a prior wave.
+> Built the Wave-11 contract into code on disjoint trees; all cherry-picked + verified on `mvp-improvements`.
 
 ### Agent 12A: Backend core — schema, models, engine, prompt, seed, search (`python-pro`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Remove cc_baseline + baseline_date | ⬜ Pending | item 2 |
-| 2 | Task `ended_on`/`finished_on`→`due_date` + drop terminal gate | ⬜ Pending | item 7 — most cross-cutting |
-| 3 | Add `wont_fix` status (enum + CHECKs + terminal) | ⬜ Pending | item 8 |
-| 4 | Action-item status (drop `resolved`) | ⬜ Pending | item 8 |
-| 5 | Owner: default champion + LLM-declared action-item owner | ⬜ Pending | item 4 |
-| 6 | "Context creation" constant domain (priority 1) | ⬜ Pending | item 5 |
-| 7 | Fix + re-verify tests & seed | ⬜ Pending | throwaway DB only |
-| G | ai-engineer review of prompt/structured-output diff | ⬜ Pending | expert gate |
+| 1 | Remove cc_baseline + baseline_date | 🟢 Done | gone from schema/models/seed (verified absent) |
+| 2 | Task `ended_on`/`finished_on`→`due_date` + drop terminal gate | 🟢 Done | free date; **review fix**: sticky walk-back (a later silent report no longer wipes it) |
+| 3 | Add `wont_fix` status (enum + CHECKs + terminal) | 🟢 Done | in 3 CHECKs + TaskStatus |
+| 4 | Action-item status (drop `resolved`) | 🟢 Done | status default `planned` |
+| 5 | Owner: default champion + LLM-declared action-item owner | 🟢 Done | **review fix**: champion owner now survives edit-replay |
+| 6 | "Context creation" constant domain (priority 1) | 🟢 Done | + General; both in draft context |
+| 7 | Fix + re-verify tests & seed | 🟢 Done | 45/45 journal scenarios (throwaway DB) |
+| G | ai-engineer review of prompt/structured-output diff | 🟡 Deferred | code-reviewer covered the diff; dedicated ai-engineer prompt audit still open (low risk) |
 
 ### Agent 12B: Backend routes — management, views, counts, cross-team endpoint (`backend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Drop cc_baseline from `TeamCreate`/`TeamUpdate` | ⬜ Pending | item 2 |
-| 2 | `DELETE /api/champions/{id}` (409 if has reports) | ⬜ Pending | item 6 |
-| 3 | `DELETE /api/domains/{id}` (reassign→General; block constants) | ⬜ Pending | item 6 |
-| 4 | Team-page counts on `TeamPage` | ⬜ Pending | item 9 |
-| 5 | `TaskPatch.due_date`; `_action_item` status | ⬜ Pending | items 7/8 |
-| 6 | `GET /api/ai-lead/action-items` | ⬜ Pending | item 10 backend (consumed by 13C) |
+| 1 | Drop cc_baseline from `TeamCreate`/`TeamUpdate` | 🟢 Done | |
+| 2 | `DELETE /api/champions/{id}` (409 if has reports) | 🟢 Done | |
+| 3 | `DELETE /api/domains/{id}` (reassign→General; block constants) | 🟢 Done | **review fix**: also reassigns action_items (was 500 on FK) |
+| 4 | Team-page counts on `TeamPage` | 🟢 Done | 7 count fields |
+| 5 | `TaskPatch.due_date`; `_action_item` status | 🟢 Done | |
+| 6 | `GET /api/ai-lead/action-items` | 🟢 Done | route present; consumed by 13C |
 
 ### Agent 12C: FE foundation (types/css/api.ts) + report editor (`frontend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | FE type contract — additive (TaskStatus+wont_fix, +action-item status, due_date rename; LEAVE Team.cc_baseline for 13A) | ⬜ Pending | items 7/8; build stays green |
-| 2 | FE css contract (status tokens) + table alignment + participants css | ⬜ Pending | items 1/8 |
-| 3 | api.ts methods (`champions.delete`, `domains.delete`, `aiLead.actionItems`) | ⬜ Pending | items 6/10 |
-| 4 | Participants comma-add + default champion/AI Lead | ⬜ Pending | item 3 |
-| 5 | Owner dropdown {AI Lead/champion/other} | ⬜ Pending | items 3/4 |
-| 6 | "Finished on"→"Due on" | ⬜ Pending | item 7 |
-| 7 | Action-item status column + Won't Fix option | ⬜ Pending | item 8 |
+| 1 | FE type contract — additive (TaskStatus+wont_fix, +action-item status, due_date rename; LEFT Team.cc_baseline for 13A) | 🟢 Done | + **review fix**: `AILeadActionItem` type, `TeamPage` count fields |
+| 2 | FE css contract (status tokens) + table alignment + participants css | 🟢 Done | wont_fix = slate |
+| 3 | api.ts methods (`champions.delete`, `domains.delete`, `aiLead.actionItems`) | 🟢 Done | + **review fix**: `request()` tolerates 204 |
+| 4 | Participants comma-add + default champion/AI Lead | 🟢 Done | |
+| 5 | Owner dropdown {AI Lead/champion/other} | 🟢 Done | "other"→free text |
+| 6 | "Finished on"→"Due on" | 🟢 Done | |
+| 7 | Action-item status column + Won't Fix option | 🟢 Done | |
+
+> **⚠ Wave-13 prep note (from the Wave-12 code review — resolve before launching Wave 13):** the backend renames (`ended_on`→`due_date`, `cc_baseline` removed, `resolved`→`status`) are done, and 12C kept the FE entity types additive so the build still compiles — but ~6 **Wave-13-owned** FE files still read the dead fields and will show `—`/wrong state until updated: `TaskDetailPage.tsx` & `TasksPage.tsx` (`ended_on`→`due_date`), `pages/domain/DomainPage.tsx` (`ended_on` — **currently unscoped, add it**), `TeamForm.tsx`/`ManagePage.tsx`/`TeamPage.tsx` (`cc_baseline`), `TeamPage.tsx` `ActionItemsList` (`resolved`→`status`). **Coupling risk:** finishing the `types.ts` cleanup (add `due_date` to `Task`/`TaskHistory`/`TaskPatchBody`, drop `Team.cc_baseline`/`ActionItem.resolved`) touches a file both 13A and 13B consume → decide one owner for the final `types.ts` pass (or keep it additive) before launching, else 13A/13B collide on `types.ts`.
 
 ---
 
