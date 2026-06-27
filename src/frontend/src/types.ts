@@ -11,7 +11,8 @@ export type TaskStatus =
   | 'finished_successfully'
   | 'finished_with_issues'
   | 'blocked'
-  | 'abandoned';
+  | 'abandoned'
+  | 'wont_fix';
 
 export type ArtifactType = 'agent' | 'skill' | 'hook' | 'context';
 
@@ -91,7 +92,9 @@ export interface ActionItem {
   text: string;
   owner: string | null;
   due_date: string | null;
-  resolved: boolean;
+  status?: TaskStatus;
+  /** Legacy current-state flag — still read by TeamPage; superseded by `status`. */
+  resolved?: boolean;
 }
 
 // ---- History rows (spec §5) ----
@@ -143,7 +146,7 @@ export interface ReportTaskLine {
   status: TaskStatus;
   owner?: string;
   note?: string;
-  finished_on?: string; // optional per-task finish-date override (YYYY-MM-DD)
+  due_date?: string; // optional per-task due-date override (YYYY-MM-DD)
   domain_id?: number | null;
   domain?: string | null;
 }
@@ -165,6 +168,7 @@ export interface ReportActionItemLine {
   text: string;
   owner?: string;
   due_date?: string;
+  status?: TaskStatus;
   domain_id?: number | null;
   domain?: string | null;
 }

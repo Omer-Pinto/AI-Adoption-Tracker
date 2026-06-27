@@ -6,6 +6,7 @@
 // Vite `/api` proxy (see vite.config.ts).
 
 import type {
+  ActionItem,
   Artifact,
   ArtifactDetail,
   ArtifactPatchBody,
@@ -92,6 +93,8 @@ export const api = {
       request('/champions', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: number, body: Partial<Omit<Champion, 'id'>>): Promise<Champion> =>
       request(`/champions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    delete: (id: number): Promise<void> =>
+      request(`/champions/${id}`, { method: 'DELETE' }),
   },
   domains: {
     list: (): Promise<Domain[]> => request('/domains'),
@@ -108,6 +111,8 @@ export const api = {
     /** POST /api/domains/extract — LLM extraction, returns proposals (not saved). */
     extract: (text: string): Promise<{ domains: DomainProposal[] }> =>
       request('/domains/extract', { method: 'POST', body: JSON.stringify({ text }) }),
+    delete: (id: number): Promise<void> =>
+      request(`/domains/${id}`, { method: 'DELETE' }),
   },
 
   // ---- Views & lists (backend routes/views.py — task_breakdown 1B) ----
@@ -161,6 +166,12 @@ export const api = {
     // `GET /api/search/values?key=...` → tagged { key, kind, values }.
     values: (key: SearchKey): Promise<SearchValuesResult> =>
       request(`/search/values?key=${encodeURIComponent(key)}`),
+  },
+
+  // ---- AI-Lead dashboard (backend routes/ai_lead.py — Wave 12/13) ----
+  aiLead: {
+    // `GET /api/ai-lead/action-items` — every champion's open action items.
+    actionItems: (): Promise<ActionItem[]> => request('/ai-lead/action-items'),
   },
 };
 

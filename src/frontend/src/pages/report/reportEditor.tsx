@@ -38,6 +38,9 @@ import type {
 
 // ── option lists (enum values authoritative from models.py) ─────────────────
 
+/** Literal owner string for the AI-Lead preset (frozen contract). */
+const AI_LEAD = 'AI Lead';
+
 interface StatusOpt {
   v: TaskStatus;
   l: string;
@@ -50,6 +53,7 @@ export const STATUS_OPTS: StatusOpt[] = [
   { v: 'finished_with_issues', l: 'Finished w/ issues', cls: 'sd-finished-issues' },
   { v: 'blocked', l: 'Blocked', cls: 'sd-blocked' },
   { v: 'abandoned', l: 'Abandoned', cls: 'sd-abandoned' },
+  { v: 'wont_fix', l: "Won't Fix", cls: 'sd-wont_fix' },
 ];
 function statusCls(v: TaskStatus): string {
   return STATUS_OPTS.find((s) => s.v === v)?.cls ?? '';
@@ -190,6 +194,58 @@ function StatusControl({
           </option>
         ))}
       </select>
+    </span>
+  );
+}
+
+// ── owner control (preset select {AI Lead, champion, other} + free-text) ─────
+
+function OwnerControl({
+  value,
+  champion,
+  onChange,
+}: {
+  value: string;
+  champion: string;
+  onChange: (v: string) => void;
+}) {
+  const presets = [AI_LEAD, champion];
+  // "other" is active when the stored value is a non-preset, non-empty string,
+  // OR the user explicitly picked "other" (tracked locally so the free-text box
+  // stays open even while it is still empty).
+  const [otherActive, setOtherActive] = useState(value !== '' && !presets.includes(value));
+  const selectValue = otherActive ? '__other__' : presets.includes(value) ? value : '';
+
+  return (
+    <span className="owner-control">
+      <select
+        className="cell-select owner-select"
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === '__other__') {
+            setOtherActive(true);
+            onChange('');
+          } else {
+            setOtherActive(false);
+            onChange(v);
+          }
+        }}
+      >
+        <option value="">— owner —</option>
+        <option value={AI_LEAD}>{AI_LEAD}</option>
+        <option value={champion}>{champion}</option>
+        <option value="__other__">other…</option>
+      </select>
+      {otherActive && (
+        <input
+          className="cell-input owner-input"
+          value={value}
+          placeholder="owner name"
+          autoFocus
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </span>
   );
 }
@@ -395,12 +451,14 @@ function TasksCard({
   keys,
   entities,
   domains,
+  champion,
   onChange,
 }: {
   tasks: ReportTaskLine[];
   keys: string[];
   entities: TeamEntities;
   domains: DomainOption[];
+  champion: string;
   onChange: (next: ReportTaskLine[], nextKeys: string[]) => void;
 }) {
   function patch(i: number, p: Partial<ReportTaskLine>) {
@@ -442,7 +500,7 @@ function TasksCard({
               <th>Status</th>
               <th>Owner</th>
               <th>Domain</th>
-              <th>Finished on</th>
+              <th>Due on</th>
               <th>Note</th>
               <th />
             </tr>
@@ -463,11 +521,10 @@ function TasksCard({
                   <StatusControl value={t.status} onChange={(s) => patch(i, { status: s })} />
                 </td>
                 <td>
-                  <input
-                    className="cell-input owner-input"
+                  <OwnerControl
                     value={t.owner ?? ''}
-                    placeholder="owner"
-                    onChange={(e) => patch(i, { owner: e.target.value })}
+                    champion={champion}
+                    onChange={(v) => patch(i, { owner: v })}
                   />
                 </td>
                 <td>
@@ -477,8 +534,8 @@ function TasksCard({
                   <input
                     className="cell-date"
                     type="date"
-                    value={t.finished_on ?? ''}
-                    onChange={(e) => patch(i, { finished_on: e.target.value })}
+                    value={t.due_date ?? ''}
+                    onChange={(e) => patch(i, { due_date: e.target.value })}
                   />
                 </td>
                 <td>
@@ -1024,12 +1081,14 @@ function ActionItemsCard({
   keys,
   entities,
   domains,
+  champion,
   onChange,
 }: {
   items: ReportActionItemLine[];
   keys: string[];
   entities: TeamEntities;
   domains: DomainOption[];
+  champion: string;
   onChange: (next: ReportActionItemLine[], nextKeys: string[]) => void;
 }) {
   function patch(i: number, p: Partial<ReportActionItemLine>) {
@@ -1057,6 +1116,7 @@ function ActionItemsCard({
           <thead>
             <tr>
               <th>Action item (type @ task or # artifact)</th>
+              <th>Status</th>
               <th>Owner</th>
               <th>Due</th>
               <th>Domain</th>
@@ -1075,11 +1135,13 @@ function ActionItemsCard({
                   />
                 </td>
                 <td>
-                  <input
-                    className="cell-input owner-input"
+                  <StatusControl value={it.status ?? 'planned'} onChange={(s) => patch(i, { status: s })} />
+                </td>
+                <td>
+                  <OwnerControl
                     value={it.owner ?? ''}
-                    placeholder="owner"
-                    onChange={(e) => patch(i, { owner: e.target.value })}
+                    champion={champion}
+                    onChange={(v) => patch(i, { owner: v })}
                   />
                 </td>
                 <td>
@@ -1235,7 +1297,7 @@ export function stripReportForSave(report: ReportJson): ReportJson {
     if (t.id != null) line.id = t.id;
     if (t.owner) line.owner = t.owner;
     if (t.note) line.note = t.note;
-    if (t.finished_on) line.finished_on = t.finished_on;
+    if (t.due_date) line.due_date = t.due_date;
     if (t.domain_id != null) {
       line.domain_id = t.domain_id;
       if (t.domain) line.domain = t.domain;
@@ -1262,6 +1324,7 @@ export function stripReportForSave(report: ReportJson): ReportJson {
     const line: ReportActionItemLine = { text: it.text };
     if (it.owner) line.owner = it.owner;
     if (it.due_date) line.due_date = it.due_date;
+    if (it.status) line.status = it.status;
     if (it.domain_id != null) {
       line.domain_id = it.domain_id;
       if (it.domain) line.domain = it.domain;
@@ -1283,6 +1346,87 @@ export function findMissingArtifactTypes(report: ReportJson): string[] {
   return (report.artifacts ?? [])
     .filter((a) => a.id == null && !a.type)
     .map((a) => a.artifact || '(unnamed artifact)');
+}
+
+// ── participants row (pill chips; comma / Enter commits; default seed) ───────
+
+function ParticipantsRow({
+  participants,
+  champion,
+  onChange,
+}: {
+  participants: string[];
+  champion: string;
+  // undefined target clears the participants key entirely (extra="forbid" clean).
+  onChange: (next: string[] | undefined) => void;
+}) {
+  const [draft, setDraft] = useState('');
+
+  // Seed default participants — [<champion>, "AI Lead"] — when none are present
+  // (run once on mount; the editor only renders with a loaded report).
+  useEffect(() => {
+    if (participants.length === 0) {
+      onChange([champion, AI_LEAD].filter(Boolean));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function commit(raw: string) {
+    const name = raw.trim();
+    setDraft('');
+    if (!name || participants.includes(name)) return;
+    onChange([...participants, name]);
+  }
+  function remove(idx: number) {
+    const next = participants.filter((_, i) => i !== idx);
+    onChange(next.length > 0 ? next : undefined);
+  }
+
+  return (
+    <div className="participants-row">
+      <span className="participants-label">Participants:</span>
+      {participants.map((p, pi) => (
+        <span className="avatar" key={pi}>
+          <span className="dot">{p.slice(0, 1).toUpperCase()}</span>
+          {p}
+          <button className="avatar-x" title="Remove participant" onClick={() => remove(pi)}>
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        className="participants-edit"
+        value={draft}
+        placeholder="Add name, comma to add"
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v.includes(',')) {
+            const parts = v.split(',');
+            const tail = parts.pop() ?? '';
+            const additions = parts.map((s) => s.trim()).filter(Boolean);
+            if (additions.length > 0) {
+              const merged = [...participants];
+              for (const a of additions) if (!merged.includes(a)) merged.push(a);
+              onChange(merged);
+            }
+            setDraft(tail);
+          } else {
+            setDraft(v);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit(draft);
+          } else if (e.key === 'Backspace' && draft === '' && participants.length > 0) {
+            e.preventDefault();
+            remove(participants.length - 1);
+          }
+        }}
+        onBlur={() => commit(draft)}
+      />
+    </div>
+  );
 }
 
 // ── the full editor body ────────────────────────────────────────────────────
@@ -1323,27 +1467,16 @@ export function FlatReportEditor({
             <span className="meta-static">{report.champion}</span>
           </div>
         </div>
-        <div className="participants-row">
-          <span className="participants-label">Participants:</span>
-          {(report.participants ?? []).map((p, pi) => (
-            <span className="avatar" key={pi}>
-              <span className="dot">{p.slice(0, 1).toUpperCase()}</span>
-              {p}
-            </span>
-          ))}
-          <input
-            className="participants-edit"
-            value={(report.participants ?? []).join(', ')}
-            placeholder="Comma-separated names"
-            onChange={(e) => {
-              const parts = e.target.value.split(',').map((x) => x.trim()).filter(Boolean);
-              const next = { ...report };
-              if (parts.length > 0) next.participants = parts;
-              else delete next.participants;
-              onReportChange(next);
-            }}
-          />
-        </div>
+        <ParticipantsRow
+          participants={report.participants ?? []}
+          champion={report.champion}
+          onChange={(next) => {
+            const r = { ...report };
+            if (next && next.length > 0) r.participants = next;
+            else delete r.participants;
+            onReportChange(r);
+          }}
+        />
       </div>
 
       <TasksCard
@@ -1351,6 +1484,7 @@ export function FlatReportEditor({
         keys={keys.tasks}
         entities={entities}
         domains={domains}
+        champion={report.champion}
         onChange={(tasks, nextKeys) => {
           onReportChange({ ...report, tasks });
           onKeysChange({ ...keys, tasks: nextKeys });
@@ -1373,6 +1507,7 @@ export function FlatReportEditor({
         keys={keys.actionItems}
         entities={entities}
         domains={domains}
+        champion={report.champion}
         onChange={(action_items, nextKeys) => {
           onReportChange({ ...report, action_items });
           onKeysChange({ ...keys, actionItems: nextKeys });

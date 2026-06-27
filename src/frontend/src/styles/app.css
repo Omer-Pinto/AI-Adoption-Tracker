@@ -39,6 +39,7 @@
 .status-finished_with_issues  { background: #fef9c3;  color: #92400e; }
 .status-blocked               { background: #fee2e2;  color: #991b1b; }
 .status-abandoned             { background: #f3f4f6;  color: #9ca3af; }
+.status-wont_fix              { background: #f1f5f9;  color: #64748b; }
 
 /* ---- Artifact type pill: spec §5 type `context` (mockup called it context_file) ---- */
 .artifact-type.type-context { background: #f0fdf4; color: #14532d; }
@@ -474,6 +475,7 @@
 .journey-dot.dot-finished_with_issues  { background: #d97706; }
 .journey-dot.dot-blocked              { background: #ef4444; }
 .journey-dot.dot-abandoned            { background: #6b7280; }
+.journey-dot.dot-wont_fix             { background: #64748b; }
 
 .journey-step-header {
   display: flex;
@@ -929,6 +931,7 @@
 .detail-tl-dot.dot-finished_with_issues  { background: #d97706; }
 .detail-tl-dot.dot-blocked               { background: #ef4444; }
 .detail-tl-dot.dot-abandoned             { background: #6b7280; }
+.detail-tl-dot.dot-wont_fix              { background: #64748b; }
 .detail-tl-content { flex: 1; }
 .detail-tl-head {
   display: flex;
@@ -992,11 +995,20 @@
   width: 20px; height: 20px; border-radius: 50%; background: #6b7280; color: #fff;
   display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
 }
+.report-editor .avatar .avatar-x {
+  border: none; background: transparent; color: #9ca3af; cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 0 0 0 2px; margin-left: 1px;
+}
+.report-editor .avatar .avatar-x:hover { color: #dc2626; }
 .report-editor .participants-edit {
   border: 1px dashed #e5e7eb; border-radius: 6px; padding: 3px 9px;
   font-size: 12px; font-family: inherit; color: #1a1d23; background: transparent; min-width: 160px;
 }
 .report-editor .participants-edit:focus { outline: 2px solid var(--re-indigo); outline-offset: 1px; }
+
+/* Owner control — preset select + optional free-text "other" box */
+.report-editor .owner-control { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.report-editor .owner-select { min-width: 90px; }
 
 /* Section card */
 .report-editor .card {
@@ -1031,9 +1043,8 @@
   text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; background: #fafbfc; white-space: nowrap;
 }
 .report-editor table.flat td, .report-editor table.ai-table td {
-  font-size: 13px; padding: 9px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: middle;
+  font-size: 13px; padding: 9px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: top;
 }
-.report-editor table.ai-table td { vertical-align: top; }
 .report-editor table.flat tr:last-child td, .report-editor table.ai-table tr:last-child td { border-bottom: none; }
 .report-editor table.flat tr:hover td { background: #fafafe; }
 .report-editor .name-td { min-width: 200px; }
@@ -1089,6 +1100,7 @@
 .report-editor .sd-finished-issues{ background: #d97706; }
 .report-editor .sd-blocked        { background: #dc2626; }
 .report-editor .sd-abandoned      { background: #9ca3af; }
+.report-editor .sd-wont_fix       { background: #64748b; }
 
 /* Domain select (per-domain color) */
 .report-editor .dom-sel {
