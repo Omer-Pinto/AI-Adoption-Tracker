@@ -360,7 +360,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 12C: FE foundation (types/css/api.ts) + report editor (`frontend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | FE type contract (TaskStatus+wont_fix, action-item status, due_date, drop Team.cc_baseline) | ⬜ Pending | items 2/7/8 |
+| 1 | FE type contract — additive (TaskStatus+wont_fix, +action-item status, due_date rename; LEAVE Team.cc_baseline for 13A) | ⬜ Pending | items 7/8; build stays green |
 | 2 | FE css contract (status tokens) + table alignment + participants css | ⬜ Pending | items 1/8 |
 | 3 | api.ts methods (`champions.delete`, `domains.delete`, `aiLead.actionItems`) | ⬜ Pending | items 6/10 |
 | 4 | Participants comma-add + default champion/AI Lead | ⬜ Pending | item 3 |
@@ -377,7 +377,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 13A: Manage — remove CC baseline + delete (`frontend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Remove CC baseline from `TeamForm` | ⬜ Pending | item 2 |
+| 1 | Remove CC baseline (`types.ts` field + `TeamForm`) | ⬜ Pending | item 2 |
 | 2 | Delete buttons (champions + domains) → `api.*.delete` | ⬜ Pending | item 6 |
 
 ### Agent 13B: Viewer pages — team redesign + status display (`frontend-developer`)

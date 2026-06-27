@@ -407,7 +407,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 7. **Team-page counts (item 9):** add to `TeamPage` model + `team_page()`: `open_tasks`, `closed_tasks`, `open_action_items`, `closed_action_items`, `meeting_count`, `domain_count`, `artifact_count` (closed = status ∈ terminal).
 8. **Delete endpoints (item 6):** `DELETE /api/champions/{id}` — **blocked with a clear 409 if the champion has ANY reports** (never destroy meeting history); if no reports, delete the champion + its (empty) domains. Clean 4xx, never 500. And `DELETE /api/domains/{id}` (**reassign its tasks/artifacts to the champion's "General" domain, then delete**; **block deleting the "General"/"Context creation" constants** with a clear message). Purpose = tidying unused/misspelled/badly-named domains, not removing active ones.
 9. **Cross-team AI-Lead action items (item 10 backend):** `GET /api/ai-lead/action-items` → `[{id, text, team_name, champion_name, meeting_date, status, domain, report_id}]`, filter `action_item.owner = 'AI Lead'`, all teams, newest `meeting_date` first. (Shape may be refined by the item-10 design — additive only.)
-10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`); **Wave-13 agents reference, never edit them.** New api.ts methods (added by 12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
+10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`); **Wave-13 agents reference, never edit them** — *one exception:* 13A removes `Team.cc_baseline` from `types.ts` in Wave 13 (12C leaves it so its build stays green). 12C's other type changes are **additive** (new fields, keep old optional) so the whole FE project still compiles in 12C's worktree. New api.ts methods (added by 12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
 
 ### 11.3 — Item-10 design gate (orchestrator + Omer — the one item that needs design)
 | # | Task | Notes |
@@ -454,7 +454,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/{types.ts, styles/app.css, api.ts, pages/report/*}` (**sole owner of the FE contract files** — establishes everything Wave-13 consumes; compiles standalone against the frozen contract)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | FE type contract | `types.ts` — `TaskStatus` += `'wont_fix'`; `ActionItem.status`; `ReportActionItemLine.status`; `ReportTaskLine.finished_on`→`due_date`; **drop `Team.cc_baseline`** | contracts #1–5/#10 |
+| 1 | FE type contract (**additive — build must stay green**) | `types.ts` — `TaskStatus` += `'wont_fix'`; **add** `ActionItem.status` (keep `resolved` optional, don't remove); add `ReportActionItemLine.status`; `ReportTaskLine.finished_on`→`due_date` (all its consumers are in `pages/report/*` = 12C's scope). **LEAVE `Team.cc_baseline`** — 13A removes it with the form (removing it here would break `TeamForm.tsx`) | contracts #3–5/#10 |
 | 2 | FE css contract | `app.css` — status tokens (`status-wont_fix`/`dot-wont_fix`/`sd-wont_fix`/detail-tl, muted slate); table alignment fix (`.report-editor table.flat td` → `vertical-align: top`); participants css | items 1 + contract #10 |
 | 3 | api.ts methods | `api.ts` — `champions.delete`, `domains.delete` (DELETE `/api/champions|domains/{id}`); `aiLead.actionItems` (`GET /api/ai-lead/action-items`) | contracts #8/#9; consumed by 13A/13C |
 | 4 | Participants: comma-add + defaults | `reportEditor.tsx` `.participants-row` — commit a pill on `,` (and Enter); default `[champion, "AI Lead"]` pills when empty | item 3 |
@@ -476,7 +476,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*` (consumes `api.ts`/`types.ts` read-only)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Remove CC baseline from TeamForm | `TeamForm.tsx` — drop the "Current Claude Code status" textarea + `ccBaseline` state + `cc_baseline` submit field | item 2 (FE) |
+| 1 | Remove CC baseline (type + form) | `types.ts` (drop `Team.cc_baseline` — the one allowed Wave-13 edit to a foundation file) **and** `TeamForm.tsx` (drop the "Current Claude Code status" textarea + `ccBaseline` state + `cc_baseline` submit field) — do both together so the build stays green | item 2 (FE) |
 | 2 | Delete buttons (champions + domains) | `ManagePage.tsx` — Delete in the Champions & Domains action columns → `api.champions.delete`/`api.domains.delete` (from 12C) + confirm + `loadAll()` refresh | item 6 (FE) |
 **Commit(s):** `Wave 13 Agent 13A: manage (remove CC baseline, champion/domain delete)`
 
