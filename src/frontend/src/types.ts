@@ -282,6 +282,15 @@ export interface TeamPage {
   all_team_artifacts: Artifact[];
   reports: Report[];
   action_items: ActionItem[];
+  // Summary tallies over the page's loaded data (Wave 12). "Closed" = status in
+  // the terminal set; "open" = everything else. Counts mirror routes/views.py.
+  open_tasks: number;
+  closed_tasks: number;
+  open_action_items: number;
+  closed_action_items: number;
+  meeting_count: number;
+  domain_count: number;
+  artifact_count: number;
 }
 
 /** Teams index row — `GET /api/team-pages` (contract §2). One per (team, champion). */
@@ -291,6 +300,22 @@ export interface TeamPageIndexEntry {
   champion_id: number;
   champion_name: string;
   domain_count: number;
+}
+
+/** One AI-Lead-owned action item, flattened across ALL teams —
+ *  `GET /api/ai-lead/action-items` (backend routes/views.py `AILeadActionItem`).
+ *  Every action item whose owner is the literal 'AI Lead', resolved against its
+ *  report/champion/team and (optional) domain. `domain` is null when the item is
+ *  unplaced/team-wide. */
+export interface AILeadActionItem {
+  id: number;
+  text: string;
+  team_name: string;
+  champion_name: string;
+  meeting_date: string;
+  status: TaskStatus;
+  domain: string | null;
+  report_id: number;
 }
 
 // ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----

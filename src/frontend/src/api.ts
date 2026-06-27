@@ -6,7 +6,7 @@
 // Vite `/api` proxy (see vite.config.ts).
 
 import type {
-  ActionItem,
+  AILeadActionItem,
   Artifact,
   ArtifactDetail,
   ArtifactPatchBody,
@@ -174,10 +174,11 @@ export const api = {
       request(`/search/values?key=${encodeURIComponent(key)}`),
   },
 
-  // ---- AI-Lead dashboard (backend routes/ai_lead.py — Wave 12/13) ----
+  // ---- AI-Lead dashboard (backend routes/views.py — Wave 12/13) ----
   aiLead: {
-    // `GET /api/ai-lead/action-items` — every champion's open action items.
-    actionItems: (): Promise<ActionItem[]> => request('/ai-lead/action-items'),
+    // `GET /api/ai-lead/action-items` — every AI-Lead-owned action item (owner =
+    // 'AI Lead') across ALL teams, of any status, newest first.
+    actionItems: (): Promise<AILeadActionItem[]> => request('/ai-lead/action-items'),
   },
 };
 
