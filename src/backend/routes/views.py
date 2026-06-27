@@ -23,7 +23,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from models import ArtifactType, TaskStatus
+from models import ArtifactType, TaskStatus, TERMINAL_STATUSES
 
 import models
 from db import get_connection
@@ -41,15 +41,6 @@ from reports import (
 from search import ParseError, filter_artifacts, filter_tasks
 
 router = APIRouter(prefix="/api", tags=["views"])
-
-# Terminal / "closed" status tokens (FROZEN CONTRACT, Wave 12). A task or action
-# item is OPEN when its status is NOT in this set (planned, in-progress, blocked).
-_TERMINAL_STATUSES = {
-    "finished_successfully",
-    "finished_with_issues",
-    "abandoned",
-    "wont_fix",
-}
 
 # AI-Lead literal owner string (FROZEN CONTRACT).
 _AI_LEAD_OWNER = "AI Lead"
@@ -430,14 +421,14 @@ def team_page(id: int) -> TeamPage:
         for block in domains:
             artifact_count += len(block.artifacts)
             for t in block.tasks:
-                if t.status.value in _TERMINAL_STATUSES:
+                if t.status.value in TERMINAL_STATUSES:
                     closed_tasks += 1
                 else:
                     open_tasks += 1
 
         open_action_items = closed_action_items = 0
         for r in action_rows:
-            if r["status"] in _TERMINAL_STATUSES:
+            if r["status"] in TERMINAL_STATUSES:
                 closed_action_items += 1
             else:
                 open_action_items += 1

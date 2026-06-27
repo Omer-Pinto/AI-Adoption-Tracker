@@ -41,6 +41,15 @@ class TaskStatus(str, Enum):
     wont_fix = "wont_fix"
 
 
+# Terminal / "closed" status tokens (FROZEN CONTRACT, Wave 12), shared by the
+# team-page open/closed tallies. A task or action item is OPEN when its status is
+# NOT in this set (planned, in-progress, blocked). ``due_date`` is a free user
+# date and is no longer gated by these.
+TERMINAL_STATUSES = frozenset(
+    {"finished_successfully", "finished_with_issues", "abandoned", "wont_fix"}
+)
+
+
 class ArtifactType(str, Enum):
     agent = "agent"
     skill = "skill"

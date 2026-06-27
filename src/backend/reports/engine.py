@@ -74,16 +74,6 @@ import sqlite3
 
 from models import ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
 
-# ── design constants ─────────────────────────────────────────────────────────
-
-# Statuses that close a task (terminal/closed). ``due_date`` is now a free user
-# date and no longer gated by these, so this set is currently informational only
-# (kept as the shared terminal-status vocabulary, incl. ``wont_fix``).
-_TERMINAL_STATUSES = frozenset(
-    {"finished_successfully", "finished_with_issues", "abandoned", "wont_fix"}
-)
-
-
 # ── exceptions ──────────────────────────────────────────────────────────────
 
 class EngineError(RuntimeError):
