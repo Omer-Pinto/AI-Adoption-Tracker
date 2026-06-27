@@ -56,12 +56,14 @@ Design decisions (carried from Wave 2 Agent 2B):
 
 * **``started_on``** = date of the earliest history row.
 
-* **``due_date``** — a FREE user-picked target date (like an action item's due
-  date), stored per-journal-row on ``task_history.due_date`` (``due_date`` on a
-  report entry, or the supplied date on a manual edit). It is NOT gated by
-  terminal status and is NEVER auto-computed: ``_recompute_task_current_state``
-  simply takes the latest journal row's ``due_date`` — purely from the journal,
-  no report_json scrape.
+* **``due_date``** — a STICKY FREE user-picked target date (like an action
+  item's due date), stored per-journal-row on ``task_history.due_date``
+  (``due_date`` on a report entry, or the supplied date on a manual edit). It is
+  NOT gated by terminal status and is NEVER auto-computed:
+  ``_recompute_task_current_state`` walks the journal newest → oldest and takes
+  the latest NON-NULL ``due_date`` (manual clear authoritative) — exactly like
+  ``owner`` — so a later report that omits ``due_date`` does NOT wipe a
+  deliberately-set date. Purely from the journal, no report_json scrape.
 """
 
 from __future__ import annotations
@@ -478,13 +480,22 @@ def _record_task_entry(
 
     created = entry.id is None
     if entry.id is not None:
-        # A MATCHED task keeps its established owner: pass the report's owner
-        # through as-is (NULL → the recompute walks back to the prior owner).
-        owner = entry.owner
         task_id = _verify_task_in_team(conn, entry.id, champion_id)
         conn.execute(
             "UPDATE task SET domain_id = ? WHERE id = ?", (domain_id, task_id)
         )
+        # A MATCHED task keeps its established owner: pass the report's owner
+        # through as-is (NULL → the recompute walks back to the prior owner).
+        # EXCEPTION: when NOTHING has ever set an owner on this task's journal —
+        # e.g. a new task's own report being re-applied on edit, after its
+        # create-time journal row was deleted — fall back to the champion default
+        # so that champion-default owner is part of the REPLAYABLE history and
+        # the recompute reconstructs it (instead of wiping owner to NULL). A
+        # journal that already carries an owner decision is NOT re-defaulted (a
+        # later silent report must not clobber a deliberately-set owner).
+        owner = entry.owner
+        if not owner and not _task_journal_has_owner(conn, task_id):
+            owner = _champion_name(conn, champion_id)
     else:
         # A NEW task with no named owner defaults to the champion (the person
         # running the adoption), never NULL.
@@ -556,8 +567,11 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     * ``started_on`` = meeting_date of the earliest history row (spec §4/§6).
     * ``status``     = the latest row's status.
     * ``owner``      = resolved by ``_latest_owner_from_journal`` (see below).
-    * ``due_date``   = the latest row's ``due_date`` — a FREE user-picked date,
-      NOT gated by terminal status and never auto-computed.
+    * ``due_date``   = resolved by ``_latest_due_date_from_journal`` — a STICKY
+      FREE user-picked date: the latest NON-NULL value (a later report that
+      simply omits ``due_date`` does NOT wipe a deliberately-set date), with a
+      manual clear authoritative. NOT gated by terminal status, never
+      auto-computed.
 
     Ordering key is (meeting_date, id): ``id`` is monotonic with insertion, so a
     manual edit appended today sorts after a report on the same date, and within
@@ -576,7 +590,7 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     latest_row = rows[-1]
     latest_status = latest_row["status_at_meeting"]
 
-    due_date = latest_row["due_date"]
+    due_date = _latest_due_date_from_journal(rows)
 
     owner = _latest_owner_from_journal(rows)
 
@@ -608,6 +622,49 @@ def _latest_owner_from_journal(rows: list) -> str | None:
         if row["owner"] is not None:
             return row["owner"]
     return None
+
+
+def _latest_due_date_from_journal(rows: list) -> str | None:
+    """Resolve the task ``due_date`` from the journal (date,id-ordered ASC).
+
+    A STICKY free date — mirrors ``_latest_owner_from_journal``. Walk rows
+    newest → oldest:
+
+    * ``source='manual'`` row — its ``due_date`` is AUTHORITATIVE even when NULL
+      (an explicit clear). Stop immediately.
+    * ``source='report'`` row with a non-NULL ``due_date`` — use it, stop.
+    * ``source='report'`` row with NULL ``due_date`` — the report simply did not
+      name a date that meeting; keep walking (so a later silent report does NOT
+      wipe a deliberately-set date).
+
+    Returns ``None`` when no row has ever established a ``due_date``."""
+    for row in reversed(rows):
+        if row["source"] == "manual":
+            # Manual rows are always authoritative, including an explicit NULL clear.
+            return row["due_date"]
+        # source == 'report'
+        if row["due_date"] is not None:
+            return row["due_date"]
+    return None
+
+
+def _task_journal_has_owner(conn: sqlite3.Connection, task_id: int) -> bool:
+    """True if the task's journal already carries an owner DECISION.
+
+    A decision is any ``source='manual'`` row (authoritative, including an
+    explicit NULL clear) or any ``source='report'`` row with a non-NULL owner —
+    exactly the rows ``_latest_owner_from_journal`` would stop on. Used to decide
+    whether an empty-owner entry should fall back to the champion default: only
+    when NOTHING has set an owner yet (a genuinely unowned/new task), so a later
+    silent report never clobbers a deliberately-set (or deliberately-cleared)
+    owner."""
+    rows = conn.execute(
+        "SELECT owner, source FROM task_history WHERE task_id = ?", (task_id,)
+    ).fetchall()
+    for row in rows:
+        if row["source"] == "manual" or row["owner"] is not None:
+            return True
+    return False
 
 
 def _apply_artifact_entry(

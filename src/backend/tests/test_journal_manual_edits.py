@@ -562,6 +562,93 @@ def scenario_9(db_dir: pathlib.Path) -> None:
         conn.close()
 
 
+# ── scenario 10: Wave-12 — a set due_date is STICKY (survives a silent later report) ──
+
+def scenario_10(db_dir: pathlib.Path) -> None:
+    print("\n[10] Wave-12: a set due_date SURVIVES a later report that omits it; "
+          "manual null clears it")
+    conn = fresh_conn(db_dir / "s10.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+        # Report 1 deliberately sets a due_date.
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2020-01-01", raw_notes="n",
+            tasks=[ReportTaskEntry(task="Sticky task", status=TaskStatus.in_progress,
+                                   owner="Dana", due_date="2026-09-01",
+                                   domain_id=domain_id, domain="signal-processing")],
+        ))
+        tid = task_id_by_name(conn, champion_id, "Sticky task")
+        first = conn.execute("SELECT due_date FROM task WHERE id = ?", (tid,)).fetchone()
+        check("report 1 sets due_date = 2026-09-01", first["due_date"] == "2026-09-01",
+              f"got {first['due_date']!r}")
+
+        # Report 2 (later) touches the SAME task but OMITS due_date (null).
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2020-06-01", raw_notes="n",
+            tasks=[ReportTaskEntry(id=tid, task="Sticky task",
+                                   status=TaskStatus.blocked, owner="Dana",
+                                   domain_id=domain_id, domain="signal-processing")],
+        ))
+        after_silent = conn.execute(
+            "SELECT due_date FROM task WHERE id = ?", (tid,)
+        ).fetchone()
+        check("due_date SURVIVES a later report that omits it (sticky walk-back)",
+              after_silent["due_date"] == "2026-09-01", f"got {after_silent['due_date']!r}")
+
+        # A manual null is a REAL clear (authoritative).
+        apply_manual_task_edit(conn, tid, {"due_date": None})
+        cleared = conn.execute("SELECT due_date FROM task WHERE id = ?", (tid,)).fetchone()
+        check("manual null due_date clears it (authoritative)", cleared["due_date"] is None,
+              f"got {cleared['due_date']!r}")
+    finally:
+        conn.close()
+
+
+# ── scenario 11: Wave-12 — a new task's champion-default owner survives edit-replay ──
+
+def scenario_11(db_dir: pathlib.Path) -> None:
+    print("\n[11] Wave-12: a NEW task's champion-default owner SURVIVES an edit-replay")
+    conn = fresh_conn(db_dir / "s11.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+        # A NEW task with NO owner -> defaults to the champion (Dana).
+        row = fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2026-06-20", raw_notes="n",
+            tasks=[ReportTaskEntry(task="Solo task", status=TaskStatus.in_progress,
+                                   domain_id=domain_id, domain="signal-processing")],
+        ))
+        report_id = row["id"]
+        tid = task_id_by_name(conn, champion_id, "Solo task")
+        before = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
+        check("new unowned task defaults owner to champion (Dana)",
+              before["owner"] == "Dana", f"got {before['owner']!r}")
+
+        # Edit-replay the SAME report (id back-filled, owner still unset). The old
+        # journal row is deleted and re-applied; the champion default must survive.
+        edited = ReportDocument(
+            champion="Dana", meeting_date="2026-06-20", raw_notes="n",
+            tasks=[ReportTaskEntry(id=tid, task="Solo task",
+                                   status=TaskStatus.blocked,
+                                   domain_id=domain_id, domain="signal-processing")],
+        )
+        replay_report_edit(conn, report_id, edited)
+
+        after = conn.execute("SELECT owner, status FROM task WHERE id = ?", (tid,)).fetchone()
+        check("champion-default owner SURVIVES the edit-replay (not wiped to NULL)",
+              after["owner"] == "Dana", f"got {after['owner']!r}")
+        check("edited status applied", after["status"] == "blocked", f"got {after['status']}")
+
+        # The re-applied report journal row carries the champion name (replayable).
+        rep_owner = conn.execute(
+            "SELECT owner FROM task_history WHERE task_id = ? AND source='report'", (tid,)
+        ).fetchone()
+        check("re-applied report journal row carries owner=Dana",
+              rep_owner is not None and rep_owner["owner"] == "Dana",
+              f"got {rep_owner['owner'] if rep_owner else 'no row'!r}")
+    finally:
+        conn.close()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="wave10_journal_") as td:
         db_dir = pathlib.Path(td)
@@ -574,6 +661,8 @@ def main() -> int:
         scenario_7(db_dir)
         scenario_8(db_dir)
         scenario_9(db_dir)
+        scenario_10(db_dir)
+        scenario_11(db_dir)
     print(f"\n=== {_passed} passed, {_failed} failed ===")
     return 1 if _failed else 0
 
