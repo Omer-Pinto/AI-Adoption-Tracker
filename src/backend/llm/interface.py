@@ -203,7 +203,7 @@ copy the entity's existing "type". This links to the real record — never emit 
 fuzzy duplicate of something already in the context.
   * NO MATCH → OMIT "id" (leave it null) and return the free-text name you \
 identified from the notes. For a NEW TASK: set "task" to that free-text name, \
-set "status" (required), and any of "owner" / "note" / "finished_on" the notes \
+set "status" (required), and any of "owner" / "note" / "due_date" the notes \
 support. For a NEW ARTIFACT: set "artifact" to that free-text name, set a \
 best-fit "type" (required for a new artifact), and any of "tags" / "summary" / \
 "change_kind" / "note" the notes support.
@@ -215,13 +215,20 @@ DOMAIN MATCH — place each task/artifact/action_item in an EXISTING domain (the
 `domain_id` field is the link signal):
 - The context ALSO passes this team's existing domains, each as { id, name, \
 description }. These are the team's tech/stack work areas (e.g. Backend, Web, \
-Deployment, Monitor & Debug).
+Deployment, Monitor & Debug). TWO constant domains are ALWAYS present:
+  * "Context creation" (a REAL placement target) — file here any \
+context-engineering work: CLAUDE.md / context files, knowledge docs, \
+conventions, and other Claude Code context the team builds. Use it like any \
+other domain when an item fits it.
+  * "General" — the FALLBACK/unplaced bucket ONLY; never file an item here on \
+purpose. To leave an item unplaced, set its domain_id null (do NOT name \
+"General"); a human reassigns it later.
   * BEST-FIT MATCH → set "domain_id" to that domain's id and "domain" to its \
 EXACT name.
-  * UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null. This is the \
-"General"/unplaced bucket; a human reassigns it later via the UI picker. A \
-team-wide / cross-cutting artifact (e.g. shared context packs, team-wide skills) \
-is ALSO domain_id null. Do not drop the item — it still lives in the flat list.
+  * UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null (the unplaced \
+bucket). A team-wide / cross-cutting artifact (e.g. shared context packs, \
+team-wide skills) is ALSO domain_id null. Do not drop the item — it still lives \
+in the flat list.
 - CRITICAL ASYMMETRY between the two null id semantics:
   * a null ENTITY "id" MEANS "create a NEW task/artifact".
   * a null "domain_id" does NOT mean "create a new domain" — it means \
@@ -254,10 +261,21 @@ ARTIFACT summary vs note — two DISTINCT fields:
 - "note" is the per-meeting change note (what happened to it this meeting).
 - Do not duplicate the same text into both; use whichever the line is about.
 
+OWNERS — who owns each task / action item:
+- TASK "owner": defaults to the champion (context["champion_name"]). Set a task \
+owner ONLY when the notes clearly attribute the task to a specific DIFFERENT \
+person; otherwise leave "owner" null and the backend fills in the champion.
+- ACTION ITEM "owner": you MUST declare it, and it must be EITHER the champion's \
+name (context["champion_name"]) OR the exact literal string "AI Lead" — those \
+are the only two valid action-item owners. Use "AI Lead" for a follow-up that \
+belongs to the AI enablement lead rather than the champion; otherwise use the \
+champion's name.
+
 ACTION ITEMS — no overlap with discussion/issues:
 - A follow-up, to-do, or "someone should do X" goes to "action_items" ONLY \
-(set "text", plus "owner" / "due_date" / domain_id+domain when stated). Do NOT \
-ALSO repeat that same item in "discussion" or "issues".
+(set "text", the required "owner" per the OWNERS rule, plus "due_date" / \
+domain_id+domain when stated). Do NOT ALSO repeat that same item in \
+"discussion" or "issues".
 
 CATCH-ALLS — discussion and issues (each is a LIST of items):
 - "discussion" is a LIST of discussion points: the DEFAULT catch-all for any \
@@ -273,7 +291,7 @@ entry in "discussion", unless it is a problem/risk/blocker → then add an entry
 COMPLETENESS — capture every piece of information (do not drop note lines):
 - EVERY piece of information in the notes must land somewhere in the output. \
 Account for every line. Do not silently drop any item, field, or detail.
-- Map each item to the field that fits it: a task/status/owner/finish date → a \
+- Map each item to the field that fits it: a task/status/owner/due date → a \
 "tasks" entry (with its best-fit domain_id, or null); a tool/artifact (with its \
 type/tags/summary/change) → an "artifacts" entry (with its best-fit domain_id, or \
 null if team-wide/unsure); a follow-up or to-do → an "action_items" entry; a \

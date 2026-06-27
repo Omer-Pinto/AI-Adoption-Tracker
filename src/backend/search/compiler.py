@@ -160,7 +160,7 @@ def _date_builder(date_cols: tuple[str, ...]) -> Builder:
 
     DECISION (1D): ``date:YYYY-MM-DD`` matches rows whose lifecycle touches
     that calendar date — for a task, ``started_on <= date AND
-    (ended_on IS NULL OR ended_on >= date)`` (i.e. the task was active on that
+    (due_date IS NULL OR due_date >= date)`` (i.e. the task was active on that
     day); artifacts have no dates of their own, so ``date`` is inapplicable for
     artifacts and is not wired into the artifact context. ``date_cols`` is the
     (start, end) column pair for the target. Negation flips the whole test.
@@ -201,7 +201,7 @@ TASK_CONTEXT = EntityContext(
         "team": _name_or_id_builder("m.name", "m.id"),
         "domain": _name_or_id_builder("d.name", "d.id"),
         "status": _exact_builder("t.status"),
-        "date": _date_builder(("t.started_on", "t.ended_on")),
+        "date": _date_builder(("t.started_on", "t.due_date")),
         # artifact-only keys → ignored for tasks
         "type": None,
         "tag": None,

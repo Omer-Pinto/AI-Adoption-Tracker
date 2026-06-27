@@ -65,10 +65,10 @@ def _reset_db() -> None:
 
 # ── entity creation helpers (mirror the management routes' INSERT shape) ──────
 
-def _create_team(conn, name: str, cc_baseline: str | None = None) -> int:
+def _create_team(conn, name: str) -> int:
     cur = conn.execute(
-        "INSERT INTO team (name, cc_baseline) VALUES (?, ?)",
-        (name, cc_baseline),
+        "INSERT INTO team (name) VALUES (?)",
+        (name,),
     )
     conn.commit()
     return cur.lastrowid
@@ -128,7 +128,7 @@ def seed_radar(conn) -> None:
       - Clutter map: in-progress ("first draft of map") — first mention (id=None).
 
     Meeting 06-15 (report 2):
-      - CFAR tuning: abandoned, finished_on 2026-06-15 (first mention, id=None).
+      - CFAR tuning: abandoned, due_date 2026-06-15 (first mention, id=None).
       - Clutter map: in-progress (still going) — references the SAME task by the
         id back-filled from report 1.
       - Doppler check: planned (first mention, id=None).
@@ -143,11 +143,7 @@ def seed_radar(conn) -> None:
     planned, clutter-review added) is preserved exactly.
     """
     print("[seed] creating Radar team …")
-    team_id = _create_team(
-        conn,
-        name="Radar",
-        cc_baseline="Team uses Claude Code ad-hoc for scripts; no structured skills or agents yet.",
-    )
+    team_id = _create_team(conn, name="Radar")
     champion_id = _create_champion(conn, name="Dana", team_id=team_id, start_date="2026-05-01")
     domain_id = _create_domain(
         conn,
@@ -207,7 +203,7 @@ def seed_radar(conn) -> None:
                 status=TaskStatus.abandoned,
                 owner="Dana",
                 note="retired — not worth continuing",
-                finished_on="2026-06-15",
+                due_date="2026-06-15",
                 domain_id=domain_id,
                 domain="signal-processing",
             ),
@@ -271,11 +267,7 @@ def seed_platform(conn) -> None:
       artifact = deploy-gate-hook (hook type, added)
     """
     print("[seed] creating Platform team …")
-    team_id = _create_team(
-        conn,
-        name="Platform",
-        cc_baseline="Team uses Claude Code for PR descriptions; no automation skills yet.",
-    )
+    team_id = _create_team(conn, name="Platform")
     champion_id = _create_champion(conn, name="Eli", team_id=team_id, start_date="2026-05-15")
     domain_id = _create_domain(
         conn,

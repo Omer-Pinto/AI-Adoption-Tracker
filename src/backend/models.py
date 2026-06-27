@@ -38,6 +38,7 @@ class TaskStatus(str, Enum):
     finished_with_issues = "finished_with_issues"
     blocked = "blocked"
     abandoned = "abandoned"
+    wont_fix = "wont_fix"
 
 
 class ArtifactType(str, Enum):
@@ -59,8 +60,6 @@ class ArtifactChangeKind(str, Enum):
 class Team(BaseModel):
     id: int
     name: str
-    cc_baseline: str | None = None
-    baseline_date: str | None = None
 
 
 class Champion(BaseModel):
@@ -105,13 +104,13 @@ class Task(BaseModel):
     status: TaskStatus
     owner: str | None = None
     started_on: str | None = None
-    ended_on: str | None = None
+    due_date: str | None = None
 
 
 class TaskHistory(BaseModel):
     """One journal row for a task at one meeting (report or manual edit).
 
-    Self-sufficient: `owner` and `ended_on` carry whatever the recompute needs,
+    Self-sufficient: `owner` and `due_date` carry whatever the recompute needs,
     so current-state is derived from these columns alone (never report_json).
     `report_id` is None for a manual (`source='manual'`) entry.
     """
@@ -121,7 +120,7 @@ class TaskHistory(BaseModel):
     meeting_date: str
     status_at_meeting: TaskStatus
     owner: str | None = None
-    ended_on: str | None = None
+    due_date: str | None = None
     change_note: str | None = None
     source: str = "report"
 
@@ -157,7 +156,7 @@ class ActionItem(BaseModel):
     text: str
     owner: str | None = None
     due_date: str | None = None
-    resolved: bool = False
+    status: TaskStatus = TaskStatus.planned
 
 
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
@@ -185,10 +184,10 @@ class ReportTaskEntry(BaseModel):
 
     ``task`` is the task's human-readable name.
 
-    ``finished_on`` is an optional per-task finish-date override (YYYY-MM-DD).
-    When the task reaches a terminal status, ``ended_on`` is set to this value
-    if present, otherwise to the report's ``meeting_date``.  The engine NEVER
-    auto-computes a finish date from status history (spec §5, Omer's rule).
+    ``due_date`` is an optional per-task target date (YYYY-MM-DD). It is a FREE
+    user-picked date — like an action item's due date — settable on ANY task
+    (including a brand-new one) regardless of status; current-state ``due_date``
+    is just the latest journal row's value, never auto-computed from status.
 
     ``note`` is the per-meeting change note (-> ``task_history.change_note``).
 
@@ -210,7 +209,7 @@ class ReportTaskEntry(BaseModel):
     status: TaskStatus
     owner: str | None = None
     note: str | None = None
-    finished_on: str | None = None
+    due_date: str | None = None
     domain_id: int | None = None
     domain: str | None = None
 
@@ -267,6 +266,7 @@ class ReportActionItem(BaseModel):
     text: str
     owner: str | None = None
     due_date: str | None = None
+    status: TaskStatus = TaskStatus.planned
     domain_id: int | None = None
     domain: str | None = None
 

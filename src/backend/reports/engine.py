@@ -56,12 +56,12 @@ Design decisions (carried from Wave 2 Agent 2B):
 
 * **``started_on``** = date of the earliest history row.
 
-* **``ended_on``** — NEVER auto-computed from a trailing terminal-status run.
-  It is the user-supplied finish date, stored per-journal-row on
-  ``task_history.ended_on`` (``finished_on`` on a report entry, or the supplied
-  finish date on a manual edit). ``_recompute_task_current_state`` reads the
-  latest row's ``ended_on`` (falling back to its ``meeting_date``) only when the
-  latest status is terminal — purely from the journal, no report_json scrape.
+* **``due_date``** — a FREE user-picked target date (like an action item's due
+  date), stored per-journal-row on ``task_history.due_date`` (``due_date`` on a
+  report entry, or the supplied date on a manual edit). It is NOT gated by
+  terminal status and is NEVER auto-computed: ``_recompute_task_current_state``
+  simply takes the latest journal row's ``due_date`` — purely from the journal,
+  no report_json scrape.
 """
 
 from __future__ import annotations
@@ -74,10 +74,11 @@ from models import ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
 
 # ── design constants ─────────────────────────────────────────────────────────
 
-# Statuses that close a task — used only to decide whether ``ended_on`` should
-# be populated (spec §5).
+# Statuses that close a task (terminal/closed). ``due_date`` is now a free user
+# date and no longer gated by these, so this set is currently informational only
+# (kept as the shared terminal-status vocabulary, incl. ``wont_fix``).
 _TERMINAL_STATUSES = frozenset(
-    {"finished_successfully", "finished_with_issues", "abandoned"}
+    {"finished_successfully", "finished_with_issues", "abandoned", "wont_fix"}
 )
 
 
@@ -174,26 +175,69 @@ def _resolve_domain_id(
 
 
 _GENERAL_DOMAIN_NAME = "General"
+_CONTEXT_DOMAIN_NAME = "Context creation"
 
 
-def _ensure_general_domain(conn: sqlite3.Connection, champion_id: int, team_id: int) -> int:
-    """Ensure a per-champion 'General' catch-all domain exists; return its id.
+def _ensure_constant_domain(
+    conn: sqlite3.Connection,
+    champion_id: int,
+    team_id: int,
+    name: str,
+    description: str,
+    priority: str | None,
+) -> int:
+    """Ensure a per-champion system-provided domain exists; return its id.
 
-    Domains are tech/stack areas the user defines manually. 'General' is the one
-    system-provided bucket: the model parks tasks/artifacts it cannot confidently
-    place here, and the user reassigns them to a real domain in the UI."""
-    target = _norm(_GENERAL_DOMAIN_NAME)
+    Domains are tech/stack areas the user defines manually; this mints the small
+    set of constant, always-present domains ('General', 'Context creation') the
+    same way for every champion (idempotent by case-insensitive name)."""
+    target = _norm(name)
     for row in conn.execute(
         "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
     ).fetchall():
         if _norm(row["name"]) == target:
             return row["id"]
     cur = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name, description) VALUES (?, ?, ?, ?)",
-        (team_id, champion_id, _GENERAL_DOMAIN_NAME,
-         "Catch-all for items not yet assigned to a specific domain."),
+        "INSERT INTO domain (team_id, champion_id, name, description, priority) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (team_id, champion_id, name, description, priority),
     )
     return cur.lastrowid
+
+
+def _ensure_general_domain(conn: sqlite3.Connection, champion_id: int, team_id: int) -> int:
+    """Ensure a per-champion 'General' catch-all domain exists; return its id.
+
+    'General' is the system-provided FALLBACK bucket (priority NULL): the model
+    parks tasks/artifacts it cannot confidently place here, and the user
+    reassigns them to a real domain in the UI."""
+    return _ensure_constant_domain(
+        conn, champion_id, team_id, _GENERAL_DOMAIN_NAME,
+        "Catch-all for items not yet assigned to a specific domain.", None,
+    )
+
+
+def _ensure_context_creation_domain(
+    conn: sqlite3.Connection, champion_id: int, team_id: int
+) -> int:
+    """Ensure a per-champion 'Context creation' domain exists; return its id.
+
+    A constant domain (priority '1') for context-engineering work — CLAUDE.md /
+    context files, knowledge docs, conventions, and other Claude Code context the
+    team builds. Unlike 'General' it PARTICIPATES in placement (the model may file
+    items here) but is NOT the unplaced fallback."""
+    return _ensure_constant_domain(
+        conn, champion_id, team_id, _CONTEXT_DOMAIN_NAME,
+        "Context engineering for Claude Code: CLAUDE.md, context files, "
+        "knowledge docs, and conventions.", "1",
+    )
+
+
+def _champion_name(conn: sqlite3.Connection, champion_id: int) -> str:
+    row = conn.execute(
+        "SELECT name FROM champion WHERE id = ?", (champion_id,)
+    ).fetchone()
+    return row["name"]
 
 
 def _resolve_entry_domain_id(
@@ -264,9 +308,11 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
         "SELECT id, name FROM team WHERE id = ?", (team_id,)
     ).fetchone()
 
-    # Guarantee the 'General' catch-all domain exists so it is offered to the
-    # model (as a fallback bucket) and to the UI domain picker.
+    # Guarantee the constant domains exist so both are offered to the model and
+    # the UI domain picker: 'General' (the fallback bucket) and 'Context creation'
+    # (a real placement target, priority 1).
     _ensure_general_domain(conn, champion_id, team_id)
+    _ensure_context_creation_domain(conn, champion_id, team_id)
     conn.commit()
 
     # Map domain_id -> name for this champion's domains (used to label entities).
@@ -432,12 +478,18 @@ def _record_task_entry(
 
     created = entry.id is None
     if entry.id is not None:
+        # A MATCHED task keeps its established owner: pass the report's owner
+        # through as-is (NULL → the recompute walks back to the prior owner).
+        owner = entry.owner
         task_id = _verify_task_in_team(conn, entry.id, champion_id)
         conn.execute(
             "UPDATE task SET domain_id = ? WHERE id = ?", (domain_id, task_id)
         )
     else:
-        task_id = _create_task(conn, domain_id, entry.task, entry)
+        # A NEW task with no named owner defaults to the champion (the person
+        # running the adoption), never NULL.
+        owner = entry.owner or _champion_name(conn, champion_id)
+        task_id = _create_task(conn, domain_id, entry.task, entry, owner)
 
     # Back-fill resolved ids onto the in-memory entry.
     entry.id = task_id
@@ -446,11 +498,11 @@ def _record_task_entry(
 
     conn.execute(
         "INSERT INTO task_history "
-        "(task_id, report_id, meeting_date, status_at_meeting, owner, ended_on, "
+        "(task_id, report_id, meeting_date, status_at_meeting, owner, due_date, "
         " change_note, source) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, 'report')",
         (task_id, report_id, meeting_date, entry.status.value,
-         entry.owner, entry.finished_on, entry.note),
+         owner, entry.due_date, entry.note),
     )
     return task_id, created
 
@@ -485,17 +537,17 @@ def _verify_task_in_team(conn: sqlite3.Connection, task_id: int, champion_id: in
 
 
 def _create_task(
-    conn: sqlite3.Connection, domain_id: int, name: str, entry
+    conn: sqlite3.Connection, domain_id: int, name: str, entry, owner: str | None
 ) -> int:
     cur = conn.execute(
         "INSERT INTO task (domain_id, name, status, owner) VALUES (?, ?, ?, ?)",
-        (domain_id, name, entry.status.value, entry.owner),
+        (domain_id, name, entry.status.value, owner),
     )
     return cur.lastrowid
 
 
 def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> None:
-    """Set task.status/owner/started_on/ended_on PURELY from the journal.
+    """Set task.status/owner/started_on/due_date PURELY from the journal.
 
     The journal (``task_history``) is self-sufficient: every column the
     current-state needs is stored on the rows themselves, so report and manual
@@ -504,16 +556,15 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     * ``started_on`` = meeting_date of the earliest history row (spec §4/§6).
     * ``status``     = the latest row's status.
     * ``owner``      = resolved by ``_latest_owner_from_journal`` (see below).
-    * ``ended_on``   = user-supplied finish date (spec §5), ONLY when the latest
-      status is terminal: the latest row's ``ended_on`` if set, else its
-      ``meeting_date``. Never auto-computed.
+    * ``due_date``   = the latest row's ``due_date`` — a FREE user-picked date,
+      NOT gated by terminal status and never auto-computed.
 
     Ordering key is (meeting_date, id): ``id`` is monotonic with insertion, so a
     manual edit appended today sorts after a report on the same date, and within
     one fan-out the rows keep their applied order. (``report_id`` is no longer a
     valid tiebreak — manual rows have none.)"""
     rows = conn.execute(
-        "SELECT meeting_date, status_at_meeting, owner, ended_on, source "
+        "SELECT meeting_date, status_at_meeting, owner, due_date, source "
         "FROM task_history WHERE task_id = ? "
         "ORDER BY meeting_date ASC, id ASC",
         (task_id,),
@@ -525,16 +576,14 @@ def _recompute_task_current_state(conn: sqlite3.Connection, task_id: int) -> Non
     latest_row = rows[-1]
     latest_status = latest_row["status_at_meeting"]
 
-    ended_on: str | None = None
-    if latest_status in _TERMINAL_STATUSES:
-        ended_on = latest_row["ended_on"] or latest_row["meeting_date"]
+    due_date = latest_row["due_date"]
 
     owner = _latest_owner_from_journal(rows)
 
     conn.execute(
-        "UPDATE task SET status = ?, owner = ?, started_on = ?, ended_on = ? "
+        "UPDATE task SET status = ?, owner = ?, started_on = ?, due_date = ? "
         "WHERE id = ?",
-        (latest_status, owner, started_on, ended_on, task_id),
+        (latest_status, owner, started_on, due_date, task_id),
     )
 
 
@@ -696,9 +745,9 @@ def _insert_action_item(
     item,
 ) -> None:
     conn.execute(
-        "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, resolved) "
-        "VALUES (?, ?, ?, ?, ?, 0)",
-        (report_id, domain_id, item.text, item.owner, item.due_date),
+        "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (report_id, domain_id, item.text, item.owner, item.due_date, item.status.value),
     )
 
 
@@ -817,16 +866,16 @@ def apply_manual_task_edit(
     """Apply a manual task current-state edit + journal it (one transaction).
 
     ``fields`` are the already-validated columns to set (any of ``status`` [str],
-    ``owner``, ``domain_id``, ``started_on``, ``ended_on``). In one transaction:
+    ``owner``, ``domain_id``, ``started_on``, ``due_date``). In one transaction:
 
       1. UPDATE the supplied columns on the ``task`` row.
       2. APPEND one ``source='manual'`` journal row dated TODAY carrying the
          resulting ``status_at_meeting``, the new ``owner`` (so the journal stays
-         self-sufficient), an ``ended_on`` (set when the resulting status is
-         terminal: the supplied finish date, else today), and a ``change_note``
+         self-sufficient), the resulting ``due_date`` (a FREE user date carried
+         forward from the row, not gated by status), and a ``change_note``
          summarising what changed.
       3. RECOMPUTE current-state from the journal so the manual row participates
-         (e.g. owner/ended_on derive consistently with report rows).
+         (e.g. owner/due_date derive consistently with report rows).
 
     Returns the refreshed ``task`` row. Raises EngineError if the task is gone."""
     with conn:
@@ -845,22 +894,21 @@ def apply_manual_task_edit(
         if fields:
             _apply_updates(conn, "task", task_id, fields)
 
-        # The resulting status drives whether this manual edit ends the task.
+        # Snapshot the resulting current-state onto the manual journal row so it
+        # is self-sufficient. ``due_date`` is a FREE user date: whatever the row
+        # now holds (carried forward when the edit did not touch it), no gate.
         result = conn.execute(
-            "SELECT status, owner, ended_on FROM task WHERE id = ?", (task_id,)
+            "SELECT status, owner, due_date FROM task WHERE id = ?", (task_id,)
         ).fetchone()
         status = result["status"]
         today = datetime.date.today().isoformat()
-        ended_on = None
-        if status in _TERMINAL_STATUSES:
-            ended_on = result["ended_on"] or today
 
         conn.execute(
             "INSERT INTO task_history "
-            "(task_id, report_id, meeting_date, status_at_meeting, owner, ended_on, "
+            "(task_id, report_id, meeting_date, status_at_meeting, owner, due_date, "
             " change_note, source) "
             "VALUES (?, NULL, ?, ?, ?, ?, ?, 'manual')",
-            (task_id, today, status, result["owner"], ended_on, note),
+            (task_id, today, status, result["owner"], result["due_date"], note),
         )
 
         _recompute_task_current_state(conn, task_id)
@@ -942,7 +990,7 @@ def _describe_task_changes(
         "owner": "owner",
         "domain_id": "domain",
         "started_on": "started_on",
-        "ended_on": "ended_on",
+        "due_date": "due_date",
     }
     for col, label in labels.items():
         if col not in fields:

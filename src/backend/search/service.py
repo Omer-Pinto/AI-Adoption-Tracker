@@ -27,7 +27,7 @@ from .parser import ParseError, parse
 # ---------------------------------------------------------------------------
 # Task: join up to domain + team so `team:` / `domain:` clauses resolve.
 _TASK_SELECT = """
-SELECT t.id, t.domain_id, t.name, t.status, t.owner, t.started_on, t.ended_on
+SELECT t.id, t.domain_id, t.name, t.status, t.owner, t.started_on, t.due_date
 FROM task t
 JOIN domain d ON t.domain_id = d.id
 JOIN team m ON d.team_id = m.id
@@ -54,7 +54,7 @@ def _row_to_task(row: sqlite3.Row) -> Task:
         status=TaskStatus(row["status"]),
         owner=row["owner"],
         started_on=row["started_on"],
-        ended_on=row["ended_on"],
+        due_date=row["due_date"],
     )
 
 

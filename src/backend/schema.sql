@@ -17,12 +17,10 @@
 -- No extra indexes (spec: "no extra indexes").
 
 -- ── team ──────────────────────────────────────────────────────────────────
--- A group. Holds the one-time Claude Code maturity starting-point snapshot.
+-- A group.
 CREATE TABLE IF NOT EXISTS team (
     id            INTEGER PRIMARY KEY,
-    name          TEXT NOT NULL,
-    cc_baseline   TEXT,          -- raw starting-point description (free text)
-    baseline_date TEXT           -- ISO-8601 date the baseline was captured
+    name          TEXT NOT NULL
 );
 
 -- ── champion ──────────────────────────────────────────────────────────────
@@ -76,25 +74,26 @@ CREATE TABLE IF NOT EXISTS task (
     name       TEXT NOT NULL,
     status     TEXT NOT NULL CHECK (status IN (
         'planned', 'in-progress', 'finished_successfully',
-        'finished_with_issues', 'blocked', 'abandoned'
+        'finished_with_issues', 'blocked', 'abandoned', 'wont_fix'
     )),
     owner      TEXT,
     started_on TEXT,
-    ended_on   TEXT
+    due_date   TEXT
 );
 
 -- ── task_history (the weekly journey) ─────────────────────────────────────────
 -- One row per task per meeting it is discussed. No domain_id (reached via task).
 --
 -- The journal is SELF-SUFFICIENT: current-state (task.status/owner/started_on/
--- ended_on) is derived PURELY from these columns, never by scraping report_json.
+-- due_date) is derived PURELY from these columns, never by scraping report_json.
 -- That lets a manual edit (source='manual', report_id NULL — no owning report)
 -- participate in the recompute identically to a report-driven row.
 --   * owner    — the owner named at this meeting (NULL = not named here);
 --                current-state owner = the latest row that named one.
---   * ended_on — the user-supplied finish date recorded at this meeting (NULL =
---                none); when the latest status is terminal, current-state
---                ended_on = that row's ended_on if set, else its meeting_date.
+--   * due_date — the user-picked target date recorded at this meeting (NULL =
+--                none). It is a FREE user date (like an action item's due date),
+--                NOT gated by terminal status; current-state due_date = the
+--                latest row's due_date.
 --   * source   — 'report' (fanned out from a report) or 'manual' (a direct
 --                current-state edit, journaled so the story does not lie).
 -- report_id is NULLABLE: a manual entry has no owning report.
@@ -105,10 +104,10 @@ CREATE TABLE IF NOT EXISTS task_history (
     meeting_date      TEXT NOT NULL,
     status_at_meeting TEXT NOT NULL CHECK (status_at_meeting IN (
         'planned', 'in-progress', 'finished_successfully',
-        'finished_with_issues', 'blocked', 'abandoned'
+        'finished_with_issues', 'blocked', 'abandoned', 'wont_fix'
     )),
     owner             TEXT,                              -- owner named at this meeting
-    ended_on          TEXT,                              -- finish date recorded here
+    due_date          TEXT,                              -- target date picked here
     change_note       TEXT,
     source            TEXT NOT NULL DEFAULT 'report'
         CHECK (source IN ('report', 'manual'))
@@ -153,5 +152,8 @@ CREATE TABLE IF NOT EXISTS action_item (
     text      TEXT NOT NULL,
     owner     TEXT,
     due_date  TEXT,
-    resolved  INTEGER NOT NULL DEFAULT 0         -- 0/1 boolean
+    status    TEXT NOT NULL DEFAULT 'planned' CHECK (status IN (
+        'planned', 'in-progress', 'finished_successfully',
+        'finished_with_issues', 'blocked', 'abandoned', 'wont_fix'
+    ))
 );

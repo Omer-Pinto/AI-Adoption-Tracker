@@ -28,6 +28,7 @@ if str(_BACKEND) not in sys.path:
 from models import (  # noqa: E402
     ArtifactChangeKind,
     ArtifactType,
+    ReportActionItem,
     ReportArtifactEntry,
     ReportDocument,
     ReportTaskEntry,
@@ -36,6 +37,7 @@ from models import (  # noqa: E402
 from reports.engine import (  # noqa: E402
     apply_manual_artifact_edit,
     apply_manual_task_edit,
+    build_draft_context,
     fan_out_report,
     replay_report_edit,
 )
@@ -104,13 +106,15 @@ def scenario_1(db_dir: pathlib.Path) -> None:
         ))
         tid = task_id_by_name(conn, champion_id, "Clutter map")
 
-        apply_manual_task_edit(conn, tid, {"status": "abandoned"})
+        apply_manual_task_edit(conn, tid, {"status": "abandoned", "due_date": "2026-07-01"})
 
         task = conn.execute("SELECT * FROM task WHERE id = ?", (tid,)).fetchone()
         check("task.status updated to abandoned", task["status"] == "abandoned",
               f"got {task['status']}")
-        check("task.ended_on set to today (terminal)", task["ended_on"] == TODAY,
-              f"got {task['ended_on']}")
+        # due_date is now a FREE user date (not auto-set on terminal): it reflects
+        # the picked value verbatim, regardless of status.
+        check("task.due_date set to the picked free date", task["due_date"] == "2026-07-01",
+              f"got {task['due_date']}")
 
         manual = conn.execute(
             "SELECT * FROM task_history WHERE task_id = ? AND source = 'manual'", (tid,)
@@ -202,14 +206,15 @@ def scenario_3(db_dir: pathlib.Path) -> None:
             champion="Dana", meeting_date=tomorrow, raw_notes="n",
             tasks=[ReportTaskEntry(id=tid, task="Clutter map",
                                    status=TaskStatus.finished_successfully,
-                                   owner="Dana", domain_id=domain_id, domain="signal-processing")],
+                                   owner="Dana", due_date=tomorrow,
+                                   domain_id=domain_id, domain="signal-processing")],
         ))
 
         task = conn.execute("SELECT * FROM task WHERE id = ?", (tid,)).fetchone()
         check("current status reflects the LATER report (finished_successfully)",
               task["status"] == "finished_successfully", f"got {task['status']}")
-        check("ended_on = tomorrow (later report's meeting_date)",
-              task["ended_on"] == tomorrow, f"got {task['ended_on']}")
+        check("due_date = the later report's picked due_date",
+              task["due_date"] == tomorrow, f"got {task['due_date']}")
 
         journey = conn.execute(
             "SELECT meeting_date, status_at_meeting, source FROM task_history "
@@ -482,6 +487,81 @@ def scenario_8(db_dir: pathlib.Path) -> None:
         conn.close()
 
 
+# ── scenario 9: Wave-12 — owner default, wont_fix, action-item status, domains ──
+
+def scenario_9(db_dir: pathlib.Path) -> None:
+    print("\n[9] Wave-12: owner defaults to champion, wont_fix terminal, "
+          "action-item status, Context-creation domain")
+    conn = fresh_conn(db_dir / "s9.db")
+    try:
+        team_id, champion_id, domain_id = seed_team(conn)
+
+        # build_draft_context mints the constant domains.
+        ctx = build_draft_context(conn, champion_id)
+        names = {d["name"] for d in ctx["domains"]}
+        check("draft context offers 'General' + 'Context creation'",
+              {"General", "Context creation"} <= names, f"got {sorted(names)}")
+        ctx_dom = conn.execute(
+            "SELECT priority FROM domain WHERE champion_id = ? AND name = 'Context creation'",
+            (champion_id,),
+        ).fetchone()
+        check("'Context creation' has priority '1'", ctx_dom["priority"] == "1",
+              f"got {ctx_dom['priority'] if ctx_dom else None}")
+        gen_dom = conn.execute(
+            "SELECT priority FROM domain WHERE champion_id = ? AND name = 'General'",
+            (champion_id,),
+        ).fetchone()
+        check("'General' stays priority NULL (fallback)", gen_dom["priority"] is None,
+              f"got {gen_dom['priority']!r}")
+
+        # A new task with NO owner → defaults to the champion's name (Dana).
+        # A new task with status wont_fix (terminal/closed) must save.
+        fan_out_report(conn, ReportDocument(
+            champion="Dana", meeting_date="2026-06-20", raw_notes="n",
+            tasks=[
+                ReportTaskEntry(task="Unowned task", status=TaskStatus.in_progress,
+                                domain_id=domain_id, domain="signal-processing"),
+                ReportTaskEntry(task="Dropped task", status=TaskStatus.wont_fix,
+                                owner="Dana", domain_id=domain_id,
+                                domain="signal-processing"),
+            ],
+            action_items=[
+                ReportActionItem(text="default-status item", owner="Dana",
+                                 domain_id=domain_id, domain="signal-processing"),
+                ReportActionItem(text="wont-fix item", owner="AI Lead",
+                                 status=TaskStatus.wont_fix,
+                                 domain_id=domain_id, domain="signal-processing"),
+            ],
+        ))
+
+        unowned = conn.execute(
+            "SELECT owner FROM task t JOIN domain d ON d.id = t.domain_id "
+            "WHERE d.champion_id = ? AND t.name = 'Unowned task'", (champion_id,),
+        ).fetchone()
+        check("new task with no owner defaults to champion (Dana)",
+              unowned["owner"] == "Dana", f"got {unowned['owner']!r}")
+
+        dropped = conn.execute(
+            "SELECT status FROM task t JOIN domain d ON d.id = t.domain_id "
+            "WHERE d.champion_id = ? AND t.name = 'Dropped task'", (champion_id,),
+        ).fetchone()
+        check("wont_fix task saved (CHECK allows it)", dropped["status"] == "wont_fix",
+              f"got {dropped['status']}")
+
+        items = conn.execute(
+            "SELECT text, status FROM action_item ORDER BY id"
+        ).fetchall()
+        by_text = {r["text"]: r["status"] for r in items}
+        check("action item default status = planned",
+              by_text.get("default-status item") == "planned",
+              f"got {by_text.get('default-status item')!r}")
+        check("action item explicit status = wont_fix",
+              by_text.get("wont-fix item") == "wont_fix",
+              f"got {by_text.get('wont-fix item')!r}")
+    finally:
+        conn.close()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="wave10_journal_") as td:
         db_dir = pathlib.Path(td)
@@ -493,6 +573,7 @@ def main() -> int:
         scenario_6(db_dir)
         scenario_7(db_dir)
         scenario_8(db_dir)
+        scenario_9(db_dir)
     print(f"\n=== {_passed} passed, {_failed} failed ===")
     return 1 if _failed else 0
 
