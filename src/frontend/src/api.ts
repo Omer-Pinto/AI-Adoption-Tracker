@@ -9,6 +9,8 @@ import type {
   ActionItem,
   ActionItemPatchBody,
   AILeadActionItem,
+  AILeadItem,
+  AILeadItemBody,
   Artifact,
   ArtifactDetail,
   ArtifactPatchBody,
@@ -188,6 +190,21 @@ export const api = {
     // so callers reconcile their list row from the returned status/due_date.
     patch: (id: number, body: ActionItemPatchBody): Promise<ActionItem> =>
       request(`/action-items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    // ---- Personal toolkit (standalone resource — `/api/ai-lead/items`) ----
+    // Meta-skills + Claude Code enhancements; no teams/reports involved.
+    items: {
+      // `GET /api/ai-lead/items` — every toolkit item.
+      list: (): Promise<AILeadItem[]> => request('/ai-lead/items'),
+      // `POST /api/ai-lead/items` — create (201; blank name → 422).
+      create: (body: AILeadItemBody): Promise<AILeadItem> =>
+        request('/ai-lead/items', { method: 'POST', body: JSON.stringify(body) }),
+      // `PATCH /api/ai-lead/items/{id}` — partial edit (404 if missing).
+      update: (id: number, body: Partial<AILeadItemBody>): Promise<AILeadItem> =>
+        request(`/ai-lead/items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+      // `DELETE /api/ai-lead/items/{id}` — 204 No Content.
+      delete: (id: number): Promise<void> =>
+        request(`/ai-lead/items/${id}`, { method: 'DELETE' }),
+    },
   },
 };
 

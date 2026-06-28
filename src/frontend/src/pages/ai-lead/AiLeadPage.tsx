@@ -2,7 +2,13 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/api';
-import type { ActionItemPatchBody, AILeadActionItem, TaskStatus } from '@/types';
+import type {
+  ActionItemPatchBody,
+  AILeadActionItem,
+  AILeadItem,
+  AILeadItemCategory,
+  TaskStatus,
+} from '@/types';
 import './ai-lead-page.css';
 
 // Route: "/ai-lead" — the personal cross-team view of every action item owned by
@@ -287,6 +293,8 @@ export default function AiLeadPage() {
             </div>
           </>
         )}
+
+        <Toolkit />
       </div>
     </>
   );
@@ -355,5 +363,261 @@ function ItemRow({
         </Link>
       </td>
     </tr>
+  );
+}
+
+// ---- My toolkit -----------------------------------------------------------
+// The AI Lead's personal list of meta-skills + Claude Code enhancements. A
+// standalone resource (`/api/ai-lead/items`) — no teams/reports. Self-contained:
+// owns its own load effect, so the action-items board above is untouched.
+
+const TOOLKIT_GROUPS: ReadonlyArray<readonly [AILeadItemCategory, string]> = [
+  ['meta_skill', 'Meta-skills'],
+  ['cc_enhancement', 'Claude Code enhancements'],
+];
+
+const CATEGORY_OPTIONS: ReadonlyArray<readonly [AILeadItemCategory, string]> = [
+  ['meta_skill', 'Meta-skill'],
+  ['cc_enhancement', 'Claude Code enhancement'],
+];
+
+type ToolkitForm = {
+  // null id = adding a new item; a number = editing that item.
+  id: number | null;
+  name: string;
+  description: string;
+  category: AILeadItemCategory;
+};
+
+const BLANK_FORM: ToolkitForm = { id: null, name: '', description: '', category: 'meta_skill' };
+
+function Toolkit() {
+  const [items, setItems] = useState<AILeadItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Open form (add or edit) — null when closed. One form serves both modes.
+  const [form, setForm] = useState<ToolkitForm | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Calm inline messages: a form-level save error and a list-level action error.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    api.aiLead.items
+      .list()
+      .then((data) => {
+        if (!cancelled) {
+          setItems(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError("Couldn't load toolkit items.");
+          setLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const groups = useMemo(
+    () =>
+      TOOLKIT_GROUPS.map(([category, label]) => ({
+        category,
+        label,
+        rows: items.filter((it) => it.category === category),
+      })),
+    [items],
+  );
+
+  function openAdd() {
+    setFormError(null);
+    setListError(null);
+    setForm({ ...BLANK_FORM });
+  }
+
+  function openEdit(it: AILeadItem) {
+    setFormError(null);
+    setListError(null);
+    setForm({
+      id: it.id,
+      name: it.name,
+      description: it.description ?? '',
+      category: it.category,
+    });
+  }
+
+  function closeForm() {
+    setForm(null);
+    setFormError(null);
+  }
+
+  function save() {
+    if (!form) return;
+    const name = form.name.trim();
+    if (!name) return; // Save is disabled, but guard anyway.
+    const body = {
+      name,
+      description: form.description.trim() || null,
+      category: form.category,
+    };
+    setSaving(true);
+    setFormError(null);
+    const req =
+      form.id === null
+        ? api.aiLead.items.create(body)
+        : api.aiLead.items.update(form.id, body);
+    req
+      .then((saved) => {
+        setItems((list) =>
+          form.id === null
+            ? [...list, saved]
+            : list.map((it) => (it.id === saved.id ? saved : it)),
+        );
+        setSaving(false);
+        setForm(null);
+      })
+      .catch(() => {
+        setSaving(false);
+        setFormError("Couldn't save — try again.");
+      });
+  }
+
+  function remove(it: AILeadItem) {
+    if (!confirm(`Delete "${it.name}" from your toolkit?`)) return;
+    setListError(null);
+    const prev = items;
+    setItems((list) => list.filter((x) => x.id !== it.id));
+    // If the deleted item was being edited, drop the form too.
+    setForm((f) => (f && f.id === it.id ? null : f));
+    api.aiLead.items
+      .delete(it.id)
+      .catch(() => {
+        setItems(prev); // roll back
+        setListError("Couldn't delete — try again.");
+      });
+  }
+
+  const canSave = !!form && form.name.trim().length > 0 && !saving;
+
+  return (
+    <div className="list-card toolkit-card">
+      <div className="list-head">
+        <span className="list-title">
+          My toolkit
+          <span className="count">
+            {items.length} item{items.length === 1 ? '' : 's'}
+          </span>
+        </span>
+        <span className="list-spacer" />
+        {!form && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={openAdd}>
+            + Add item
+          </button>
+        )}
+      </div>
+
+      {form && (
+        <div className="tk-form">
+          <div className="tk-form-row">
+            <input
+              type="text"
+              className="tk-input tk-name"
+              placeholder="Name (e.g. “Spec-first planning”)"
+              value={form.name}
+              autoFocus
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <select
+              className="tk-input tk-cat"
+              value={form.category}
+              onChange={(e) =>
+                setForm({ ...form, category: e.target.value as AILeadItemCategory })
+              }
+              aria-label="Category"
+            >
+              {CATEGORY_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            className="tk-input tk-desc"
+            placeholder="Description (optional)"
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+          <div className="tk-form-actions">
+            {formError && <span className="row-error">{formError}</span>}
+            <span className="list-spacer" />
+            <button type="button" className="btn btn-secondary btn-sm" onClick={closeForm}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={!canSave}
+              onClick={save}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="tk-body">
+        {loading ? (
+          <div className="text-muted text-sm tk-pad">Loading toolkit…</div>
+        ) : loadError ? (
+          <div className="ail-load-error">{loadError}</div>
+        ) : items.length === 0 ? (
+          <div className="tk-empty">No toolkit items yet.</div>
+        ) : (
+          <>
+            {listError && <div className="ail-load-error tk-list-error">{listError}</div>}
+            {groups.map(({ category, label, rows }) =>
+              rows.length === 0 ? null : (
+                <div key={category} className="tk-group">
+                  <div className="tk-group-head">
+                    {label}
+                    <span className="tk-group-count">{rows.length}</span>
+                  </div>
+                  {rows.map((it) => (
+                    <div key={it.id} className="tk-row">
+                      <div className="tk-row-main">
+                        <div className="tk-row-name">{it.name}</div>
+                        {it.description && (
+                          <div className="tk-row-desc">{it.description}</div>
+                        )}
+                      </div>
+                      <div className="tk-row-actions">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openEdit(it)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger-outline btn-sm"
+                          onClick={() => remove(it)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ),
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }

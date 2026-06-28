@@ -335,6 +335,28 @@ export interface ActionItemPatchBody {
   due_date?: string | null;
 }
 
+// ---- AI-Lead toolkit (standalone resource — `/api/ai-lead/items`) ----
+//
+// The AI Lead's personal list of meta-skills + Claude Code enhancements,
+// managed entirely on the AI-Lead page. NOT tied to any team/report.
+
+export type AILeadItemCategory = 'meta_skill' | 'cc_enhancement';
+
+export interface AILeadItem {
+  id: number;
+  name: string;
+  description?: string | null;
+  category: AILeadItemCategory;
+}
+
+/** Body for `POST /api/ai-lead/items` and `PATCH /api/ai-lead/items/{id}`
+ *  (PATCH sends a partial subset). Blank name → 422 on create. */
+export interface AILeadItemBody {
+  name: string;
+  description?: string | null;
+  category: AILeadItemCategory;
+}
+
 // ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----
 
 export type SearchKey = 'team' | 'domain' | 'type' | 'tag' | 'status' | 'date';

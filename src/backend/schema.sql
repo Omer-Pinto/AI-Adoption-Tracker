@@ -157,3 +157,14 @@ CREATE TABLE IF NOT EXISTS action_item (
         'finished_with_issues', 'blocked', 'abandoned', 'wont_fix'
     ))
 );
+
+-- ── ai_lead_item ──────────────────────────────────────────────────────────────
+-- The AI Lead's personal toolkit: meta-skills (cross-team Claude Code skills)
+-- and Claude Code enhancements they maintain. STANDALONE — no team/domain/report
+-- coupling, no history; created/edited/deleted only from the AI-Lead page.
+CREATE TABLE IF NOT EXISTS ai_lead_item (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT,
+    category    TEXT NOT NULL CHECK (category IN ('meta_skill', 'cc_enhancement'))
+);

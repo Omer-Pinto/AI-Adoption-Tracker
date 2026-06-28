@@ -168,6 +168,31 @@ class ActionItem(BaseModel):
     status: TaskStatus = TaskStatus.planned
 
 
+class AILeadItemCategory(str, Enum):
+    meta_skill = "meta_skill"
+    cc_enhancement = "cc_enhancement"
+
+
+# The AI Lead's personal toolkit (standalone — see schema `ai_lead_item`).
+class AILeadItem(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    category: AILeadItemCategory
+
+
+class AILeadItemCreate(BaseModel):
+    name: str
+    description: str | None = None
+    category: AILeadItemCategory
+
+
+class AILeadItemPatch(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    category: AILeadItemCategory | None = None
+
+
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
 # The report is FLAT: tasks and artifacts are top-level lists, each entry carrying
 # its own domain placement. There is no nested domain tree.

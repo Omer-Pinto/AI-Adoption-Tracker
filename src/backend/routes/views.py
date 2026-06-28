@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from models import ArtifactType, TaskStatus, TERMINAL_STATUSES
@@ -828,5 +828,125 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
             (_AI_LEAD_OWNER,),
         ).fetchall()
         return [AILeadActionItem(**dict(r)) for r in rows]
+    finally:
+        conn.close()
+
+
+# ── AI-Lead personal toolkit (standalone `ai_lead_item` CRUD) ────────────────
+# Meta-skills + Claude Code enhancements the AI Lead maintains. STANDALONE: no
+# team/domain/report coupling, no history. Plain parameterized SQL via
+# `get_connection()`, one connection per request (try/finally:close).
+
+def _ai_lead_item(row: sqlite3.Row) -> models.AILeadItem:
+    """Map an `ai_lead_item` row to its response model."""
+    return models.AILeadItem(
+        id=row["id"],
+        name=row["name"],
+        description=row["description"],
+        category=row["category"],
+    )
+
+
+@router.get("/ai-lead/items", response_model=list[models.AILeadItem])
+def ai_lead_items() -> list[models.AILeadItem]:
+    """Every AI-Lead toolkit item, grouped by category then case-folded name."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM ai_lead_item ORDER BY category, LOWER(name), id"
+        ).fetchall()
+        return [_ai_lead_item(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@router.post(
+    "/ai-lead/items",
+    response_model=models.AILeadItem,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_ai_lead_item(body: models.AILeadItemCreate) -> models.AILeadItem:
+    """Create a toolkit item. A blank/whitespace-only name is rejected (422);
+    the stored name is stripped. `category` is persisted as its string value."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name must not be blank")
+
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO ai_lead_item (name, description, category) "
+            "VALUES (?, ?, ?)",
+            (name, body.description, body.category.value),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM ai_lead_item WHERE id = ?", (cur.lastrowid,)
+        ).fetchone()
+        return _ai_lead_item(row)
+    finally:
+        conn.close()
+
+
+@router.patch("/ai-lead/items/{id}", response_model=models.AILeadItem)
+def patch_ai_lead_item(id: int, body: models.AILeadItemPatch) -> models.AILeadItem:
+    """Partial-PATCH a toolkit item (same pattern as `patch_action_item`).
+
+    Only provided fields are written (`model_dump(exclude_unset=True)`); an
+    explicit `null` clears a nullable field. `category` is persisted as its
+    string value. If a `name` is supplied it must not be blank (422). 404 if
+    the item is missing."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM ai_lead_item WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="AI-Lead item not found")
+
+        changes = body.model_dump(exclude_unset=True)
+
+        if "name" in changes:
+            name = (changes["name"] or "").strip()
+            if not name:
+                raise HTTPException(status_code=422, detail="name must not be blank")
+            changes["name"] = name
+
+        # `category` arrives as the enum (Pydantic already rejected invalid as
+        # 422); persist its string value in the TEXT column.
+        if "category" in changes and changes["category"] is not None:
+            changes["category"] = changes["category"].value
+
+        if changes:
+            cols = ", ".join(f"{k} = ?" for k in changes)
+            conn.execute(
+                f"UPDATE ai_lead_item SET {cols} WHERE id = ?",
+                (*changes.values(), id),
+            )
+            conn.commit()
+
+        updated = conn.execute(
+            "SELECT * FROM ai_lead_item WHERE id = ?", (id,)
+        ).fetchone()
+        return _ai_lead_item(updated)
+    finally:
+        conn.close()
+
+
+@router.delete(
+    "/ai-lead/items/{id}", status_code=status.HTTP_204_NO_CONTENT
+)
+def delete_ai_lead_item(id: int) -> None:
+    """Delete a toolkit item. 404 if missing."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT id FROM ai_lead_item WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="AI-Lead item not found")
+        conn.execute("DELETE FROM ai_lead_item WHERE id = ?", (id,))
+        conn.commit()
+        return None
     finally:
         conn.close()

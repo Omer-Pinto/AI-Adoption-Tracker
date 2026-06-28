@@ -136,6 +136,54 @@
 .ai-lead-page .group-row .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc, #94a3b8); }
 .ai-lead-page .group-row .gcount { color: var(--text-faint); font-weight: 700; margin-left: 4px; }
 
+/* ---- My toolkit card ---------------------------------------------------- */
+/* Personal meta-skills + Claude Code enhancements, grouped by category. Reuses
+   the shared .list-card / .list-head chrome; tokens only (light + dark safe). */
+.ai-lead-page .toolkit-card { margin-top: 22px; }
+.ai-lead-page .toolkit-card .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+/* inline add/edit form (one form for both modes) */
+.ai-lead-page .tk-form {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-2);
+}
+.ai-lead-page .tk-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ai-lead-page .tk-input {
+  border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  font-family: inherit; font-size: 13px; color: var(--text); padding: 7px 10px;
+}
+.ai-lead-page .tk-input::placeholder { color: var(--text-faint); }
+.ai-lead-page .tk-input:hover { border-color: var(--border-strong); }
+.ai-lead-page .tk-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-weak); }
+.ai-lead-page .tk-name { flex: 1 1 260px; min-width: 0; }
+.ai-lead-page .tk-cat { flex: 0 0 auto; cursor: pointer; font-weight: 600; }
+.ai-lead-page .tk-desc { width: 100%; resize: vertical; line-height: 1.45; }
+.ai-lead-page .tk-form-actions { display: flex; align-items: center; gap: 8px; }
+
+/* grouped item list */
+.ai-lead-page .tk-body { padding: 4px 0 6px; }
+.ai-lead-page .tk-pad { padding: 18px; }
+.ai-lead-page .tk-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 26px 18px; }
+.ai-lead-page .tk-list-error { margin: 12px 18px; }
+
+.ai-lead-page .tk-group { padding: 4px 0; }
+.ai-lead-page .tk-group-head {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted);
+  padding: 10px 18px 6px; display: flex; align-items: center; gap: 7px;
+}
+.ai-lead-page .tk-group-count { color: var(--text-faint); font-weight: 700; }
+
+.ai-lead-page .tk-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 18px; border-bottom: 1px solid var(--border-subtle);
+}
+.ai-lead-page .tk-group:last-child .tk-row:last-child { border-bottom: none; }
+.ai-lead-page .tk-row:hover { background: var(--surface-2); }
+.ai-lead-page .tk-row-main { flex: 1; min-width: 0; }
+.ai-lead-page .tk-row-name { font-size: 13.5px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.ai-lead-page .tk-row-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.45; }
+.ai-lead-page .tk-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* ---- Dark-mode semantic overrides ---- */
 html[data-theme="dark"] .ai-lead-page .overdue-tag { background: rgba(220, 38, 38, 0.20); color: #fca5a5; }
 html[data-theme="dark"] .ai-lead-page .due-input.overdue { color: #fca5a5; border-color: rgba(220, 38, 38, 0.40); background: rgba(220, 38, 38, 0.10); }
