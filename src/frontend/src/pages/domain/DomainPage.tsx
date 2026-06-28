@@ -26,18 +26,18 @@ export default function DomainPage() {
 
   const load = useCallback(() => {
     if (!domainId) return;
+    let cancelled = false;
     setLoading(true);
     setError(false);
     api.views
       .domainPage(Number(domainId))
-      .then(setData)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [domainId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => load(), [load]);
 
   function openArtifactModal(artifactId: number) {
     setModalError(false);

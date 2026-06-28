@@ -95,9 +95,11 @@ export default function TaskDetailPage() {
           // Non-fatal: the page still renders; the picker just stays empty.
         }
       })
-      .catch(() => {
+      .catch((e) => {
         if (cancelled) return;
-        setError('error');
+        // A removed/unknown id comes back as a 404 → show the friendly
+        // "not found" state, not the generic load-failure one.
+        setError(e instanceof ApiError && e.status === 404 ? 'invalid' : 'error');
         setLoading(false);
       });
     return () => {

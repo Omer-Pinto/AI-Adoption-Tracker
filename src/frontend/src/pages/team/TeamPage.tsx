@@ -44,18 +44,18 @@ export default function TeamPage() {
 
   const load = useCallback(() => {
     if (!championId) return;
+    let cancelled = false;
     setLoading(true);
     setError(false);
     api.views
       .teamPage(Number(championId))
-      .then(setData)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [championId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => load(), [load]);
 
   function openArtifactModal(artifactId: number) {
     setModalError(false);
