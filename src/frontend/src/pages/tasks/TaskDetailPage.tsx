@@ -44,6 +44,7 @@ const STATUS_OPTS: { v: TaskStatus; l: string }[] = [
   { v: 'finished_with_issues', l: 'Finished with issues' },
   { v: 'blocked', l: 'Blocked' },
   { v: 'abandoned', l: 'Abandoned' },
+  { v: 'wont_fix', l: "Won't Fix" },
 ];
 
 export default function TaskDetailPage() {
@@ -220,9 +221,9 @@ export default function TaskDetailPage() {
                   </div>
                 </div>
                 <div className="case-meta-item">
-                  <div className="case-meta-label">Ended</div>
+                  <div className="case-meta-label">Due on</div>
                   <div className="case-meta-value">
-                    {task.ended_on || <span className="text-muted">—</span>}
+                    {task.due_date || <span className="text-muted">—</span>}
                   </div>
                 </div>
               </div>
@@ -286,7 +287,7 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
   const [owner, setOwner] = useState(task.owner ?? '');
   const [domainId, setDomainId] = useState<number>(task.domain_id);
   const [startedOn, setStartedOn] = useState(task.started_on ?? '');
-  const [endedOn, setEndedOn] = useState(task.ended_on ?? '');
+  const [dueDate, setDueDate] = useState(task.due_date ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -294,14 +295,14 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
     setSaving(true);
     setErr(null);
     // Send ONLY the CHANGED fields among {status, owner, domain_id,
-    // started_on, ended_on} — the backend accepts all five (un-journaled).
+    // started_on, due_date} — the backend accepts all five (un-journaled).
     const body: TaskPatchBody = {};
     if (status !== task.status) body.status = status;
     const trimmed = owner.trim();
     if (trimmed !== (task.owner ?? '')) body.owner = trimmed === '' ? null : trimmed;
     if (domainId !== task.domain_id) body.domain_id = domainId;
     if (startedOn !== (task.started_on ?? '')) body.started_on = startedOn === '' ? null : startedOn;
-    if (endedOn !== (task.ended_on ?? '')) body.ended_on = endedOn === '' ? null : endedOn;
+    if (dueDate !== (task.due_date ?? '')) body.due_date = dueDate === '' ? null : dueDate;
 
     if (Object.keys(body).length === 0) {
       onCancel();
@@ -380,12 +381,12 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
         />
       </div>
       <div className="form-row">
-        <label className="form-label">Ended</label>
+        <label className="form-label">Due on</label>
         <input
           className="form-input"
           type="date"
-          value={endedOn}
-          onChange={(e) => setEndedOn(e.target.value)}
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
         />
       </div>
       <div className="text-muted text-sm" style={{ marginBottom: 12 }}>

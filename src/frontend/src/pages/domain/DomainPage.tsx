@@ -240,9 +240,9 @@ function TasksTable({ tasks }: { tasks: Task[] }) {
       width: '110px',
     },
     {
-      key: 'ended_on',
-      header: 'Ended',
-      render: (t) => <span>{t.ended_on ?? '—'}</span>,
+      key: 'due_date',
+      header: 'Due',
+      render: (t) => <span>{t.due_date ?? '—'}</span>,
       width: '110px',
     },
   ];

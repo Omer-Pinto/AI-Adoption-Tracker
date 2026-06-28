@@ -147,25 +147,29 @@
 .priority-2 { background: #fef9c3; color: #854d0e; }
 .priority-3 { background: #f3f4f6; color: #4b5563; }
 
-/* ---- Reports list ---- */
+/* ---- Reports list (cards inside the Reports fold) ---- */
 .report-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 8px;
 }
 
-.report-row:last-child { border-bottom: none; }
+.report-row:last-child { margin-bottom: 0; }
 
 .report-date {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 700;
   color: #1a1d23;
+  font-variant-numeric: tabular-nums;
 }
 
 .report-label {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #6b7280;
   margin-top: 2px;
 }
@@ -176,6 +180,217 @@
   color: #9ca3af;
   font-style: italic;
   padding: 8px 0;
+}
+
+/* ============================================================
+   Wave-13 team-page redesign (mock: prototype/team-page-mock.html)
+   ============================================================ */
+
+/* ---- Identity strip ---- */
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.id-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #4361ee, #8b5cf6);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+.id-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: #1a1d23;
+}
+.id-meta { font-size: 12px; color: #6b7280; margin-top: 1px; }
+.id-meta b { color: #374151; font-weight: 600; }
+.id-spacer { flex: 1; }
+
+/* ---- Tile dashboard ---- */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.tile {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.08s;
+  position: relative;
+  overflow: hidden;
+}
+.tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent, #cbd5e1);
+}
+.tile:hover { box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08); border-color: #cbd0d8; }
+.tile:active { transform: translateY(1px); }
+.tile-top { display: flex; align-items: center; justify-content: space-between; }
+.tile-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+.tile-ico { color: var(--accent, #94a3b8); display: inline-flex; }
+.tile-value {
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1a1d23;
+  font-variant-numeric: tabular-nums;
+}
+.tile-sub { font-size: 11px; color: #9ca3af; }
+.tile-sub .pos { color: #16a34a; font-weight: 600; }
+.tile-sub .warn { color: #d97706; font-weight: 600; }
+.tile-sub .bad { color: #dc2626; font-weight: 600; }
+
+.tile.acc-blue   { --accent: #3b82f6; }
+.tile.acc-green  { --accent: #16a34a; }
+.tile.acc-amber  { --accent: #d97706; }
+.tile.acc-indigo { --accent: #6366f1; }
+.tile.acc-violet { --accent: #8b5cf6; }
+.tile.acc-slate  { --accent: #64748b; }
+
+/* ---- Foldable sections (native <details>) ---- */
+.fold {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.fold > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 20px;
+  background: #fff;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold[open] > summary { border-bottom: 1px solid #f1f2f4; }
+.fold > summary:hover { background: #fafbfc; }
+.chev {
+  flex-shrink: 0;
+  color: #9ca3af;
+  transition: transform 0.18s ease;
+  display: inline-flex;
+}
+.fold[open] > summary .chev { transform: rotate(90deg); color: #4361ee; }
+.fold-title { font-size: 14px; font-weight: 700; color: #1a1d23; letter-spacing: -0.1px; }
+.fold-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b5563;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 2px 10px;
+  min-width: 24px;
+  text-align: center;
+}
+.fold-spacer { flex: 1; }
+.fold-hint { font-size: 11.5px; color: #9ca3af; }
+.fold[open] > summary .fold-hint::after { content: 'Collapse'; }
+.fold:not([open]) > summary .fold-hint::after { content: 'Expand'; }
+.fold-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.mini-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f8f9fb;
+  border: 1px solid #eef0f3;
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.fold-body { padding: 16px 20px 20px; background: #fcfcfd; }
+
+/* ---- Action items list (mock .ai-row) ---- */
+.ai-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+.ai-row:last-child { margin-bottom: 0; }
+.ai-row.resolved { opacity: 0.68; }
+.ai-main { flex: 1; min-width: 0; }
+.ai-text { font-size: 13px; color: #1a1d23; font-weight: 500; }
+.ai-row.resolved .ai-text { text-decoration: line-through; color: #6b7280; }
+.ai-meta {
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-top: 5px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ai-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: #374151;
+  background: #f3f4f6;
+  border-radius: 20px;
+  padding: 2px 9px 2px 3px;
+  font-size: 11px;
+}
+.ai-owner .dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #64748b;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+.ai-due { font-variant-numeric: tabular-nums; }
+.ai-due.overdue { color: #dc2626; font-weight: 600; }
+
+.empty-note { font-size: 13px; color: #9ca3af; font-style: italic; padding: 6px 2px; }
+
+.flash { animation: team-flash 1.1s ease; }
+@keyframes team-flash {
+  0% { box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.35); }
+  100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); }
 }
 
 /* Story classes have been moved to components/DomainStory.css */

@@ -73,6 +73,8 @@ export interface Task {
   owner: string | null;
   started_on: string | null;
   ended_on: string | null;
+  /** Wave-12 rename of the finish field. Additive; `ended_on` kept for deferred tidy. */
+  due_date?: string | null;
 }
 
 export interface Artifact {
@@ -109,6 +111,8 @@ export interface TaskHistoryEntry {
   status_at_meeting: TaskStatus;
   owner: string | null;
   ended_on: string | null;
+  /** Wave-12 rename of the finish field. Additive; `ended_on` kept for deferred tidy. */
+  due_date?: string | null;
   change_note: string | null;
   source: 'report' | 'manual';
 }
@@ -249,6 +253,8 @@ export interface TaskPatchBody {
   domain_id?: number;
   started_on?: string | null;
   ended_on?: string | null;
+  /** Wave-12 rename of the finish field. Additive; `ended_on` kept for deferred tidy. */
+  due_date?: string | null;
 }
 
 /** Body for `PATCH /api/artifacts/{id}` — domain_id nullable (null = team-wide). */

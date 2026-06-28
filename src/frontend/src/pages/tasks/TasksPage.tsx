@@ -107,7 +107,7 @@ export default function TasksPage() {
                   <th>Status</th>
                   <th>Owner</th>
                   <th>Started</th>
-                  <th>Ended</th>
+                  <th>Due</th>
                 </tr>
               </thead>
               <tbody>
@@ -168,7 +168,7 @@ function TaskRows({ task, expanded, history, onToggle }: TaskRowsProps) {
           {task.started_on ?? <span style={{ color: '#d1d5db' }}>—</span>}
         </td>
         <td className="text-sm" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-          {task.ended_on ?? <span style={{ color: '#d1d5db' }}>—</span>}
+          {task.due_date ?? <span style={{ color: '#d1d5db' }}>—</span>}
         </td>
       </tr>
 

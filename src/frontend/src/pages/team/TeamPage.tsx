@@ -1,15 +1,32 @@
 import './team-page.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/api';
-import type { TeamPage, DomainPage, Artifact, ArtifactDetail } from '@/types';
+import type { TeamPage, DomainPage, Artifact, ArtifactDetail, ActionItem, TaskStatus } from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 
-// Route: "/teams/:championId" — one champion's portfolio, labeled by team. Wave-3 agent 3B.
+// Route: "/teams/:championId" — one champion's portfolio, labeled by team. Wave-13 redesign (13B).
+
+// Terminal statuses = "closed". An action item / task in one of these is done.
+const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
+const TODAY = new Date().toISOString().slice(0, 10);
+
+// One stable color per domain (left accent). General catch-all renders muted.
+const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#ef4444'];
+function domainColor(name: string, idx: number): string {
+  return name.trim().toLowerCase() === 'general' ? '#9ca3af' : DOMAIN_COLORS[idx % DOMAIN_COLORS.length]!;
+}
+
+function isClosedItem(item: ActionItem): boolean {
+  return item.status ? TERMINAL.includes(item.status) : !!item.resolved;
+}
+function isOverdue(item: ActionItem): boolean {
+  return !!item.due_date && item.due_date < TODAY && !isClosedItem(item);
+}
 
 export default function TeamPage() {
   const { championId } = useParams<{ championId: string }>();
@@ -84,6 +101,44 @@ export default function TeamPage() {
 
   const { team, champion, domains, all_team_artifacts, reports, action_items } = data;
 
+  // ── Derived breakdowns for tile sub-callouts (computed client-side) ─────
+  const allTasks = domains.flatMap((d) => d.tasks);
+  const blockedTasks = allTasks.filter((t) => t.status === 'blocked').length;
+  const activeOpenTasks = Math.max(0, data.open_tasks - blockedTasks);
+  const finishedTasks = allTasks.filter(
+    (t) => t.status === 'finished_successfully' || t.status === 'finished_with_issues',
+  ).length;
+  const abandonedTasks = allTasks.filter(
+    (t) => t.status === 'abandoned' || t.status === 'wont_fix',
+  ).length;
+
+  const overdueActions = action_items.filter(isOverdue).length;
+
+  const allArtifacts = [...domains.flatMap((d) => d.artifacts), ...all_team_artifacts];
+  const artifactTypes = Array.from(new Set(allArtifacts.map((a) => a.type)));
+
+  const lastMeeting = reports.length
+    ? reports.map((r) => r.meeting_date).sort().slice(-1)[0]
+    : null;
+
+  // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
+  const domainsRef = useRef<HTMLDetailsElement>(null);
+  const artifactsRef = useRef<HTMLDetailsElement>(null);
+  const reportsRef = useRef<HTMLDetailsElement>(null);
+  const actionsRef = useRef<HTMLDetailsElement>(null);
+
+  function jumpTo(ref: React.RefObject<HTMLDetailsElement>) {
+    const el = ref.current;
+    if (!el) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart the flash animation
+    el.classList.add('flash');
+  }
+
+  const avatarLetter = (champion.name || team.name || '?').trim().charAt(0).toUpperCase();
+
   return (
     <>
       <div className="top-bar">
@@ -105,124 +160,190 @@ export default function TeamPage() {
       </div>
 
       <div className="page-body">
-        {/* Champion header panel */}
-        <div className="panel mb-16" style={{ marginBottom: 20 }}>
-          <div className="panel-body-padded">
-            <div
-              className="d-flex align-center"
-              style={{ flexWrap: 'wrap', gap: '24px' }}
-            >
-              <div className="case-meta-item">
-                <div className="case-meta-label">Team</div>
-                <div className="case-meta-value" style={{ fontSize: 16, fontWeight: 700 }}>
-                  {team.name}
-                </div>
-              </div>
-              <div className="case-meta-item">
-                <div className="case-meta-label">Current Champion</div>
-                <div className="case-meta-value">{champion.name}</div>
-              </div>
-              {champion.start_date && (
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Champion Since</div>
-                  <div className="case-meta-value">{champion.start_date}</div>
-                </div>
-              )}
-              {team.cc_baseline && (
-                <div className="case-meta-item">
-                  <div className="case-meta-label">CC Baseline</div>
-                  <div className="case-meta-value">{team.cc_baseline}</div>
-                </div>
-              )}
-              <div className="case-meta-item">
-                <div className="case-meta-label">Domains</div>
-                <div className="case-meta-value">{domains.length}</div>
-              </div>
+        {/* ── Identity strip ──────────────────────────────────────────── */}
+        <div className="identity">
+          <div className="id-avatar">{avatarLetter}</div>
+          <div>
+            <div className="id-name">{team.name}</div>
+            <div className="id-meta">
+              Champion <b>{champion.name}</b>
+              {champion.start_date && <> &bull; since <b>{champion.start_date}</b></>}
+              {' '}&bull; <b>{data.domain_count}</b> domains
             </div>
           </div>
+          <div className="id-spacer" />
         </div>
 
-        {/* Domains section */}
-        <div className="index-section-title">Domains</div>
-
-        {domains.length === 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <div className="panel-body-padded text-muted text-sm">No domains yet.</div>
-          </div>
-        )}
-
-        {domains.map((dp) => (
-          <DomainCard key={dp.domain.id} dp={dp} onArtifactClick={openArtifactModal} />
-        ))}
-
-        <hr className="section-divider" />
-
-        {/* All-team gutter (un-domained artifacts) */}
-        {all_team_artifacts.length > 0 && (
-          <>
-            <div className="index-section-title">All-Team Artifacts (Team-Wide)</div>
-            <div className="panel" style={{ marginBottom: 20 }}>
-              <ArtifactsTable
-                artifacts={all_team_artifacts}
-                onArtifactClick={openArtifactModal}
-              />
+        {/* ── Tile dashboard ──────────────────────────────────────────── */}
+        <div className="tile-grid">
+          <button type="button" className="tile acc-blue" onClick={() => jumpTo(domainsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Open tasks</span>
+              <span className="tile-ico">▣</span>
             </div>
-          </>
-        )}
+            <div className="tile-value">{data.open_tasks}</div>
+            <div className="tile-sub">
+              {blockedTasks > 0 && <><span className="bad">{blockedTasks} blocked</span> &bull; </>}
+              {activeOpenTasks} active
+            </div>
+          </button>
 
-        {/* Reports + Action Items */}
-        <div className="col-2" style={{ gap: 24, marginTop: 8 }}>
-          <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Reports ({champion.name})</span>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => navigate('/reports/new')}
-              >
-                + Create report
-              </button>
+          <button type="button" className="tile acc-green" onClick={() => jumpTo(domainsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Closed tasks</span>
+              <span className="tile-ico">✓</span>
             </div>
-            <div className="panel-body-padded">
-              {reports.length === 0 ? (
-                <div className="text-muted text-sm" style={{ fontStyle: 'italic' }}>
-                  No reports yet for {champion.name}.
-                </div>
-              ) : (
-                <div>
-                  {reports.map((r) => (
-                    <div className="report-row" key={r.id}>
-                      <div>
-                        <div className="report-date">{r.meeting_date}</div>
-                        <div className="report-label">Champion meeting</div>
-                      </div>
-                      <Link
-                        to={`/reports/${r.id}/edit`}
-                        className="btn btn-secondary btn-sm"
-                      >
-                        View / Edit
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="tile-value">{data.closed_tasks}</div>
+            <div className="tile-sub">
+              <span className="pos">{finishedTasks} finished</span>
+              {abandonedTasks > 0 && <> &bull; {abandonedTasks} abandoned</>}
             </div>
-          </div>
+          </button>
 
-          <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Action Items</span>
+          <button type="button" className="tile acc-amber" onClick={() => jumpTo(actionsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Open actions</span>
+              <span className="tile-ico">☑</span>
             </div>
-            <div className="panel-body-padded">
-              {action_items.length === 0 ? (
-                <div className="no-action-items">
-                  No open action items for {champion.name}.
-                </div>
-              ) : (
-                <ActionItemsList items={action_items} />
-              )}
+            <div className="tile-value">{data.open_action_items}</div>
+            <div className="tile-sub">
+              {overdueActions > 0 && <><span className="warn">{overdueActions} overdue</span> &bull; </>}
+              {data.closed_action_items} closed
             </div>
-          </div>
+          </button>
+
+          <button type="button" className="tile acc-slate" onClick={() => jumpTo(reportsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Meetings</span>
+              <span className="tile-ico">✎</span>
+            </div>
+            <div className="tile-value">{data.meeting_count}</div>
+            <div className="tile-sub">{lastMeeting ? `last: ${lastMeeting}` : 'none yet'}</div>
+          </button>
+
+          <button type="button" className="tile acc-indigo" onClick={() => jumpTo(domainsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Domains</span>
+              <span className="tile-ico">◆</span>
+            </div>
+            <div className="tile-value">{data.domain_count}</div>
+            <div className="tile-sub">+ General catch-all</div>
+          </button>
+
+          <button type="button" className="tile acc-violet" onClick={() => jumpTo(artifactsRef)}>
+            <div className="tile-top">
+              <span className="tile-label">Artifacts</span>
+              <span className="tile-ico">◈</span>
+            </div>
+            <div className="tile-value">{data.artifact_count}</div>
+            <div className="tile-sub">{artifactTypes.length ? artifactTypes.join(' · ') : '—'}</div>
+          </button>
         </div>
+
+        {/* ── Domains fold ────────────────────────────────────────────── */}
+        <details className="fold" ref={domainsRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Domains</span>
+            <span className="fold-count">{data.domain_count}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              <span className="mini-pill">{data.open_tasks} open tasks</span>
+              <span className="mini-pill">{data.artifact_count} artifacts</span>
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {domains.length === 0 ? (
+              <div className="empty-note">No domains yet.</div>
+            ) : (
+              domains.map((dp, i) => (
+                <DomainCard
+                  key={dp.domain.id}
+                  dp={dp}
+                  accent={domainColor(dp.domain.name, i)}
+                  onArtifactClick={openArtifactModal}
+                />
+              ))
+            )}
+          </div>
+        </details>
+
+        {/* ── Artifacts fold (full catalog: domain-scoped + team-wide) ── */}
+        <details className="fold" ref={artifactsRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Artifacts</span>
+            <span className="fold-count">{allArtifacts.length}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              {artifactTypes.map((t) => (
+                <span className="mini-pill" key={t}>{t}</span>
+              ))}
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {allArtifacts.length === 0 ? (
+              <div className="empty-note">No artifacts.</div>
+            ) : (
+              <ArtifactsTable artifacts={allArtifacts} onArtifactClick={openArtifactModal} />
+            )}
+          </div>
+        </details>
+
+        {/* ── Reports fold ────────────────────────────────────────────── */}
+        <details className="fold" ref={reportsRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Reports</span>
+            <span className="fold-count">{reports.length}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              {lastMeeting && <span className="mini-pill">last meeting {lastMeeting}</span>}
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {reports.length === 0 ? (
+              <div className="empty-note">No reports yet for {champion.name}.</div>
+            ) : (
+              reports.map((r) => (
+                <div className="report-row" key={r.id}>
+                  <div>
+                    <div className="report-date">{r.meeting_date}</div>
+                    <div className="report-label">Champion meeting &bull; {champion.name}</div>
+                  </div>
+                  <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
+                    View / Edit
+                  </Link>
+                </div>
+              ))
+            )}
+          </div>
+        </details>
+
+        {/* ── Action items fold ───────────────────────────────────────── */}
+        <details className="fold" ref={actionsRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Action items</span>
+            <span className="fold-count">{action_items.length}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              <span className="mini-pill">{data.open_action_items} open</span>
+              {overdueActions > 0 && <span className="mini-pill">{overdueActions} overdue</span>}
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {action_items.length === 0 ? (
+              <div className="empty-note">No action items for {champion.name}.</div>
+            ) : (
+              <ActionItemsList items={action_items} />
+            )}
+          </div>
+        </details>
       </div>
 
       {modalError && (
@@ -239,15 +360,20 @@ export default function TeamPage() {
 
 function DomainCard({
   dp,
+  accent,
   onArtifactClick,
 }: {
   dp: DomainPage;
+  accent: string;
   onArtifactClick: (id: number) => void;
 }) {
   const { domain, tasks, artifacts } = dp;
 
   return (
-    <div className="domain-card">
+    <div
+      className="domain-card"
+      style={{ borderLeft: `4px solid ${accent}` }}
+    >
       <div className="domain-card-header">
         <div>
           <div className="domain-card-title">
@@ -421,39 +547,41 @@ function ArtifactsTable({
 
 // ---- Action items list ----
 
-function ActionItemsList({
-  items,
-}: {
-  items: import('@/types').ActionItem[];
-}) {
+function ActionItemsList({ items }: { items: ActionItem[] }) {
   return (
     <div>
-      {items.map((item) => (
-        <div key={item.id} className="open-item-row">
-          <div className="open-item-content">
-            <div
-              className={`open-item-title${item.resolved ? ' text-muted' : ''}`}
-              style={item.resolved ? { textDecoration: 'line-through' } : undefined}
+      {items.map((item) => {
+        const closed = isClosedItem(item);
+        const overdue = isOverdue(item);
+        return (
+          <div key={item.id} className={`ai-row${closed ? ' resolved' : ''}`}>
+            <div className="ai-main">
+              <div className="ai-text">{item.text}</div>
+              <div className="ai-meta">
+                {item.owner && (
+                  <span className="ai-owner">
+                    <span className="dot">{item.owner.trim().charAt(0).toUpperCase()}</span>
+                    {item.owner}
+                  </span>
+                )}
+                {item.due_date && (
+                  <span className={`ai-due${overdue ? ' overdue' : ''}`}>
+                    Due {item.due_date}{overdue ? ' (overdue)' : ''}
+                  </span>
+                )}
+                {item.status && <StatusBadge status={item.status} />}
+              </div>
+            </div>
+            <Link
+              to={`/reports/${item.report_id}/edit`}
+              className="btn btn-secondary btn-sm"
+              title="Edit the report this action item came from"
             >
-              {item.text}
-            </div>
-            <div className="open-item-meta">
-              {item.owner && <>Owner: {item.owner} &bull; </>}
-              {item.due_date && <>Due: {item.due_date} &bull; </>}
-              {item.resolved ? 'Resolved' : 'Open'}
-              {/* report_id is present on ActionItem — link to the owning report's edit page */}
-              &nbsp;&bull;&nbsp;
-              <Link
-                to={`/reports/${item.report_id}/edit`}
-                style={{ fontSize: 11, color: '#4361ee' }}
-                title="Edit the report this action item came from"
-              >
-                Edit report
-              </Link>
-            </div>
+              Edit report
+            </Link>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
