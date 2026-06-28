@@ -44,6 +44,7 @@ export function AppShell() {
     <div className="app-shell">
       <nav className="nav-sidebar">
         <div className="nav-logo">
+          <div className="nav-logo-head">
           <span className="nav-logo-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" width="28" height="28" role="presentation" focusable="false">
               <defs>
@@ -67,10 +68,9 @@ export function AppShell() {
               <circle cx="25" cy="9.5" r="2.7" fill="#ffffff" />
             </svg>
           </span>
-          <div className="nav-logo-lockup">
             <span className="nav-logo-title">Adoption Tracker</span>
-            {version && <span className="nav-logo-version">v{version}</span>}
           </div>
+          {version && <span className="nav-logo-version">v{version}</span>}
         </div>
         <div className="nav-section">
           <div className="nav-section-label">Main</div>
