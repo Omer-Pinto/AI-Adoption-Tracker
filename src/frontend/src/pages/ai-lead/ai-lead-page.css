@@ -1,0 +1,117 @@
+/* AI-Lead cross-team action-items view — lifted from prototype/ai-lead-mock.html.
+   All rules scoped under .ai-lead-page (and the top-bar toggle under .ail-toggle)
+   so the bare .status-wrap / .tile etc. never collide with other pages. */
+
+/* ---- Toggle (lives in the top-bar) ---- */
+.ail-toggle { display: inline-flex; border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; background: #fff; }
+.ail-toggle button {
+  border: none; background: #fff; font-family: inherit; font-size: 11.5px; font-weight: 600; color: #6b7280;
+  padding: 5px 12px; cursor: pointer;
+}
+.ail-toggle button + button { border-left: 1px solid #e5e7eb; }
+.ail-toggle button.on { background: #4361ee; color: #fff; }
+
+/* ---- Identity strip ---- */
+.ai-lead-page .identity { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.ai-lead-page .id-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #4361ee, #8b5cf6); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;
+}
+.ai-lead-page .id-name { font-size: 17px; font-weight: 800; letter-spacing: -.2px; color: #1a1d23; }
+.ai-lead-page .id-meta { font-size: 12px; color: #6b7280; margin-top: 1px; }
+.ai-lead-page .id-meta b { color: #374151; font-weight: 600; }
+
+/* ---- Summary tiles ---- */
+.ai-lead-page .tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; max-width: 720px; }
+.ai-lead-page .tile {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+}
+.ai-lead-page .tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1); }
+.ai-lead-page .tile-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; }
+.ai-lead-page .tile-value { font-size: 25px; font-weight: 800; line-height: 1; color: #1a1d23; font-variant-numeric: tabular-nums; }
+.ai-lead-page .tile-sub { font-size: 11px; color: #9ca3af; }
+.ai-lead-page .tile.acc-blue  { --accent: #3b82f6; }
+.ai-lead-page .tile.acc-red   { --accent: #dc2626; }
+.ai-lead-page .tile.acc-amber { --accent: #d97706; }
+.ai-lead-page .tile.acc-green { --accent: #16a34a; }
+
+/* ---- List card ---- */
+.ai-lead-page .list-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+.ai-lead-page .list-head { padding: 13px 18px; border-bottom: 1px solid #f1f2f4; display: flex; align-items: center; gap: 12px; }
+.ai-lead-page .list-title { font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #374151; }
+.ai-lead-page .list-title .count { color: #9ca3af; font-weight: 600; margin-left: 5px; }
+.ai-lead-page .list-spacer { flex: 1; }
+.ai-lead-page .sort-note { font-size: 11px; color: #9ca3af; }
+
+/* ---- Table ---- */
+.ai-lead-page table.ai-table { width: 100%; border-collapse: collapse; }
+.ai-lead-page table.ai-table th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af;
+  text-align: left; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; background: #fafbfc; white-space: nowrap;
+}
+.ai-lead-page table.ai-table td { font-size: 13px; padding: 12px 16px; border-bottom: 1px solid #f1f2f4; vertical-align: top; }
+.ai-lead-page table.ai-table tr:last-child td { border-bottom: none; }
+.ai-lead-page table.ai-table tbody tr:hover td { background: #fafafe; }
+.ai-lead-page table.ai-table tr.is-closed td { background: #fcfcfd; }
+.ai-lead-page table.ai-table tr.is-closed:hover td { background: #fafafe; }
+
+.ai-lead-page .col-item { width: 46%; }
+.ai-lead-page .col-team { width: 130px; }
+.ai-lead-page .col-date { width: 116px; }
+.ai-lead-page .col-status { width: 170px; }
+.ai-lead-page .col-open { width: 116px; text-align: right; }
+
+.ai-lead-page .ai-text { font-size: 13.5px; color: #1a1d23; font-weight: 500; line-height: 1.45; }
+.ai-lead-page tr.is-closed .ai-text { color: #9ca3af; }
+.ai-lead-page tr.st-abandoned .ai-text, .ai-lead-page tr.st-wont_fix .ai-text { text-decoration: line-through; }
+
+/* team chip with per-team color dot */
+.ai-lead-page .team-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: #374151;
+  background: #f8f9fb; border: 1px solid #eef0f3; border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+}
+.ai-lead-page .team-chip .tdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--tc, #94a3b8); }
+
+/* meeting date */
+.ai-lead-page .mtg-date { font-size: 12.5px; color: #374151; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ai-lead-page .mtg-none { font-size: 12px; color: #b6bcc6; font-style: italic; }
+.ai-lead-page .mtg-date.overdue { color: #dc2626; font-weight: 600; }
+.ai-lead-page .overdue-tag {
+  display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  color: #991b1b; background: #fee2e2; border-radius: 4px; padding: 1px 5px; margin-top: 3px;
+}
+
+/* editable status control */
+.ai-lead-page .status-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; padding-left: 9px; white-space: nowrap;
+}
+.ai-lead-page .status-wrap:hover { border-color: #cbd0d8; }
+.ai-lead-page .status-wrap:focus-within { border-color: #4361ee; box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.ai-lead-page .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #9ca3af; }
+.ai-lead-page .status-sel {
+  border: none; background: transparent; padding: 5px 22px 5px 0;
+  font-size: 12.5px; font-weight: 600; color: #1a1d23; cursor: pointer; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.ai-lead-page .status-sel:focus { outline: none; }
+.ai-lead-page .sd-planned                { background: #9ca3af; }
+.ai-lead-page .sd-in-progress            { background: #4361ee; }
+.ai-lead-page .sd-finished_successfully  { background: #16a34a; }
+.ai-lead-page .sd-finished_with_issues   { background: #d97706; }
+.ai-lead-page .sd-blocked                { background: #dc2626; }
+.ai-lead-page .sd-abandoned              { background: #9ca3af; }
+.ai-lead-page .sd-wont_fix               { background: #9ca3af; }
+
+/* group header rows (when grouping by team) */
+.ai-lead-page .group-row td {
+  background: #f5f6f8 !important; padding: 8px 16px;
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #6b7280;
+}
+.ai-lead-page .group-row .gh { display: inline-flex; align-items: center; gap: 7px; }
+.ai-lead-page .group-row .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc, #94a3b8); }
+.ai-lead-page .group-row .gcount { color: #9ca3af; font-weight: 700; margin-left: 4px; }

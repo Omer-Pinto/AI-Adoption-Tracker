@@ -1,4 +1,15 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { api } from '@/api';
+import type { TaskStatus } from '@/types';
+
+// Open = AI-Lead action items not in the terminal/closed status set.
+const CLOSED_STATUSES = new Set<TaskStatus>([
+  'finished_successfully',
+  'finished_with_issues',
+  'abandoned',
+  'wont_fix',
+]);
 
 // Sidebar + main-content shell, reusing the mvp/ look (.app-shell, .nav-sidebar).
 // Nav: Teams → /, Artifacts → /artifacts, Tasks → /tasks, + Manage → /manage.
@@ -9,6 +20,21 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 export function AppShell() {
+  const [aiLeadOpen, setAiLeadOpen] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.aiLead
+      .actionItems()
+      .then((items) => {
+        if (!cancelled) {
+          setAiLeadOpen(items.filter((it) => !CLOSED_STATUSES.has(it.status)).length);
+        }
+      })
+      .catch(() => { /* badge is best-effort; ignore load failures */ });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="app-shell">
       <nav className="nav-sidebar">
@@ -29,6 +55,10 @@ export function AppShell() {
           </NavLink>
           <NavLink to="/tasks" className={navClass}>
             <span className="nav-icon">&#10003;</span> Tasks
+          </NavLink>
+          <NavLink to="/ai-lead" className={navClass}>
+            <span className="nav-icon">&#9733;</span> AI Lead
+            {aiLeadOpen > 0 && <span className="nav-badge">{aiLeadOpen}</span>}
           </NavLink>
         </div>
         <hr className="nav-divider" />

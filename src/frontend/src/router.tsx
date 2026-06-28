@@ -9,6 +9,7 @@ import ArtifactsPage from '@/pages/artifacts/ArtifactsPage';
 import ArtifactDetailPage from '@/pages/artifacts/ArtifactDetailPage';
 import TasksPage from '@/pages/tasks/TasksPage';
 import TaskDetailPage from '@/pages/tasks/TaskDetailPage';
+import AiLeadPage from '@/pages/ai-lead/AiLeadPage';
 import ReportCreatePage from '@/pages/report/ReportCreatePage';
 import ReportPreviewPage from '@/pages/report/ReportPreviewPage';
 import ReportEditPage from '@/pages/report/ReportEditPage';
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: 'artifacts/:id', element: <ArtifactDetailPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'tasks/:id', element: <TaskDetailPage /> },
+      { path: 'ai-lead', element: <AiLeadPage /> },
       { path: 'reports/new', element: <ReportCreatePage /> },
       { path: 'reports/:reportId/preview', element: <ReportPreviewPage /> },
       { path: 'reports/:reportId/edit', element: <ReportEditPage /> },
