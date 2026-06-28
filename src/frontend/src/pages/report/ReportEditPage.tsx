@@ -61,7 +61,7 @@ export default function ReportEditPage() {
         setEntities(ents);
         setDomains(doms.map((d) => ({ id: d.id, name: d.name })));
       })
-      .catch(() => setError('Failed to load report.'))
+      .catch((e) => { console.error(e); setError('Failed to load report.'); })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

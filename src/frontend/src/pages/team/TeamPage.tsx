@@ -50,7 +50,7 @@ export default function TeamPage() {
     api.views
       .teamPage(Number(championId))
       .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => { if (!cancelled) setError(true); })
+      .catch((e) => { console.error(e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [championId]);

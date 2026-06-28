@@ -38,7 +38,8 @@ export default function ReportCreatePage() {
           setChampionId(parsed);
         }
       }
-    }).catch(() => {
+    }).catch((e) => {
+      console.error(e);
       setLoadError(true);
     }).finally(() => {
       setLoadingChampions(false);

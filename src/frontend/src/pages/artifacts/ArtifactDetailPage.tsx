@@ -83,6 +83,7 @@ export default function ArtifactDetailPage() {
       })
       .catch((e) => {
         if (cancelled) return;
+        console.error(e);
         // A removed/unknown id comes back as a 404 → show the friendly
         // "not found" state, not the generic load-failure one.
         setError(e instanceof ApiError && e.status === 404 ? 'invalid' : 'error');

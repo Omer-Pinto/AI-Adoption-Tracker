@@ -515,13 +515,6 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ---
 
-## Wave 13.2 — Small NITs (deferred from the post-Wave-13 fix review)
-
-Tiny, low-risk cleanups surfaced by the consultants/code-reviewer on the post-Wave-13 fix set. Done directly (no wave ceremony) unless noted.
-- ✅ **NIT-a — removed-id → friendly "not found":** `TaskDetailPage`/`ArtifactDetailPage` load `.catch` now sets `'invalid'` (friendly "not found") on a 404, not the generic load-error. **Done.**
-- ✅ **NIT-c — loader cancel-guard:** `DomainPage`/`TeamPage` loaders now create a `cancelled` flag and return cleanup (match the Artifacts/Tasks convention) so a rapid id switch can't let a stale response win. **Done.**
-- ⬜ **NIT-b — swallowed-catch logging:** the empty/error-state catches (`.catch(() => setError(true))`, `catch {}`) lose all console diagnostics on a real failure. Add `console.error(e)` in each catch across the ~10 list/viewer pages (keep the boolean error state for render). Pure observability; no behavior change.
-
 ## Wave 14 — Search bar + DSL on entity pages (design first, then implement)
 
 Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (14A); implementation (14B+) is scoped from that spec once Omer approves it.

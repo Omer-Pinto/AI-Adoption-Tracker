@@ -37,7 +37,8 @@ export default function TasksPage() {
           setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error(e);
         if (!cancelled) {
           setError(true);
           setLoading(false);

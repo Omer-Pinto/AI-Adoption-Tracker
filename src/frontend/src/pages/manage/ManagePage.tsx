@@ -40,7 +40,8 @@ export default function ManagePage() {
       setTeams(t);
       setChampions(c);
       setDomains(d);
-    } catch {
+    } catch (e) {
+      console.error(e);
       setLoadError(true);
     }
   }, []);

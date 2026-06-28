@@ -18,7 +18,7 @@ export default function TeamsIndexPage() {
     api.views
       .teamsIndex()
       .then(setEntries)
-      .catch(() => setError(true))
+      .catch((e) => { console.error(e); setError(true); })
       .finally(() => setLoading(false));
   }, []);
 

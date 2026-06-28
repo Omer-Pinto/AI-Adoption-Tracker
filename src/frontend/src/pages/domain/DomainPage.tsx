@@ -32,7 +32,7 @@ export default function DomainPage() {
     api.views
       .domainPage(Number(domainId))
       .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => { if (!cancelled) setError(true); })
+      .catch((e) => { console.error(e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [domainId]);
