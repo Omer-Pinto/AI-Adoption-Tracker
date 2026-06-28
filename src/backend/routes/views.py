@@ -186,6 +186,14 @@ class ArtifactPatch(BaseModel):
     domain_id: int | None = None
 
 
+def _require_non_blank_text(v: str) -> str:
+    """Strip `text` and reject a blank/whitespace-only value (422)."""
+    v = v.strip()
+    if not v:
+        raise ValueError("text must not be blank")
+    return v
+
+
 class ActionItemCreate(BaseModel):
     """Create a STANDALONE AI-Lead action item (Wave 15).
 
@@ -200,10 +208,7 @@ class ActionItemCreate(BaseModel):
     @field_validator("text")
     @classmethod
     def _text_not_blank(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("text must not be blank")
-        return v
+        return _require_non_blank_text(v)
 
 
 class ActionItemPatch(BaseModel):
@@ -215,12 +220,7 @@ class ActionItemPatch(BaseModel):
     @classmethod
     def _text_not_blank(cls, v: str | None) -> str | None:
         # Only validates when supplied; an omitted text leaves it unset.
-        if v is None:
-            return v
-        v = v.strip()
-        if not v:
-            raise ValueError("text must not be blank")
-        return v
+        return v if v is None else _require_non_blank_text(v)
 
 
 class AILeadActionItem(BaseModel):
@@ -229,6 +229,9 @@ class AILeadActionItem(BaseModel):
     The cross-team AI-Lead worklist: every action item whose `owner` is the
     literal 'AI Lead', resolved against its report/champion/team and (optional)
     domain. `domain` is null when the item is unplaced/team-wide.
+
+    Two flavours (Wave 15): a report-derived item has team/champion/meeting_date/
+    report_id all set; a standalone (self-managed) item has them all null.
     """
     id: int
     text: str
@@ -904,12 +907,14 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
 
 @router.get("/ai-lead/action-items", response_model=list[AILeadActionItem])
 def ai_lead_action_items() -> list[AILeadActionItem]:
-    """Every action item owned by the AI Lead, across ALL teams (newest first).
+    """Every action item owned by the AI Lead — report-derived AND standalone.
 
-    Flattens each `action_item` (owner = 'AI Lead') against its report
-    (meeting_date, report_id), champion (name, team_id) and team (name); `domain`
-    is resolved via the nullable `action_item.domain_id` (null = unplaced/team-wide).
-    Ordered by meeting_date DESC (id DESC for same-date ties)."""
+    LEFT-JOINs each `action_item` (owner = 'AI Lead') against its report
+    (meeting_date, report_id), champion (name, team_id) and team (name); a
+    standalone item (report_id NULL) leaves those null. `domain` is resolved via
+    the nullable `action_item.domain_id` (null = unplaced/team-wide). Ordered with
+    standalone/NULL-meeting-date items first, then meeting items newest-first
+    (meeting_date DESC, id DESC for same-date ties)."""
     conn = get_connection()
     try:
         rows = conn.execute(

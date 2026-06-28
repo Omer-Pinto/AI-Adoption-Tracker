@@ -357,7 +357,7 @@ export default function AiLeadPage() {
                 </div>
 
                 {actionForm && (
-                  <div className="tk-form af-form">
+                  <div className="tk-form">
                     <div className="af-title">
                       {actionForm.id === null
                         ? 'Add action item (personal — owner: AI Lead)'
