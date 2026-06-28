@@ -6,6 +6,9 @@
 __pycache__/
 *.pyc
 *.db
+*.db-wal
+*.db-shm
+*.db.bak
 .venv/
 # node / frontend
 node_modules/
