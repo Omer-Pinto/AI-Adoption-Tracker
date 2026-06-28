@@ -407,7 +407,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 7. **Team-page counts (item 9):** add to `TeamPage` model + `team_page()`: `open_tasks`, `closed_tasks`, `open_action_items`, `closed_action_items`, `meeting_count`, `domain_count`, `artifact_count` (closed = status ∈ terminal).
 8. **Delete endpoints (item 6):** `DELETE /api/champions/{id}` — **blocked with a clear 409 if the champion has ANY reports** (never destroy meeting history); if no reports, delete the champion + its (empty) domains. Clean 4xx, never 500. And `DELETE /api/domains/{id}` (**reassign its tasks/artifacts to the champion's "General" domain, then delete**; **block deleting the "General"/"Context creation" constants** with a clear message). Purpose = tidying unused/misspelled/badly-named domains, not removing active ones.
 9. **Cross-team AI-Lead action items (item 10 backend):** `GET /api/ai-lead/action-items` → `[{id, text, team_name, champion_name, meeting_date, status, domain, report_id}]`, filter `action_item.owner = 'AI Lead'`, all teams, newest `meeting_date` first. (Shape may be refined by the item-10 design — additive only.)
-10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`); **Wave-13 agents reference, never edit them** — *one exception:* 13A removes `Team.cc_baseline` from `types.ts` in Wave 13 (12C leaves it so its build stays green). 12C's other type changes are **additive** (new fields, keep old optional) so the whole FE project still compiles in 12C's worktree. New api.ts methods (added by 12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
+10. **FE foundation files owned by Agent 12C only** (`types.ts`, `styles/app.css`, `api.ts`). 12C's type changes are **ADDITIVE** (new fields, old ones kept optional) so the whole FE project keeps compiling. In Wave 13 only **Agent 13B** edits `types.ts`, and only **additively** (adds `due_date` to the `Task`/`TaskHistory`/`TaskPatchBody` types) — 13A and 13C don't touch it, so there's no shared-file collision. The destructive cleanup (dropping the now-dead `Team.cc_baseline` / `Task.ended_on` / `ActionItem.resolved` from the types) is a **deferred low-value tidy** (single-team dev; the dead fields are harmless optional cruft) — NOT required for any feature. New api.ts methods (12C): `champions.delete`, `domains.delete`, `aiLead.actionItems`. CSS tokens (12C): `status-wont_fix`, journey `dot-wont_fix`, detail-timeline `detail-tl-dot dot-wont_fix`, report-editor `sd-wont_fix` (color = muted slate/grey).
 
 ### 11.3 — Item-10 design gate (orchestrator + Omer — the one item that needs design)
 | # | Task | Notes |
@@ -470,31 +470,32 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ## Wave 13 — Frontend consumers: manage + viewers + AI-Lead view (3 agents, parallel)
 
-> Each branches off the **Wave-12-merged** base (so `types.ts`/`app.css`/`api.ts` + every endpoint already exist) and owns a **disjoint page tree**. They consume the contract; **none depends on another** (no shared file, no cross-agent need). All read `api.ts`/`types.ts`/`app.css` — none edits them.
+> Each branches off the **Wave-12-merged** base (so `types.ts`/`app.css`/`api.ts` + every endpoint already exist) and owns a **disjoint file set** — verified no overlap: 13A = `pages/manage/*`; 13B = `pages/team/*`, `pages/tasks/*`, `pages/artifacts/*`, `pages/domain/*`, `components/Badge.tsx`, `components/DomainStory.tsx`, **and `types.ts`** (sole editor, additive only); 13C = `pages/ai-lead/*`, `AppShell.tsx`, `router.tsx`. **No file is shared → fully parallel, none depends on another.** The Wave-12 backend renames (`ended_on`→`due_date`, `cc_baseline` gone, `resolved`→`status`) are wired up by these agents in their own files; the dead optional type fields are left as harmless cruft (deferred tidy, not required).
 
 ### Agent 13A: Manage — remove CC baseline + delete champions/domains
-**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*` (consumes `api.ts`/`types.ts` read-only)
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/*` (reads `api.ts`/`types.ts`; edits neither)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Remove CC baseline (type + form) | `types.ts` (drop `Team.cc_baseline` — the one allowed Wave-13 edit to a foundation file) **and** `TeamForm.tsx` (drop the "Current Claude Code status" textarea + `ccBaseline` state + `cc_baseline` submit field) — do both together so the build stays green | item 2 (FE) |
+| 1 | Remove CC baseline from the manage UI | `TeamForm.tsx` (drop the "Current Claude Code status" textarea + `ccBaseline` state + stop sending `cc_baseline`) and `ManagePage.tsx` (drop any `cc_baseline` column). Leave the now-unused optional `Team.cc_baseline` in `types.ts` as-is (deferred tidy) | item 2 (FE); backend already ignores the field |
 | 2 | Delete buttons (champions + domains) | `ManagePage.tsx` — Delete in the Champions & Domains action columns → `api.champions.delete`/`api.domains.delete` (from 12C) + confirm + `loadAll()` refresh | item 6 (FE) |
-**Commit(s):** `Wave 13 Agent 13A: manage (remove CC baseline, champion/domain delete)`
+**Commit(s):** `Wave 13 Agent 13A: manage (remove CC baseline UI, champion/domain delete)`
 
-### Agent 13B: Viewer pages — team redesign + status display
-**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/team/*, pages/tasks/*, pages/artifacts/*, components/Badge.tsx, components/DomainStory.tsx}` (consumes `types.ts`/`app.css` read-only; owns `team-page.css`)
-> **APPROVED DESIGN = source of truth:** `prototype/team-page-mock.html` (+ `prototype/team-page-mock.png` collapsed / `team-page-mock-expanded.png` full). Build to match it. Tasks 1–6 = item 9 (team redesign); tasks 7–9 = item 8 (status display).
+### Agent 13B: Viewer pages — team redesign + status/due-date display
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{types.ts (additive only), pages/team/*, pages/tasks/*, pages/artifacts/*, pages/domain/*, components/Badge.tsx, components/DomainStory.tsx}` (owns `team-page.css`; **sole Wave-13 `types.ts` editor**)
+> **APPROVED DESIGN = source of truth:** `prototype/team-page-mock.html` (+ `prototype/team-page-mock.png` collapsed / `team-page-mock-expanded.png` full). Build to match it. Tasks 2–7 = item 9 (team redesign); tasks 8–10 = items 7/8 (due-date + status display).
 | # | Task | Target | Notes |
 |---|------|--------|-------|
-| 1 | Identity strip | `TeamPage.tsx` — slim top strip: avatar + team/champion name, "since <date>", domain count. **NO CC Baseline** (removed, item 2) | per mock top strip |
-| 2 | Tile dashboard (6 count tiles) | `TeamPage.tsx` + `team-page.css` — tight tiles from the Wave-12 count fields: **open tasks, closed tasks, open action items, meetings, domains, artifacts**; each with a sub-callout (e.g. "1 blocked" / "1 overdue" / "last: <date>"); tile click → open + smooth-scroll to its fold + flash | item 9; counts from `TeamPage` (12B #4) |
-| 3 | Foldable sections (default collapsed) | `TeamPage.tsx` — native `<details>` folds for **Domains**, **Artifacts (team-wide gutter — NEW fold so the artifacts tile has a home)**, **Reports**, **Action items**; header shows title + count pill + summary mini-pills + chevron | item 9; Artifacts fold = today's all-team gutter |
-| 4 | Section internals unchanged | when a fold is expanded, render **today's content** (domain cards, report rows, action-item rows) with full edit behavior intact | item 9: **do NOT redesign internals** |
-| 5 | "Last meeting" + overdue touch-ups | last-meeting date on Reports tile/fold; overdue flag on action items — **only when a `due_date` exists** (many tasks/actions have none → never falsely flag overdue) | per mock; Omer: most tasks dateless |
-| 6 | Team-page styling | `team-page.css` — tiles, folds, chips, accents per the mock (reuse `app.css` status/type classes; one color per domain on the card's left border) | item 9 |
-| 7 | Action items show status | `TeamPage.tsx` `ActionItemsList` — render status (badge/dropdown) instead of `resolved` | item 8 (FE team) |
-| 8 | "Won't Fix" on task detail | `TaskDetailPage.tsx` `STATUS_OPTS` += Won't Fix | item 8; references 12C's token/CSS |
-| 9 | Ensure `wont_fix` renders | `TasksPage.tsx` `dotClass`, `Badge.tsx` `StatusBadge`, `DomainStory.tsx` — verify the new status renders with the 12C CSS classes | item 8 |
-**Commit(s):** `Wave 13 Agent 13B: team page redesign (tiles + folds per approved mock) + action-item status + Won't Fix render`
+| 1 | Add `due_date` to the Task types | `types.ts` — additively add `due_date?: string` to `Task`, `TaskHistory`, `TaskPatchBody` (the entity types; `ReportTaskLine` already has it from 12C). **Additive only — do not remove `ended_on`/`cc_baseline`/`resolved`** | unblocks tasks 8/9; sole types.ts edit |
+| 2 | Identity strip | `TeamPage.tsx` — slim top strip: avatar + team/champion name, "since <date>", domain count. **NO CC Baseline** (removed) | per mock top strip |
+| 3 | Tile dashboard (6 count tiles) | `TeamPage.tsx` + `team-page.css` — tight tiles from the Wave-12 `TeamPage` count fields: **open tasks, closed tasks, open action items, meetings, domains, artifacts**; sub-callouts ("1 blocked"/"1 overdue"/"last: <date>"); tile click → open + scroll to its fold + flash | item 9; counts from 12B #4 |
+| 4 | Foldable sections (default collapsed) | `TeamPage.tsx` — native `<details>` folds for **Domains**, **Artifacts (NEW fold = today's all-team gutter, gives the artifacts tile a home)**, **Reports**, **Action items**; header = title + count pill + summary mini-pills + chevron | item 9 |
+| 5 | Section internals unchanged | expanded fold renders **today's content** (domain cards, report rows, action-item rows) with full edit behavior intact | item 9: **do NOT redesign internals** |
+| 6 | "Last meeting" + overdue touch-ups | last-meeting date; overdue flag on action items **only when a date exists** (many are dateless → never falsely flag) | per mock |
+| 7 | Team-page styling | `team-page.css` — tiles/folds/chips/accents per the mock (reuse `app.css` status/type classes; one color per domain) | item 9 |
+| 8 | Action items show status (not resolved) | `TeamPage.tsx` `ActionItemsList` — render `item.status` (badge) instead of `resolved`; remove any `team.cc_baseline` display | items 8/2 (FE team) |
+| 9 | Tasks show "Due on" + Won't Fix | `TaskDetailPage.tsx` (read/patch `due_date` not `ended_on`; `STATUS_OPTS` += Won't Fix), `TasksPage.tsx` + `pages/domain/DomainPage.tsx` (show `task.due_date`) | items 7/8 (FE); DomainPage was the gap |
+| 10 | Ensure `wont_fix` renders | `TasksPage.tsx` `dotClass`, `Badge.tsx` `StatusBadge`, `DomainStory.tsx` — verify the new status renders with 12C's CSS classes | item 8 |
+**Commit(s):** `Wave 13 Agent 13B: team redesign (mock) + due-date/status display + Won't Fix`
 
 ### Agent 13C: AI-Lead cross-team view (built per the approved mock)
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/ai-lead/* (new), components/AppShell.tsx, router.tsx}` (consumes `api.aiLead.actionItems` from 12C)

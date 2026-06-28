@@ -5,14 +5,14 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 86% (118/138)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 85% (118/139)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 118 / 138 | 86% |
+| 🟢 Done | 118 / 139 | 85% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 20 (Wave 13: 17 · 14: 3) | 14% |
+| ⬜ Pending | 21 (Wave 13: 18 · 14: 3) | 15% |
 
 ---
 
@@ -34,7 +34,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
 | 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
-| 13 | Not Started | 0/3 | 0/3 | 17/17 | **FE consumers** (parallel) — 13A manage, 13B viewers (team mock), 13C AI-Lead view (mock). Branch off Wave-12. **⚠ See Wave-13 prep note** — backend renames ripple into ~6 FE files; boundaries need a tweak before launch |
+| 13 | Not Started | 0/3 | 0/3 | 18/18 | **FE consumers** (parallel, disjoint files) — 13A manage, 13B viewers+due-date/status (sole `types.ts` editor, additive), 13C AI-Lead view. Branch off Wave-12. Boundaries verified non-overlapping |
 | 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -345,7 +345,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 5 | Owner: default champion + LLM-declared action-item owner | 🟢 Done | **review fix**: champion owner now survives edit-replay |
 | 6 | "Context creation" constant domain (priority 1) | 🟢 Done | + General; both in draft context |
 | 7 | Fix + re-verify tests & seed | 🟢 Done | 45/45 journal scenarios (throwaway DB) |
-| G | ai-engineer review of prompt/structured-output diff | 🟡 Deferred | code-reviewer covered the diff; dedicated ai-engineer prompt audit still open (low risk) |
+| G | ai-engineer review of prompt/structured-output diff | 🟢 Done | audit **PASS** (`c6dde3a`); fixed: prompt now mines action-item `status` + champion-default for null action-item owner |
 
 ### Agent 12B: Backend routes — management, views, counts, cross-team endpoint (`backend-developer`)
 | # | Task | Status | Notes |
@@ -372,29 +372,30 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 13 — FE consumers: manage + viewers + AI-Lead (3 agents, parallel)
+## Wave 13 — FE consumers: manage + viewers + AI-Lead (3 agents, parallel — disjoint files)
 
-> Each branches off Wave-12 (types/css/api.ts + endpoints exist) and owns a disjoint page tree; reads the contract files, never edits them.
+> Branch off Wave-12. Disjoint file sets: 13A=`pages/manage/*`; 13B=`types.ts`(additive)+`pages/team|tasks|artifacts|domain/*`+`Badge.tsx`/`DomainStory.tsx`; 13C=`pages/ai-lead/*`+`AppShell.tsx`+`router.tsx`. 13B is the sole `types.ts` editor (additive `due_date` on the Task types). Dead optional type fields left as deferred tidy.
 
-### Agent 13A: Manage — remove CC baseline + delete (`frontend-developer`)
+### Agent 13A: Manage — remove CC baseline UI + delete (`frontend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Remove CC baseline (`types.ts` field + `TeamForm`) | ⬜ Pending | item 2 |
+| 1 | Remove CC baseline from `TeamForm`/`ManagePage` UI (leave optional type) | ⬜ Pending | item 2 |
 | 2 | Delete buttons (champions + domains) → `api.*.delete` | ⬜ Pending | item 6 |
 
-### Agent 13B: Viewer pages — team redesign + status display (`frontend-developer`)
-> Design = `prototype/team-page-mock.html` (+ `.png`/`-expanded.png`). Tasks 1–6 = item 9; 7–9 = item 8.
+### Agent 13B: Viewer pages — team redesign + due-date/status display (`frontend-developer`)
+> Design = `prototype/team-page-mock.html` (+ `.png`/`-expanded.png`). Sole `types.ts` editor (additive).
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Identity strip (no CC Baseline) | ⬜ Pending | item 9 |
-| 2 | Tile dashboard — 6 count tiles + click-to-fold | ⬜ Pending | item 9; counts from 12B #4 |
-| 3 | Foldable sections (Domains/Artifacts/Reports/Actions, default collapsed) | ⬜ Pending | item 9; Artifacts = new fold |
-| 4 | Section internals unchanged when expanded | ⬜ Pending | item 9 — do NOT redesign |
-| 5 | Last-meeting + overdue (only if `due_date` exists) | ⬜ Pending | item 9 |
-| 6 | team-page.css per mock | ⬜ Pending | item 9 |
-| 7 | Action items show status (not resolved) | ⬜ Pending | item 8 |
-| 8 | "Won't Fix" on task detail | ⬜ Pending | item 8 |
-| 9 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
+| 1 | Add `due_date` to Task/TaskHistory/TaskPatchBody types (additive) | ⬜ Pending | unblocks 8/9 |
+| 2 | Identity strip (no CC Baseline) | ⬜ Pending | item 9 |
+| 3 | Tile dashboard — 6 count tiles + click-to-fold | ⬜ Pending | item 9; counts from 12B #4 |
+| 4 | Foldable sections (Domains/Artifacts/Reports/Actions, default collapsed) | ⬜ Pending | item 9; Artifacts = new fold |
+| 5 | Section internals unchanged when expanded | ⬜ Pending | item 9 — do NOT redesign |
+| 6 | Last-meeting + overdue (only if date) | ⬜ Pending | item 9 |
+| 7 | team-page.css per mock | ⬜ Pending | item 9 |
+| 8 | Action items show status (not resolved); drop cc_baseline display | ⬜ Pending | items 8/2 |
+| 9 | Tasks show "Due on" (`due_date`) + Won't Fix — TaskDetail/TasksPage/DomainPage | ⬜ Pending | items 7/8; DomainPage was the gap |
+| 10 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
 
 ### Agent 13C: AI-Lead cross-team view (`frontend-developer`)
 > Design = `prototype/ai-lead-mock.html` (+ `.png`).
