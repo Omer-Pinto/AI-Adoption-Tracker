@@ -17,18 +17,18 @@
 .story-date-label {
   font-size: 13px;
   font-weight: 700;
-  color: #1a1d23;
-  background: #f3f4f6;
+  color: var(--text);
+  background: var(--surface-3);
   padding: 4px 12px;
   border-radius: 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .story-date-line {
   flex: 1;
   height: 1px;
-  background: #e5e7eb;
+  background: var(--surface-3);
 }
 
 /* ---- Entry row ---- */
@@ -36,7 +36,7 @@
   display: flex;
   gap: 14px;
   padding: 12px 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .story-entry:last-child { border-bottom: none; }
@@ -58,14 +58,14 @@
   flex-shrink: 0;
 }
 
-.dot-task     { background: #4361ee; }
+.dot-task     { background: var(--accent); }
 .dot-artifact { background: #7c3aed; }
 .dot-finished { background: #16a34a; }
 
 .story-connector {
   flex: 1;
   width: 1px;
-  background: #e5e7eb;
+  background: var(--surface-3);
   margin-top: 4px;
 }
 
@@ -75,7 +75,7 @@
 .story-what {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1d23;
+  color: var(--text);
   margin-bottom: 2px;
   display: flex;
   align-items: center;
@@ -98,7 +98,7 @@
 
 .story-note {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-top: 3px;
   font-style: italic;
   line-height: 1.5;
@@ -111,3 +111,7 @@
   margin-top: 5px;
   flex-wrap: wrap;
 }
+
+/* ---- Dark-mode semantic overrides ---- */
+html[data-theme="dark"] .type-task     { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+html[data-theme="dark"] .type-artifact { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }

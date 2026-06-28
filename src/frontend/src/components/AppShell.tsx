@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '@/api';
 import type { TaskStatus } from '@/types';
+import { ThemeToggle } from './ThemeToggle';
 
 // Open = AI-Lead action items not in the terminal/closed status set.
 const CLOSED_STATUSES = new Set<TaskStatus>([
@@ -98,6 +99,9 @@ export function AppShell() {
           <NavLink to="/manage" className={navClass}>
             <span className="nav-icon">&#9881;</span> Manage
           </NavLink>
+        </div>
+        <div className="nav-foot">
+          <ThemeToggle />
         </div>
       </nav>
 
