@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-28 | **Branch:** `mvp-improvements` | **Waves 11–13 + 15 DONE**
+> **Last updated:** 2026-06-29 | **Branch:** `mvp-improvements` (+ `bug-fixes-mvp-closure` for QA fixes) | **Waves 11–13 + 15 DONE; Wave 16 (1:1 refactor) PLANNED — next to execute**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (144/149)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜⬜] 80% (144/180)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 144 / 149 | 97% |
+| 🟢 Done | 144 / 180 | 80% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 5 (Wave 14: 2 · 16: 3) | 3% |
+| ⬜ Pending | 36 (Wave 16: 31 · 17: 2 · 18: 3) | 20% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -37,9 +37,10 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
-| 14 | Not Started | — | — | 0/2 | **Go-live walkthrough (gate, before first air-gap insert)** — a focused ~20-min joint pass of README_HUMAN install/run + `backup_db.sh`; deep UPGRADING read deferred to the first real upgrade. See `task_breakdown.md` Wave 14 |
 | 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
-| 16 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 16A explore+design; then implement (16B+). See `task_breakdown.md` Wave 16 |
+| 16 | **Not Started — NEXT (PLAN ONLY)** | 0/8 | 0/8 | 31/31 | **One champion per team (1:1 refactor).** Fold champion into team (`team.champion_name NOT NULL` + `champion_start_date`; drop `champion` table); key everything by `team_id`; team page `/teams/:teamId`; drop the report champion-picker; nuke dead `cc_baseline`/`baseline_date`; recreate DB clean; fix QA dataset (Web-Experience 2→1 champion). Phased: **16.A** contract gate → **16.B** backend core + routes + FE-foundation (×3 parallel) → **16.C** FE consumers (×3 parallel) → **16.D** DB recreate + QA + integration verify. Designed by architect-reviewer off 2 coupling explorations; 4 owner decisions locked. **Planned, NOT executed.** See `task_breakdown.md` Wave 16 |
+| 17 | Not Started · ⏸ DEFERRED | — | — | 0/2 | **Deferred behind Wave 16.** Go-live walkthrough — README_HUMAN install/run + `backup_db.sh`. See `task_breakdown.md` Wave 17 |
+| 18 | Not Started · ⏸ DEFERRED | 0/1 | 0/1 | 3/3 | **Deferred behind Wave 16.** Search bar + DSL on entity pages — 18A explore+design, then implement (18B+). See `task_breakdown.md` Wave 18 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -416,9 +417,9 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 14 — Go-live walkthrough (gate, before first air-gap insert)
+## Wave 17 — Go-live walkthrough (gate, before first air-gap insert)  ·  ⏸ DEFERRED — run AFTER Wave 16
 
-> A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters. NOT a code wave — orchestrator + Omer. Deep UPGRADING review is deferred to the first real upgrade (when we'll know exactly what changed).
+> A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters. NOT a code wave — orchestrator + Omer. Deep UPGRADING review is deferred to the first real upgrade. **Deferred behind Wave 16 (1:1 refactor)** — no point walking install/backup before the schema refactor lands.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -458,11 +459,78 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 16 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 16 — One champion per team (1:1 refactor)  ·  ⏯ NEXT (PLAN ONLY — not executed)
 
-> Opens with a design/exploration task (16A → `specs/search_integration.md`); implementation (16B+) is scoped from the approved spec. See `task_breakdown.md` Wave 16.
+> Fold the champion INTO the team (`team.champion_name NOT NULL` + `champion_start_date`; drop the `champion` table); key everything by `team_id`; team page `/teams/:teamId`; remove the report champion-picker; **nuke** dead `cc_baseline`/`baseline_date`; recreate the DB clean; fix the QA dataset (Web-Experience 2→1 champion). Designed by `architect-reviewer` off 2 coupling explorations; 4 owner decisions locked (champion_name NOT NULL · nuke cc_baseline · team-chooser fallback · recreate clean). Phased chain (Wave 11→13 pattern). See `task_breakdown.md` Wave 16. **Hand to the executor — do NOT execute yet.**
 
-### Agent 16A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+### Phase 16.A — Contract gate (`api-designer` + Omer sign-off)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| G1 | Freeze schema (team+champion fields; drop champion; report.team_id; domain−champion_id) | ⬜ Pending | |
+| G2 | Freeze engine signatures (team-keyed; one `_ensure_*_domain`) | ⬜ Pending | |
+| G3 | Freeze endpoint contract (drop /champions; team-keyed page/draft/reports) | ⬜ Pending | |
+| G4 | Freeze FE types/api (Team += champion, −cc_baseline; one-per-team index) | ⬜ Pending | Omer signs off before 16.B |
+
+### Phase 16.B — Backend core + routes + FE foundation (3 agents, parallel)
+#### Agent 16B-1: Backend core (`python-pro` — schema/models/engine/seed)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | New schema | ⬜ Pending | |
+| 2 | Models (drop Champion; report/domain re-key; Team += champion) | ⬜ Pending | |
+| 3 | Re-key engine to team; delete `_resolve_champion_id`/`_champion_team_id` | ⬜ Pending | |
+| 4 | Consolidate to ONE team-keyed `_ensure_*_domain` | ⬜ Pending | kills triple def |
+| 5 | Owner-default reads `team.champion_name` | ⬜ Pending | |
+| 6 | Seed sets champion_name; domains drop champion_id | ⬜ Pending | ai-engineer gate on engine/prompt diff |
+#### Agent 16B-2: Backend routes (`backend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Remove champion CRUD + `_assert_champion_belongs_to_team` + `?champion_id=` | ⬜ Pending | |
+| 2 | Team create REQUIRES champion (team+champion together); update edits in place; NO standalone champion-create | ⬜ Pending | |
+| 3 | team_page `{id}`=team_id; team-pages one row/team | ⬜ Pending | |
+| 4 | Domains create/patch drop champion_id | ⬜ Pending | |
+| 5 | Reports draft/save by team_id | ⬜ Pending | |
+| 6 | AI-Lead worklist JOIN report→team | ⬜ Pending | |
+#### Agent 16B-3: FE foundation (`frontend-developer` — types/api)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Types per G4 (Team += champion, DELETE cc_baseline/baseline_date) | ⬜ Pending | |
+| 2 | api.ts (remove champions.*/listByChampion; team-keyed page/draft/create) | ⬜ Pending | |
+
+### Phase 16.C — FE consumers (3 agents, parallel; off 16.B-merged)
+#### Agent 16C-1: Nav + hub (`router.tsx`, `TeamPage`, `TeamsIndexPage`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Route `:championId` → `:teamId` | ⬜ Pending | |
+| 2 | TeamPage team-keyed; champion from team fields | ⬜ Pending | |
+| 3 | TeamsIndexPage one card per team | ⬜ Pending | |
+#### Agent 16C-2: Manage cluster (`ManagePage`, `TeamForm`, `DomainForm`; del `ChampionForm`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Drop Champions tab/grouping/add/delete; tabs Teams·Domains | ⬜ Pending | |
+| 2 | TeamForm (create+edit) collects team+champion TOGETHER; NO separate Add-Champion | ⬜ Pending | |
+| 3 | DomainForm drop champion select | ⬜ Pending | |
+| 4 | Delete `ChampionForm.tsx` | ⬜ Pending | |
+#### Agent 16C-3: Report + domain-setup (`pages/report/*`, `DomainSetupPage`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | ReportCreate: remove champion picker; enter by team; team-chooser fallback | ⬜ Pending | |
+| 2 | Preview/Edit: drop champion→team hop; team-keyed; live champion name | ⬜ Pending | |
+| 3 | DomainSetup: drop champion select/auto-select; team-keyed | ⬜ Pending | |
+
+### Phase 16.D — DB recreate + QA dataset + integration verify (orchestrator + 1 agent)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Expunge + recreate DB clean (new schema; Omer re-enters QA) | ⬜ Pending | Omer-authorized, this DB only |
+| 2 | Fix `qa/` dataset → Web-Experience 1 champion; README/setup to 1:1 | ⬜ Pending | merge `*-Daniel`/`*-Rivka` reports |
+| 3 | Integration verify (team-keyed pages/links; create-from-team; champion rename → history shows new name; AI-Lead) | ⬜ Pending | live |
+
+---
+
+## Wave 18 — Search bar + DSL on entity pages (design first, then implement)  ·  ⏸ DEFERRED — run AFTER Wave 16
+
+> Opens with a design/exploration task (18A → `specs/search_integration.md`); implementation (18B+) is scoped from the approved spec. **Deferred behind Wave 16.** See `task_breakdown.md` Wave 18.
+
+### Agent 18A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |
