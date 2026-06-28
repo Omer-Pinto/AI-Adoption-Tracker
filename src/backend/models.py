@@ -160,7 +160,7 @@ class ArtifactHistory(BaseModel):
 
 class ActionItem(BaseModel):
     id: int
-    report_id: int
+    report_id: int | None = None    # nullable: standalone AI-Lead item = NULL
     domain_id: int | None = None
     text: str
     owner: str | None = None

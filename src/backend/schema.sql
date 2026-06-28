@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS artifact_history (
 -- Smaller, optional to-do from a meeting. Optionally tied to a domain.
 CREATE TABLE IF NOT EXISTS action_item (
     id        INTEGER PRIMARY KEY,
-    report_id INTEGER NOT NULL REFERENCES report(id),
+    report_id INTEGER REFERENCES report(id),    -- nullable: standalone AI-Lead item = NULL
     domain_id INTEGER REFERENCES domain(id),    -- nullable
     text      TEXT NOT NULL,
     owner     TEXT,

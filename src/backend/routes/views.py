@@ -21,7 +21,7 @@ import json
 import sqlite3
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from models import ArtifactType, TaskStatus, TERMINAL_STATUSES
 
@@ -186,9 +186,41 @@ class ArtifactPatch(BaseModel):
     domain_id: int | None = None
 
 
+class ActionItemCreate(BaseModel):
+    """Create a STANDALONE AI-Lead action item (Wave 15).
+
+    Server applies owner='AI Lead', report_id=NULL, domain_id=NULL — the caller
+    supplies only text/status/due_date. A blank/whitespace-only text is rejected
+    (422); text is stored stripped.
+    """
+    text: str
+    status: TaskStatus = TaskStatus.planned
+    due_date: str | None = None
+
+    @field_validator("text")
+    @classmethod
+    def _text_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("text must not be blank")
+        return v
+
+
 class ActionItemPatch(BaseModel):
+    text: str | None = None
     status: TaskStatus | None = None
     due_date: str | None = None
+
+    @field_validator("text")
+    @classmethod
+    def _text_not_blank(cls, v: str | None) -> str | None:
+        # Only validates when supplied; an omitted text leaves it unset.
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("text must not be blank")
+        return v
 
 
 class AILeadActionItem(BaseModel):
@@ -200,13 +232,13 @@ class AILeadActionItem(BaseModel):
     """
     id: int
     text: str
-    team_name: str
-    champion_name: str
-    meeting_date: str
+    team_name: str | None = None
+    champion_name: str | None = None
+    meeting_date: str | None = None
     status: str
     due_date: str | None = None
     domain: str | None = None
-    report_id: int
+    report_id: int | None = None
 
 
 # `from __future__ import annotations` makes the model field annotations strings;
@@ -750,17 +782,85 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
         conn.close()
 
 
+@router.post(
+    "/action-items",
+    response_model=AILeadActionItem,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
+    """Create a STANDALONE AI-Lead action item (Wave 15).
+
+    Server-applied: owner='AI Lead' (`_AI_LEAD_OWNER`), report_id=NULL,
+    domain_id=NULL. Text is stored stripped (validator already rejected blank as
+    422). Returns the enriched `AILeadActionItem` (201) for the new row — a
+    standalone row has team_name/champion_name/meeting_date/domain/report_id all
+    null. Built directly from the inserted values (no cross-team JOIN needed).
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
+            "VALUES (NULL, NULL, ?, ?, ?, ?)",
+            (body.text, _AI_LEAD_OWNER, body.due_date, body.status.value),
+        )
+        conn.commit()
+        return AILeadActionItem(
+            id=cur.lastrowid,
+            text=body.text,
+            team_name=None,
+            champion_name=None,
+            meeting_date=None,
+            status=body.status.value,
+            due_date=body.due_date,
+            domain=None,
+            report_id=None,
+        )
+    finally:
+        conn.close()
+
+
+@router.delete("/action-items/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_action_item(id: int) -> None:
+    """Delete a STANDALONE AI-Lead action item (Wave 15).
+
+    Precedence: missing → 404; meeting-derived (`report_id IS NOT NULL`) → 409
+    (mark it won't_fix/abandoned instead); else delete → 204.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT report_id FROM action_item WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Action item not found")
+        if row["report_id"] is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot delete a meeting-derived action item. "
+                "Mark it won't_fix or abandoned instead.",
+            )
+        conn.execute("DELETE FROM action_item WHERE id = ?", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @router.patch("/action-items/{id}", response_model=models.ActionItem)
 def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
     """Manager edit for an action item's current state — UN-JOURNALED.
 
-    Accepts `status` (validated against `TaskStatus`) and `due_date` (partial
-    PATCH). Action items have NO history table, so this writes current state ONLY:
-    re-saving/replaying the owning report can later overwrite this manual edit —
-    same accepted caveat as `PATCH /api/tasks`. Known & accepted.
+    Accepts `text`, `status` (validated against `TaskStatus`) and `due_date`
+    (partial PATCH). Action items have NO history table, so this writes current
+    state ONLY: re-saving/replaying the owning report can later overwrite this
+    manual edit — same accepted caveat as `PATCH /api/tasks`. Known & accepted.
+
+    Precedence: blank text → 422 (validator); row missing → 404; `text` supplied
+    AND row is meeting-derived (`report_id IS NOT NULL`) → 409 (text of a
+    meeting-derived item is immutable; mark it won't_fix/abandoned instead).
+    `status`/`due_date`-only PATCH on a meeting-derived item still succeeds.
 
     An explicit `null` clears a field; an omitted field is untouched
-    (`model_dump(exclude_unset=True)`). 404 if the action item is missing.
+    (`model_dump(exclude_unset=True)`).
     """
     conn = get_connection()
     try:
@@ -771,6 +871,13 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
             raise HTTPException(status_code=404, detail="Action item not found")
 
         changes = body.model_dump(exclude_unset=True)
+
+        if "text" in changes and row["report_id"] is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot edit the text of a meeting-derived action item. "
+                "Mark it won't_fix or abandoned instead.",
+            )
 
         # `status` arrives as a TaskStatus enum (Pydantic already rejected an
         # invalid value as 422); persist its string value in the TEXT column.
@@ -818,12 +925,12 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
                 d.name         AS domain,
                 r.id           AS report_id
             FROM action_item ai
-            JOIN report r   ON r.id = ai.report_id
-            JOIN champion c ON c.id = r.champion_id
-            JOIN team t     ON t.id = c.team_id
+            LEFT JOIN report r   ON r.id = ai.report_id
+            LEFT JOIN champion c ON c.id = r.champion_id
+            LEFT JOIN team t     ON t.id = c.team_id
             LEFT JOIN domain d ON d.id = ai.domain_id
             WHERE ai.owner = ?
-            ORDER BY r.meeting_date DESC, ai.id DESC
+            ORDER BY (r.meeting_date IS NULL) DESC, r.meeting_date DESC, ai.id DESC
             """,
             (_AI_LEAD_OWNER,),
         ).fetchall()
