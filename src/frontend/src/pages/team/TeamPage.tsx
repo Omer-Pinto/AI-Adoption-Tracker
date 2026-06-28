@@ -16,6 +16,14 @@ import { ErrorState } from '@/components/EmptyState';
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
 const TODAY = new Date().toISOString().slice(0, 10);
 
+// System "constant" domains every champion has, matched by name (case-insensitive).
+// They're real rows in data.domains and SHOULD render in the fold; only the
+// Domains tile's big number excludes them so it reflects real domains.
+const CONSTANT_DOMAINS = ['general', 'context creation'];
+function isConstantDomain(name: string): boolean {
+  return CONSTANT_DOMAINS.includes(name.trim().toLowerCase());
+}
+
 // One stable color per domain (left accent). General catch-all renders muted.
 const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#ef4444'];
 function domainColor(name: string, idx: number): string {
@@ -133,6 +141,11 @@ export default function TeamPage() {
 
   const overdueActions = action_items.filter(isOverdue).length;
 
+  // Domains tile: big number = real domains only; sub-line = how many of the
+  // system constants ("General", "Context creation") are actually present.
+  const constantDomainCount = domains.filter((dp) => isConstantDomain(dp.domain.name)).length;
+  const realDomainCount = domains.length - constantDomainCount;
+
   const allArtifacts = [...domains.flatMap((d) => d.artifacts), ...all_team_artifacts];
   const artifactTypes = Array.from(new Set(allArtifacts.map((a) => a.type)));
 
@@ -239,8 +252,10 @@ export default function TeamPage() {
               <span className="tile-label">Domains</span>
               <span className="tile-ico">◆</span>
             </div>
-            <div className="tile-value">{data.domain_count}</div>
-            <div className="tile-sub">+ General catch-all</div>
+            <div className="tile-value">{realDomainCount}</div>
+            <div className="tile-sub">
+              {constantDomainCount > 0 ? `+ ${constantDomainCount} constant` : '—'}
+            </div>
           </button>
 
           <button type="button" className="tile acc-violet" onClick={() => jumpTo(artifactsRef)}>
