@@ -159,7 +159,7 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <div className="page-body">
+      <div className="page-body team-page">
         {/* ── Identity strip ──────────────────────────────────────────── */}
         <div className="identity">
           <div className="id-avatar">{avatarLetter}</div>
