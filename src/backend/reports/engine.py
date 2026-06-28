@@ -418,7 +418,7 @@ def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row
             )
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, item_domain_id, item)
+            _insert_action_item(conn, report_id, champion_id, item_domain_id, item)
 
         # BACK-FILL: persist the id-complete document so replay is purely id-based.
         conn.execute(
@@ -788,13 +788,19 @@ def _infer_artifact_change_kind(
 def _insert_action_item(
     conn: sqlite3.Connection,
     report_id: int,
+    champion_id: int,
     domain_id: int | None,
     item,
 ) -> None:
+    # Mirror the task-owner safety net: a model that emits a null/empty owner
+    # defaults to the champion (never an owner-less action item, which would also
+    # drop it from the 'AI Lead' worklist incorrectly). An owner the model DID
+    # declare — the champion name or the literal "AI Lead" — is left untouched.
+    owner = item.owner or _champion_name(conn, champion_id)
     conn.execute(
         "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        (report_id, domain_id, item.text, item.owner, item.due_date, item.status.value),
+        (report_id, domain_id, item.text, owner, item.due_date, item.status.value),
     )
 
 
@@ -887,7 +893,7 @@ def replay_report_edit(
             )
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, item_domain_id, item)
+            _insert_action_item(conn, report_id, champion_id, item_domain_id, item)
 
         # Persist the id-complete document (entries created on edit now carry ids).
         conn.execute(

@@ -276,6 +276,10 @@ ACTION ITEMS — no overlap with discussion/issues:
 (set "text", the required "owner" per the OWNERS rule, plus "due_date" / \
 domain_id+domain when stated). Do NOT ALSO repeat that same item in \
 "discussion" or "issues".
+- ACTION ITEM "status": set it from the notes — "planned" by default; \
+"in-progress" if work has started; "blocked" if the notes say it's blocked; \
+"finished_successfully"/"finished_with_issues" if done; "abandoned"/"wont_fix" \
+if dropped. If the notes give no signal, use "planned".
 
 CATCH-ALLS — discussion and issues (each is a LIST of items):
 - "discussion" is a LIST of discussion points: the DEFAULT catch-all for any \
