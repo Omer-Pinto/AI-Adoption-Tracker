@@ -40,6 +40,31 @@
   padding: 14px 20px;
 }
 
+/* One row per champion within a team card. */
+.team-champion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.team-champion-row + .team-champion-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.team-champion-row:first-child {
+  padding-top: 0;
+}
+
+.team-champion-row:last-child {
+  padding-bottom: 0;
+}
+
+.team-champion-row-main {
+  min-width: 0;
+}
+
 /* ---- Team page domain cards ---- */
 .domain-card {
   background: var(--surface);
