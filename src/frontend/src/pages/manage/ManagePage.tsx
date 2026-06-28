@@ -51,17 +51,32 @@ export default function ManagePage() {
     void loadAll();
   }
 
+  async function handleDeleteChampion(c: Champion) {
+    if (!confirm(`Delete champion "${c.name}"? This cannot be undone.`)) return;
+    try {
+      await api.champions.delete(c.id);
+      await loadAll();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Delete failed.');
+    }
+  }
+
+  async function handleDeleteDomain(d: Domain) {
+    if (!confirm(`Delete domain "${d.name}"? Its items will be reassigned to General.`)) return;
+    try {
+      await api.domains.delete(d.id);
+      await loadAll();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Delete failed.');
+    }
+  }
+
   // --- Teams table ---
   const teamColumns: Column<Team>[] = [
     {
       key: 'name',
       header: 'Name',
       render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
-    },
-    {
-      key: 'cc_baseline',
-      header: 'CC Baseline',
-      render: (row) => <span className="text-muted">{row.cc_baseline ?? '—'}</span>,
     },
     {
       key: 'baseline_date',
@@ -108,17 +123,28 @@ export default function ManagePage() {
     {
       key: 'actions',
       header: '',
-      width: '80px',
+      width: '150px',
       render: (row) => (
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setModal({ kind: 'champion', editing: row });
-          }}
-        >
-          Edit
-        </button>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setModal({ kind: 'champion', editing: row });
+            }}
+          >
+            Edit
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDeleteChampion(row);
+            }}
+          >
+            Delete
+          </button>
+        </div>
       ),
     },
   ];
@@ -188,17 +214,28 @@ export default function ManagePage() {
     {
       key: 'actions',
       header: '',
-      width: '80px',
+      width: '150px',
       render: (row) => (
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setModal({ kind: 'domain', editing: row });
-          }}
-        >
-          Edit
-        </button>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setModal({ kind: 'domain', editing: row });
+            }}
+          >
+            Edit
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDeleteDomain(row);
+            }}
+          >
+            Delete
+          </button>
+        </div>
       ),
     },
   ];

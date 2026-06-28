@@ -12,7 +12,6 @@ interface TeamFormProps {
 
 export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
   const [name, setName] = useState(editing?.name ?? '');
-  const [ccBaseline, setCcBaseline] = useState(editing?.cc_baseline ?? '');
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -24,7 +23,7 @@ export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
     setSubmitError(null);
     const body = {
       name,
-      cc_baseline: ccBaseline || null,
+      cc_baseline: null,
       baseline_date: editing?.baseline_date ?? null,
     };
     try {
@@ -70,16 +69,6 @@ export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Team name"
           autoFocus
-        />
-      </div>
-      <div className="form-row">
-        <label className="form-label">Current Claude Code status</label>
-        <textarea
-          className="form-textarea"
-          rows={6}
-          value={ccBaseline}
-          onChange={(e) => setCcBaseline(e.target.value)}
-          placeholder="Current Claude Code status — current skills, agents, claude.md / context files, workflows, etc."
         />
       </div>
     </Modal>
