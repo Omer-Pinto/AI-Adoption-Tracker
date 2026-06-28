@@ -27,7 +27,10 @@
 .ai-lead-page .tile {
   background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px;
   display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+  cursor: default; /* these tiles are read-only — override team-page's global .tile cursor/hover bleed */
 }
+.ai-lead-page .tile:hover { box-shadow: none; border-color: #e5e7eb; }
+.ai-lead-page .tile:active { transform: none; }
 .ai-lead-page .tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1); }
 .ai-lead-page .tile-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; }
 .ai-lead-page .tile-value { font-size: 25px; font-weight: 800; line-height: 1; color: #1a1d23; font-variant-numeric: tabular-nums; }

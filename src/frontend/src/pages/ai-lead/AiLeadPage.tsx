@@ -111,7 +111,7 @@ export default function AiLeadPage() {
       const ob = isOverdue(b) ? 0 : 1;
       if (oa !== ob) return oa - ob;
       if (RANK[a.status] !== RANK[b.status]) return RANK[a.status] - RANK[b.status];
-      return (b.meeting_date || '') < (a.meeting_date || '') ? -1 : 1;
+      return (b.meeting_date || '').localeCompare(a.meeting_date || '');
     });
   }, [items]);
 
