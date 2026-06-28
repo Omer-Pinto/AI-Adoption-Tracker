@@ -530,18 +530,58 @@ A focused ~20-min joint pass so Omer's reading is minimal and timed to when it m
 
 ---
 
-## Wave 15 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 15 — AI-Lead board redesign + self-managed action items (pre-last)
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (15A); implementation (15B+) is scoped from that spec once Omer approves it.
+Rebuild the AI-Lead page per the chosen prototype (**Variant B — tabbed board**, `prototype/ai-lead-board-redesign.html`) and let the AI Lead create/manage their own action items directly — not only through reports. **Carries a schema change (nullable `action_item.report_id`) — done NOW, pre-1.0, while the DB is empty.** Opens with an **api-designer gate** (the action-item CRUD contract); then a backend agent + a frontend agent build it **in parallel** against that frozen contract (disjoint trees, the proven Wave-12 pattern).
 
-### Agent 15A: Explore + design SearchBar/DSL integration
+> **Design decisions locked (Omer):** Variant B (tabs: *Action items* | *My toolkit*); **keep both date columns** (read-only Meeting date + editable Due date); **remove the page-level narration subtitle** ("Your cross-team board…") — no app-narration for a power user; toolkit item description is a **2-line textarea**, not a single-line input; **standalone** items (owner "AI Lead", no report) = full add/edit/delete; **meeting-derived** items = status/due edits only, **no delete** (mark won't-fix/abandoned instead), and they keep their **"Open report ↗"** link to the source report; standalone items have no report → no link.
+
+### Gate: action-item CRUD contract (`api-designer`)
+| # | Task | Notes |
+|---|------|-------|
+| G | Freeze the contract | `POST /api/action-items` (standalone: owner→"AI Lead", report_id NULL, text req, status default planned, due_date opt, domain_id NULL); `DELETE /api/action-items/{id}` allowed **only if report_id IS NULL** else **409**; extend `PATCH /api/action-items/{id}` to accept `text` (allowed only if report_id IS NULL, else 409; status/due_date always); `AILeadActionItem.team_name`/`champion_name`/`meeting_date`/`report_id` → **nullable** (standalone has none) |
+
+### Agent 15A: Backend — report-less action items + CRUD
+**Type:** `backend-developer` · **Scope:** `src/backend/{schema.sql, models.py, routes/views.py}`
+| # | Task | Notes |
+|---|------|-------|
+| 1 | `action_item.report_id` → NULLABLE | **migration:** SQLite can't drop NOT NULL via ALTER on an existing table; DB is empty so recreate `action_item` from the new schema. Document it as the migration the deployment `UPGRADING.md` describes |
+| 2 | `AILeadActionItem` nullable fields | team_name/champion_name/meeting_date/report_id nullable; the `ai_lead_action_items` query → **LEFT JOIN** report/champion/team so standalone (owner "AI Lead", report_id NULL) rows appear; order tolerant of null meeting_date |
+| 3 | `POST /api/action-items` | standalone create per the contract (owner defaults "AI Lead") |
+| 4 | `DELETE /api/action-items/{id}` | 204; **409 if report_id IS NOT NULL** (meeting-derived) |
+| 5 | Extend `PATCH /api/action-items/{id}` | accept `text`; reject text on report-derived (409); status/due_date unchanged |
+| 6 | Verify replay isolation | confirm report edit/replay only touches its own `report_id` rows — standalone (NULL) untouched. Tests on a throwaway DB |
+**Commit:** `Wave 15 Agent 15A: report-less action items + CRUD`
+
+### Agent 15B: Frontend — tabbed AI-Lead board (Variant B)
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/ai-lead/*, types.ts, api.ts}`
+> Design source of truth: `prototype/ai-lead-board-redesign.html?variant=B`.
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Tabbed board | page header **just "AI Lead"** (remove the narration subtitle); tabs **[Action items · My toolkit]** |
+| 2 | Action items tab | section owns the 4 stat cards + By-priority/By-team toggle + **"+ Add action item"** + table; **two date columns** (Meeting date read-only, Due date editable) |
+| 3 | Standalone CRUD | inline add/edit form (text, status, due_date) + Delete for standalone rows; meeting-derived rows = status/due edits only + "Report-managed" hint + **"Open report ↗"** link; standalone → date "—", no link |
+| 4 | Toolkit tab | move the existing toolkit into its tab; **description = 2-line `<textarea rows={2}>`** |
+| 5 | api.ts + types | `actionItems.create`/`delete`, extend patch for `text`; `AILeadActionItem` nullable team/champion/meeting/report_id; keep token-based (light/dark) |
+**Commit:** `Wave 15 Agent 15B: tabbed AI-Lead board + self-managed action items`
+
+### After Wave 15
+- Cherry-pick 15A/15B; uncertainty gate → review → simplify → verify (live: add a standalone item, edit/delete it, confirm meeting-derived items can't be deleted + link to their report; toolkit textarea). Schema frozen for 1.0.
+
+---
+
+## Wave 16 — Search bar + DSL on entity pages (design first, then implement)
+
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (16A); implementation (16B+) is scoped from that spec once Omer approves it.
+
+### Agent 16A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 15 Agent 15A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 16 Agent 16A: SearchBar/DSL integration design spec`
 
-### After Wave 15 (15A)
-- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (15B+) from the approved spec.
+### After Wave 16 (16A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (16B+) from the approved spec.

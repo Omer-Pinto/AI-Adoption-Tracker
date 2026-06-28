@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<!-- =========================================================================
+     PROTOTYPE — THROWAWAY, NOT PRODUCTION.
+     Interactive redesign exploration of the "AI Lead" board.
+     One self-contained file: inline CSS + vanilla JS, mock data, no backend,
+     no build step, no external deps. Opens by double-clicking (file://).
+     3 structurally-different variants: ?variant=A|B|C  (or ◀/▶ bar, ← / → keys)
+       A — Stacked sections   (page header → Action items section → Toolkit section)
+       B — Tabbed board       (page header w/ tabs; each tab owns its surface)
+       C — Compact split       (dense table + slim stat strip; toolkit as a side rail)
+     All interactivity is in-memory: add/edit/delete mutate JS state & re-render.
+     ========================================================================= -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Lead board — redesign prototype (throwaway)</title>
+<style>
+/* ============ tokens (light + dark) ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --indigo: #4361ee;
+  --indigo-dark: #3451d1;
+  --bg: #f5f6f8;
+  --surface: #fff;
+  --surface-2: #fafbfc;
+  --surface-3: #f5f6f8;
+  --line: #e5e7eb;
+  --line-soft: #f1f2f4;
+  --slate: #1a1d23;
+  --text-2: #374151;
+  --muted: #6b7280;
+  --faint: #9ca3af;
+}
+body[data-theme="dark"] {
+  --bg: #0e1014;
+  --surface: #1a1d23;
+  --surface-2: #20242c;
+  --surface-3: #161920;
+  --line: #2e3240;
+  --line-soft: #262a33;
+  --slate: #e8eaed;
+  --text-2: #cbd1da;
+  --muted: #9aa1ad;
+  --faint: #6b7280;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--slate);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ============ app shell ============ */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px; flex-shrink: 0; background: #1a1d23; color: #9ca3af;
+  position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto;
+}
+.nav-logo { padding: 18px 20px 16px; border-bottom: 1px solid #2e3240; }
+.nav-logo-title { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .5px; text-transform: uppercase; }
+.nav-logo-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.nav-section { padding: 12px 0 4px; }
+.nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: #4b5563; padding: 0 20px 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px;
+  color: #9ca3af; cursor: pointer; text-decoration: none;
+}
+.nav-item:hover { background: #252932; color: #e5e7eb; }
+.nav-item.active { background: #252932; color: #fff; border-left: 3px solid var(--indigo); padding-left: 17px; }
+.nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-weight: 700; background: var(--indigo); color: #fff;
+  border-radius: 20px; min-width: 18px; height: 18px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-divider { border: none; border-top: 1px solid #2e3240; margin: 8px 0; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ============ top bar ============ */
+.top-bar {
+  background: var(--surface); border-bottom: 1px solid var(--line); padding: 0 28px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+}
+.top-bar-title { font-size: 15px; font-weight: 700; color: var(--slate); }
+.top-bar-actions { display: flex; align-items: center; gap: 10px; }
+
+.page-body { padding: 22px 28px 96px; max-width: 1120px; }
+.page-body.variant-C { max-width: 1340px; }
+
+/* ============ buttons ============ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  text-decoration: none; white-space: nowrap; transition: background .15s, border-color .15s;
+}
+.btn-primary { background: var(--indigo); color: #fff; }
+.btn-primary:hover { background: var(--indigo-dark); }
+.btn-secondary { background: var(--surface-3); color: var(--text-2); border: 1px solid var(--line); }
+.btn-secondary:hover { background: var(--line); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid transparent; }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text-2); }
+.btn-danger { background: transparent; color: #dc2626; border: 1px solid transparent; }
+.btn-danger:hover { background: #fee2e2; border-color: #fecaca; }
+body[data-theme="dark"] .btn-danger:hover { background: #3a1d1f; border-color: #5b2326; color: #fca5a5; }
+.btn-sm { padding: 4px 10px; font-size: 11.5px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+
+/* ============ identity / page header ============ */
+.identity { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+.id-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #4361ee, #8b5cf6); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;
+}
+.id-name { font-size: 19px; font-weight: 800; letter-spacing: -.3px; color: var(--slate); }
+.id-meta { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+
+/* ============ section card ============ */
+.section {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  margin-bottom: 18px; overflow: hidden;
+}
+.section-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 15px 20px; border-bottom: 1px solid var(--line-soft); background: var(--surface);
+}
+.section-title { font-size: 15px; font-weight: 800; letter-spacing: -.2px; color: var(--slate); }
+.section-title .count { font-size: 12px; font-weight: 600; color: var(--faint); margin-left: 6px; }
+.section-sub { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
+.section-spacer { flex: 1 1 auto; }
+.section-body { padding: 18px 20px 20px; }
+.section-body.flush { padding: 0; }
+
+/* ============ summary tiles ============ */
+.tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+}
+.tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1); }
+.tile-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.tile-value { font-size: 25px; font-weight: 800; line-height: 1; color: var(--slate); font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 11px; color: var(--faint); }
+.tile.acc-blue  { --accent: #3b82f6; }
+.tile.acc-red   { --accent: #dc2626; }
+.tile.acc-amber { --accent: #d97706; }
+.tile.acc-green { --accent: #16a34a; }
+
+/* slim inline stat strip (variant C) */
+.stat-strip { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.stat-cell { display: flex; flex-direction: column; gap: 1px; padding: 8px 16px; position: relative; min-width: 96px; }
+.stat-cell + .stat-cell { border-left: 1px solid var(--line-soft); }
+.stat-cell::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--accent, #cbd5e1); border-radius: 3px; }
+.stat-cell.acc-blue { --accent:#3b82f6; } .stat-cell.acc-red { --accent:#dc2626; }
+.stat-cell.acc-amber { --accent:#d97706; } .stat-cell.acc-green { --accent:#16a34a; }
+.stat-num { font-size: 18px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-cap { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+
+/* ============ segmented toggle ============ */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); }
+.seg button {
+  border: none; background: var(--surface); font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--muted);
+  padding: 6px 13px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--indigo); color: #fff; }
+
+/* ============ tabs (variant B) ============ */
+.tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 2px solid var(--line); }
+.tab {
+  border: none; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--muted);
+  padding: 10px 16px 12px; cursor: pointer; position: relative; top: 2px; border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--text-2); }
+.tab.on { color: var(--indigo); border-bottom-color: var(--indigo); }
+.tab .tab-badge {
+  font-size: 10.5px; font-weight: 700; margin-left: 7px; background: var(--surface-3); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 20px; padding: 1px 8px;
+}
+.tab.on .tab-badge { background: #eef1fe; color: var(--indigo); border-color: #d8defc; }
+body[data-theme="dark"] .tab.on .tab-badge { background: #232a45; border-color: #313a5e; }
+
+/* ============ action table ============ */
+table.ai-table { width: 100%; border-collapse: collapse; }
+table.ai-table th {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--faint);
+  text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap;
+}
+table.ai-table td { font-size: 13px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+table.ai-table tr:last-child td { border-bottom: none; }
+table.ai-table tbody tr.item-row:hover td { background: var(--surface-2); }
+table.ai-table tr.is-closed td { opacity: .72; }
+table.ai-table.compact th { padding: 8px 12px; }
+table.ai-table.compact td { padding: 8px 12px; }
+
+.col-item { width: 38%; }
+.col-team { width: 120px; }
+.col-mtg { width: 116px; }
+.col-due { width: 132px; }
+.col-status { width: 168px; }
+.col-act { width: 132px; text-align: right; }
+
+.ai-text { font-size: 13.5px; color: var(--slate); font-weight: 500; line-height: 1.45; }
+tr.is-closed .ai-text { color: var(--faint); }
+tr.st-abandoned .ai-text, tr.st-wont_fix .ai-text { text-decoration: line-through; }
+.kind-tag {
+  display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  border-radius: 4px; padding: 1px 5px; margin-top: 5px; vertical-align: middle;
+}
+.kind-personal { background: #ede9fe; color: #6d28d9; }
+.kind-meeting  { background: #e0f2fe; color: #0369a1; }
+body[data-theme="dark"] .kind-personal { background: #2a2342; color: #c4b5fd; }
+body[data-theme="dark"] .kind-meeting  { background: #15303f; color: #7dd3fc; }
+
+/* team chip */
+.team-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--text-2);
+  background: var(--surface-3); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; white-space: nowrap;
+}
+.team-chip .tdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--tc, #94a3b8); }
+.team-personal { color: var(--muted); font-style: italic; font-size: 12px; }
+
+/* dates */
+.mtg-date { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.date-dash { font-size: 13px; color: var(--faint); }
+.due-inp {
+  font-family: inherit; font-size: 12px; color: var(--text-2); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; width: 132px;
+  font-variant-numeric: tabular-nums;
+}
+.due-inp:hover { border-color: #cbd0d8; }
+.due-inp:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.due-inp.overdue { color: #dc2626; border-color: #f4b9b9; }
+.overdue-tag {
+  display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  color: #991b1b; background: #fee2e2; border-radius: 4px; padding: 1px 5px; margin-top: 4px;
+}
+body[data-theme="dark"] .overdue-tag { background: #3a1d1f; color: #fca5a5; }
+
+/* editable status control */
+.status-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding-left: 9px; white-space: nowrap;
+}
+.status-wrap:hover { border-color: #cbd0d8; }
+.status-wrap:focus-within { border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #9ca3af; }
+.status-sel {
+  border: none; background: transparent; padding: 5px 22px 5px 0;
+  font-size: 12.5px; font-weight: 600; color: var(--slate); cursor: pointer; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; font-family: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.status-sel:focus { outline: none; }
+.sd-planned { background:#9ca3af; } .sd-in-progress { background:#4361ee; }
+.sd-finished_successfully { background:#16a34a; } .sd-finished_with_issues { background:#d97706; }
+.sd-blocked { background:#dc2626; } .sd-abandoned { background:#9ca3af; } .sd-wont_fix { background:#9ca3af; }
+
+.row-acts { display: inline-flex; gap: 6px; justify-content: flex-end; }
+.managed-hint {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--faint); cursor: help; white-space: nowrap;
+}
+.managed-hint .qi {
+  width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); color: var(--faint);
+  font-size: 9px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* group header rows (by team) */
+.group-row td {
+  background: var(--surface-3) !important; padding: 8px 16px; opacity: 1 !important;
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+}
+.group-row .gh { display: inline-flex; align-items: center; gap: 7px; }
+.group-row .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc, #94a3b8); }
+.group-row .gcount { color: var(--faint); font-weight: 700; margin-left: 4px; }
+
+/* ============ inline form (action item) ============ */
+.form-panel {
+  background: var(--surface-3); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 0 0 14px;
+}
+table.ai-table .form-cell { background: var(--surface-3); padding: 0; }
+.form-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--text-2); margin-bottom: 11px; }
+.form-grid { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field.grow { flex: 1 1 320px; min-width: 240px; }
+.field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--faint); }
+.inp {
+  font-family: inherit; font-size: 13px; color: var(--slate); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+}
+.inp:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.12); }
+select.inp { cursor: pointer; }
+.form-actions { display: flex; gap: 8px; }
+
+/* ============ toolkit ============ */
+.tk-cat { margin-bottom: 18px; }
+.tk-cat:last-child { margin-bottom: 0; }
+.tk-cat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.tk-cat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-2); }
+.tk-cat-label .tk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: middle; background: var(--kc, #94a3b8); }
+.tk-cat-count { font-size: 11px; font-weight: 700; color: var(--faint); background: var(--surface-3); border: 1px solid var(--line); border-radius: 20px; padding: 1px 8px; }
+.tk-cat.meta { --kc: #8b5cf6; }
+.tk-cat.cc   { --kc: #4361ee; }
+.tk-item {
+  display: flex; align-items: flex-start; gap: 12px; padding: 11px 13px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface); margin-bottom: 8px;
+}
+.tk-item:last-child { margin-bottom: 0; }
+.tk-main { flex: 1; min-width: 0; }
+.tk-name { font-size: 13.5px; font-weight: 700; color: var(--slate); }
+.tk-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tk-acts { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.tk-form { background: var(--surface-3); border: 1px solid var(--line); border-radius: 9px; padding: 13px 14px; margin-bottom: 10px; }
+
+/* toolkit rail (variant C) */
+.split { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+.rail { position: sticky; top: 76px; }
+.rail-collapsed .section-body { display: none; }
+
+/* ============ misc ============ */
+.empty-note { font-size: 13px; color: var(--faint); font-style: italic; padding: 10px 2px; }
+.flash { animation: flash 1.2s ease; }
+@keyframes flash { 0% { box-shadow: inset 0 0 0 9999px rgba(67,97,238,.10); } 100% { box-shadow: inset 0 0 0 9999px rgba(67,97,238,0); } }
+tr.flash td { animation: flashrow 1.2s ease; }
+@keyframes flashrow { 0% { background: rgba(67,97,238,.12); } 100% { background: transparent; } }
+
+/* ribbon */
+.ribbon {
+  position: fixed; top: 12px; right: -42px; transform: rotate(38deg); z-index: 200;
+  background: #d97706; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  padding: 4px 52px; box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none;
+}
+
+/* variant switcher */
+.switcher {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 300;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 92vw;
+  background: #1a1d23; color: #fff; border: 1px solid #2e3240; border-radius: 999px;
+  padding: 6px 8px; box-shadow: 0 8px 28px rgba(0,0,0,.30);
+}
+.switcher button {
+  border: none; background: #2a2f3a; color: #fff; width: 30px; height: 30px; border-radius: 50%;
+  font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.switcher button:hover { background: var(--indigo); }
+.switch-label { font-size: 12.5px; font-weight: 700; padding: 0 10px; white-space: nowrap; }
+.switch-keys { font-size: 10px; color: #9ca3af; padding-right: 6px; }
+</style>
+</head>
+<body>
+<div class="ribbon">Prototype · throwaway</div>
+
+<div class="shell">
+  <!-- ===================== SIDEBAR (static, AI Lead active) ===================== -->
+  <aside class="sidebar">
+    <div class="nav-logo">
+      <div class="nav-logo-title">AI Adoption</div>
+      <div class="nav-logo-sub">Tracker</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item"><span class="nav-icon">▦</span> Dashboard</a>
+      <a class="nav-item"><span class="nav-icon">◉</span> Teams</a>
+      <a class="nav-item"><span class="nav-icon">◆</span> Domains</a>
+      <a class="nav-item active"><span class="nav-icon">★</span> AI Lead <span class="nav-badge" id="nav-count">4</span></a>
+    </div>
+    <hr class="nav-divider" />
+    <div class="nav-section">
+      <div class="nav-section-label">Workflow</div>
+      <a class="nav-item"><span class="nav-icon">✎</span> Reports</a>
+      <a class="nav-item"><span class="nav-icon">☑</span> Action items</a>
+      <a class="nav-item"><span class="nav-icon">⚙</span> Manage</a>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+    <div class="top-bar">
+      <!-- Neutral page-level title: NO action-item subtitle, NO page-level sort toggle -->
+      <div class="top-bar-title">AI Lead</div>
+      <div class="top-bar-actions">
+        <button class="btn btn-ghost btn-sm" id="theme-btn" title="Toggle light / dark">☾ Dark</button>
+      </div>
+    </div>
+    <div class="page-body" id="board"><!-- rendered by JS --></div>
+  </div>
+</div>
+
+<!-- variant switcher -->
+<div class="switcher">
+  <button id="prev" title="Previous variant (←)">◀</button>
+  <span class="switch-label" id="switch-label">A — Stacked sections</span>
+  <button id="next" title="Next variant (→)">▶</button>
+  <span class="switch-keys">← / →</span>
+</div>
+
+<script>
+/* =========================================================================
+   STATE (in-memory mock data)
+   ========================================================================= */
+const TEAM_COLORS = { Radar:'#3b82f6', Platform:'#8b5cf6', Mobile:'#16a34a' };
+
+const STATUSES = [
+  ['planned','Planned'], ['in-progress','In progress'], ['blocked','Blocked'],
+  ['finished_with_issues','Finished (issues)'], ['finished_successfully','Finished'],
+  ['abandoned','Abandoned'], ['wont_fix',"Won't fix"]
+];
+const RANK = { blocked:0, 'in-progress':1, planned:2, finished_with_issues:3, finished_successfully:4, abandoned:5, wont_fix:6 };
+const CLOSED = new Set(['finished_successfully','finished_with_issues','abandoned','wont_fix']);
+const TODAY = '2026-06-28';
+
+/* kind:'standalone'  → owner AI Lead, no team / no meeting date, full Edit+Delete
+   kind:'meeting'     → has team + meeting date (from a champion report); Status+Due editable, NO delete */
+let actions = [
+  { id:'a1', kind:'standalone', text:'Draft the Q3 team-enablement plan', team:null, meetingDate:null, dueDate:null,        status:'planned' },
+  { id:'a2', kind:'standalone', text:'Review the new context-router skill before the org rollout', team:null, meetingDate:null, dueDate:'2026-06-22', status:'in-progress' },
+  { id:'m1', kind:'meeting',    text:"Unblock Radar's flaky integration tests — pair with backend on the CI agent", team:'Radar',    meetingDate:'2026-06-24', dueDate:'2026-07-01', status:'blocked' },
+  { id:'m2', kind:'meeting',    text:'Approve the shared pytest-runner skill for the org artifact catalog',          team:'Platform', meetingDate:'2026-06-18', dueDate:'2026-06-20', status:'finished_successfully' },
+  { id:'m3', kind:'meeting',    text:'Run a Claude Code onboarding session for the new Mobile hires',               team:'Mobile',   meetingDate:'2026-06-10', dueDate:'2026-06-19', status:'in-progress' },
+];
+
+let toolkit = [
+  { id:'t1', category:'meta', name:'Prompt-pattern library',     desc:'Reusable prompt scaffolds for spec-writing, code review, and triage.' },
+  { id:'t2', category:'meta', name:'Meeting-to-report workflow', desc:'My checklist for turning raw champion notes into a structured weekly report.' },
+  { id:'t3', category:'cc',   name:'context-router skill',       desc:'Routes a repo question to the right CLAUDE.md / context file before answering.' },
+  { id:'t4', category:'cc',   name:'pr-review agent',            desc:'Sub-agent that drafts a first-pass PR review against our house style.' },
+];
+const TK_CATS = [ ['meta','Meta-skills'], ['cc','Claude Code enhancements'] ];
+
+/* UI flags */
+const VARIANTS = [ ['A','Stacked sections'], ['B','Tabbed board'], ['C','Compact split'] ];
+let variant   = 'A';
+let sortMode  = 'priority';      // 'priority' | 'team'
+let activeTab = 'actions';       // variant B
+let railOpen  = true;            // variant C toolkit rail
+let actionForm = { open:false, mode:'add', id:null };   // inline action form
+let toolForm   = { open:false, mode:'add', id:null, category:'meta' };
+let flashId    = null;
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId = id => actions.find(a => a.id === id);
+const isOverdue = a => a.dueDate && a.dueDate < TODAY && !CLOSED.has(a.status);
+const labelFor  = s => (STATUSES.find(x => x[0] === s) || [s, s])[1];
+
+function counts() {
+  let open=0, overdue=0, blocked=0, done=0;
+  actions.forEach(a => {
+    if (CLOSED.has(a.status)) done++; else open++;
+    if (isOverdue(a)) overdue++;
+    if (a.status === 'blocked') blocked++;
+  });
+  return { open, overdue, blocked, done };
+}
+
+function statusSelectHTML(status, dataAttr) {
+  const opts = STATUSES.map(([v,l]) => `<option value="${v}" ${v===status?'selected':''}>${l}</option>`).join('');
+  return `<span class="status-wrap"><span class="status-dot sd-${status}"></span>`
+       + `<select class="status-sel" ${dataAttr}>${opts}</select></span>`;
+}
+
+/* ---- summary, two presentations ---- */
+function tilesHTML() {
+  const c = counts();
+  return `<div class="tile-grid">
+    <div class="tile acc-blue"><div class="tile-label">Open</div><div class="tile-value">${c.open}</div><div class="tile-sub">planned · in&nbsp;progress · blocked</div></div>
+    <div class="tile acc-red"><div class="tile-label">Overdue</div><div class="tile-value">${c.overdue}</div><div class="tile-sub">past the due date</div></div>
+    <div class="tile acc-amber"><div class="tile-label">Blocked</div><div class="tile-value">${c.blocked}</div><div class="tile-sub">needs unblocking</div></div>
+    <div class="tile acc-green"><div class="tile-label">Done</div><div class="tile-value">${c.done}</div><div class="tile-sub">finished / closed</div></div>
+  </div>`;
+}
+function statStripHTML() {
+  const c = counts();
+  return `<div class="stat-strip">
+    <div class="stat-cell acc-blue"><div class="stat-num">${c.open}</div><div class="stat-cap">Open</div></div>
+    <div class="stat-cell acc-red"><div class="stat-num">${c.overdue}</div><div class="stat-cap">Overdue</div></div>
+    <div class="stat-cell acc-amber"><div class="stat-num">${c.blocked}</div><div class="stat-cap">Blocked</div></div>
+    <div class="stat-cell acc-green"><div class="stat-num">${c.done}</div><div class="stat-cap">Done</div></div>
+  </div>`;
+}
+
+/* ---- action controls (toggle + add) — these live INSIDE the action section ---- */
+function actionControlsHTML() {
+  return `<div class="seg" role="group" aria-label="Sort">
+            <button data-act="sort" data-sort="priority" class="${sortMode==='priority'?'on':''}">By priority</button>
+            <button data-act="sort" data-sort="team" class="${sortMode==='team'?'on':''}">By team</button>
+          </div>
+          <button class="btn btn-primary btn-sm" data-act="add-action">+ Add action item</button>`;
+}
+
+/* ---- inline action form (shared by add + edit) ---- */
+function actionFormHTML() {
+  if (!actionForm.open) return '';
+  const it = actionForm.mode === 'edit' ? byId(actionForm.id) : null;
+  const text   = it ? it.text : '';
+  const status = it ? it.status : 'planned';
+  const due    = it ? (it.dueDate || '') : '';
+  const title  = actionForm.mode === 'edit' ? 'Edit action item' : 'Add action item (standalone — owner: AI Lead)';
+  return `<div class="form-panel" id="action-form">
+    <div class="form-title">${title}</div>
+    <div class="form-grid">
+      <div class="field grow">
+        <label class="field-label" for="f-text">Action item</label>
+        <input class="inp" id="f-text" type="text" value="${esc(text)}" placeholder="What needs to happen?" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="f-status">Status</label>
+        <select class="inp" id="f-status">${STATUSES.map(([v,l])=>`<option value="${v}" ${v===status?'selected':''}>${l}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="f-due">Due date</label>
+        <input class="inp" id="f-due" type="date" value="${due}" />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-sm" data-act="save-action">${actionForm.mode==='edit'?'Save':'Add'}</button>
+        <button class="btn btn-secondary btn-sm" data-act="cancel-action">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---- one action row ---- */
+function actionRowHTML(a) {
+  const closed = CLOSED.has(a.status);
+  const od = isOverdue(a);
+  const teamCell = a.kind === 'meeting'
+    ? `<span class="team-chip" style="--tc:${TEAM_COLORS[a.team]||'#94a3b8'}"><span class="tdot"></span>${esc(a.team)}</span>`
+    : `<span class="team-personal">Personal</span>`;
+  const mtgCell = a.meetingDate
+    ? `<span class="mtg-date">${a.meetingDate}</span>`
+    : `<span class="date-dash">—</span>`;
+  const dueCell = `<input class="due-inp${od?' overdue':''}" type="date" value="${a.dueDate||''}" data-act="row-due" data-id="${a.id}" />`
+                + (od ? `<div class="overdue-tag">Overdue</div>` : '');
+  const acts = a.kind === 'standalone'
+    ? `<div class="row-acts">
+         <button class="btn btn-secondary btn-xs" data-act="edit-action" data-id="${a.id}">Edit</button>
+         <button class="btn btn-danger btn-xs" data-act="del-action" data-id="${a.id}">Delete</button>
+       </div>`
+    : `<div class="row-acts"><span class="managed-hint" title="This item is mined from its champion report. Edit its status and due date here; the wording and team are managed on the report."><span class="qi">i</span>Report-managed</span></div>`;
+  const kindTag = a.kind === 'standalone'
+    ? `<span class="kind-tag kind-personal">Personal</span>`
+    : `<span class="kind-tag kind-meeting">From report</span>`;
+  return `<tr class="item-row ${closed?'is-closed ':''}st-${a.status}${a.id===flashId?' flash':''}" data-id="${a.id}">
+    <td class="col-item"><div class="ai-text">${esc(a.text)}</div>${kindTag}</td>
+    <td class="col-team">${teamCell}</td>
+    <td class="col-mtg">${mtgCell}</td>
+    <td class="col-due">${dueCell}</td>
+    <td class="col-status">${statusSelectHTML(a.status, `data-act="row-status" data-id="${a.id}"`)}</td>
+    <td class="col-act">${acts}</td>
+  </tr>`;
+}
+
+/* ---- the action table (priority sort OR team grouping) ---- */
+function actionTableHTML(compact) {
+  const head = `<thead><tr>
+      <th class="col-item">Action item</th>
+      <th class="col-team">Team</th>
+      <th class="col-mtg">Meeting date</th>
+      <th class="col-due">Due date</th>
+      <th class="col-status">Status</th>
+      <th class="col-act"></th>
+    </tr></thead>`;
+  let body = '';
+  if (sortMode === 'priority') {
+    const sorted = actions.slice().sort((x,y) => {
+      const cx = CLOSED.has(x.status)?1:0, cy = CLOSED.has(y.status)?1:0;   // closed sink
+      if (cx !== cy) return cx - cy;
+      const ox = isOverdue(x)?0:1, oy = isOverdue(y)?0:1;                   // overdue first
+      if (ox !== oy) return ox - oy;
+      if (RANK[x.status] !== RANK[y.status]) return RANK[x.status] - RANK[y.status];
+      return (x.dueDate||'9999') < (y.dueDate||'9999') ? -1 : 1;            // soonest due first
+    });
+    body = sorted.map(actionRowHTML).join('');
+  } else {
+    // by team: Personal group first, then each team
+    const groups = [];
+    const personal = actions.filter(a => a.kind === 'standalone');
+    if (personal.length) groups.push(['Personal', null, personal]);
+    Object.keys(TEAM_COLORS).forEach(t => {
+      const g = actions.filter(a => a.team === t);
+      if (g.length) groups.push([t, TEAM_COLORS[t], g]);
+    });
+    groups.forEach(([name, color, g]) => {
+      g.sort((x,y) => (CLOSED.has(x.status)?1:0)-(CLOSED.has(y.status)?1:0) || RANK[x.status]-RANK[y.status]);
+      const open = g.filter(a => !CLOSED.has(a.status)).length;
+      body += `<tr class="group-row"><td colspan="6"><span class="gh">
+                 <span class="gdot" style="--tc:${color||'#94a3b8'}"></span>${esc(name)}
+                 <span class="gcount">${g.length} item${g.length>1?'s':''} · ${open} open</span>
+               </span></td></tr>`;
+      body += g.map(actionRowHTML).join('');
+    });
+  }
+  return `<table class="ai-table${compact?' compact':''}">${head}<tbody>${body}</tbody></table>`;
+}
+
+/* ---- toolkit ---- */
+function toolFormHTML(category) {
+  if (!toolForm.open || toolForm.category !== category) return '';
+  const it = toolForm.mode === 'edit' ? toolkit.find(t => t.id === toolForm.id) : null;
+  const name = it ? it.name : '', desc = it ? it.desc : '';
+  return `<div class="tk-form" id="tool-form">
+    <div class="form-title">${toolForm.mode==='edit'?'Edit toolkit item':'Add toolkit item'}</div>
+    <div class="form-grid">
+      <div class="field grow">
+        <label class="field-label" for="tf-name">Name</label>
+        <input class="inp" id="tf-name" type="text" value="${esc(name)}" placeholder="e.g. context-router skill" />
+      </div>
+      <div class="field grow">
+        <label class="field-label" for="tf-desc">Description</label>
+        <input class="inp" id="tf-desc" type="text" value="${esc(desc)}" placeholder="What it does" />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-sm" data-act="save-tool">${toolForm.mode==='edit'?'Save':'Add'}</button>
+        <button class="btn btn-secondary btn-sm" data-act="cancel-tool">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+function toolkitHTML() {
+  return TK_CATS.map(([cat, label]) => {
+    const items = toolkit.filter(t => t.category === cat);
+    const rows = items.map(t => `<div class="tk-item${t.id===flashId?' flash':''}">
+        <div class="tk-main"><div class="tk-name">${esc(t.name)}</div><div class="tk-desc">${esc(t.desc)}</div></div>
+        <div class="tk-acts">
+          <button class="btn btn-secondary btn-xs" data-act="edit-tool" data-id="${t.id}">Edit</button>
+          <button class="btn btn-danger btn-xs" data-act="del-tool" data-id="${t.id}">Delete</button>
+        </div>
+      </div>`).join('') || `<div class="empty-note">Nothing here yet.</div>`;
+    return `<div class="tk-cat ${cat}">
+      <div class="tk-cat-head">
+        <span class="tk-cat-label"><span class="tk-dot"></span>${label}</span>
+        <span class="tk-cat-count">${items.length}</span>
+        <span class="section-spacer"></span>
+        <button class="btn btn-secondary btn-xs" data-act="add-tool" data-cat="${cat}">+ Add</button>
+      </div>
+      ${toolFormHTML(cat)}
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+/* =========================================================================
+   VARIANT ASSEMBLERS
+   ========================================================================= */
+const PAGE_HEADER = `
+  <div class="identity">
+    <div class="id-avatar">AL</div>
+    <div>
+      <div class="id-name">AI Lead</div>
+      <div class="id-meta">Your cross-team board — action items across every team, plus your personal toolkit.</div>
+    </div>
+  </div>`;
+
+function viewA() {  // Stacked sections
+  return PAGE_HEADER + `
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Action items <span class="count">across all teams</span></div>
+          <div class="section-sub">Open &amp; overdue first · closed sink to the bottom</div>
+        </div>
+        <span class="section-spacer"></span>
+        ${actionControlsHTML()}
+      </div>
+      <div class="section-body">
+        ${tilesHTML()}
+        <div style="height:16px"></div>
+        ${actionFormHTML()}
+        <div class="section" style="margin:0;border-radius:12px;overflow:hidden">${actionTableHTML(false)}</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title">My toolkit <span class="count">personal · not tied to any team</span></div>
+        <span class="section-spacer"></span>
+      </div>
+      <div class="section-body">${toolkitHTML()}</div>
+    </section>`;
+}
+
+function viewB() {  // Tabbed board
+  const openCount = counts().open;
+  const tabs = `<div class="tabs" role="tablist">
+      <button class="tab ${activeTab==='actions'?'on':''}" data-act="tab" data-tab="actions">Action items <span class="tab-badge">${openCount} open</span></button>
+      <button class="tab ${activeTab==='toolkit'?'on':''}" data-act="tab" data-tab="toolkit">My toolkit <span class="tab-badge">${toolkit.length}</span></button>
+    </div>`;
+  let surface;
+  if (activeTab === 'actions') {
+    surface = `<section class="section">
+        <div class="section-head">
+          <div class="section-title">Action items</div>
+          <span class="section-spacer"></span>
+          ${actionControlsHTML()}
+        </div>
+        <div class="section-body">
+          ${tilesHTML()}
+          <div style="height:16px"></div>
+          ${actionFormHTML()}
+          <div class="section" style="margin:0;border-radius:12px;overflow:hidden">${actionTableHTML(false)}</div>
+        </div>
+      </section>`;
+  } else {
+    surface = `<section class="section">
+        <div class="section-head"><div class="section-title">My toolkit</div></div>
+        <div class="section-body">${toolkitHTML()}</div>
+      </section>`;
+  }
+  return PAGE_HEADER + tabs + surface;
+}
+
+function viewC() {  // Compact split — dense table + slim stat strip; toolkit as a side rail
+  const main = `<section class="section">
+      <div class="section-head" style="gap:14px">
+        ${statStripHTML()}
+        <span class="section-spacer"></span>
+        ${actionControlsHTML()}
+      </div>
+      <div class="section-body" style="padding:14px 14px 16px">
+        ${actionFormHTML()}
+        <div class="section" style="margin:0;border-radius:10px;overflow:hidden">${actionTableHTML(true)}</div>
+      </div>
+    </section>`;
+  const rail = `<section class="section rail ${railOpen?'':'rail-collapsed'}">
+      <div class="section-head">
+        <div class="section-title">My toolkit <span class="count">${toolkit.length}</span></div>
+        <span class="section-spacer"></span>
+        <button class="btn btn-ghost btn-xs" data-act="toggle-rail">${railOpen?'Collapse ▴':'Expand ▾'}</button>
+      </div>
+      <div class="section-body">${toolkitHTML()}</div>
+    </section>`;
+  return PAGE_HEADER + `<div class="split"><div>${main}</div><div>${rail}</div></div>`;
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+const board = document.getElementById('board');
+function render() {
+  board.className = 'page-body variant-' + variant;
+  if (variant === 'B') board.innerHTML = viewB();
+  else if (variant === 'C') board.innerHTML = viewC();
+  else board.innerHTML = viewA();
+
+  document.getElementById('nav-count').textContent = counts().open;
+  const v = VARIANTS.find(x => x[0] === variant);
+  document.getElementById('switch-label').textContent = variant + ' — ' + v[1];
+
+  // focus newly-opened form fields
+  const at = document.getElementById('f-text');   if (at && actionForm._focus) { at.focus(); actionForm._focus = false; }
+  const tt = document.getElementById('tf-name');  if (tt && toolForm._focus)   { tt.focus();  toolForm._focus = false; }
+  flashId = null;  // one-shot
+}
+
+/* =========================================================================
+   EVENTS  (delegated; re-render only on discrete actions so form typing keeps focus)
+   ========================================================================= */
+board.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const act = t.dataset.act, id = t.dataset.id;
+  switch (act) {
+    case 'sort':       sortMode = t.dataset.sort; render(); break;
+    case 'tab':        activeTab = t.dataset.tab; render(); break;
+    case 'toggle-rail':railOpen = !railOpen; render(); break;
+
+    case 'add-action':
+      actionForm = { open:true, mode:'add', id:null, _focus:true };
+      if (variant === 'B') activeTab = 'actions';
+      render(); break;
+    case 'edit-action':
+      actionForm = { open:true, mode:'edit', id, _focus:true }; render(); break;
+    case 'cancel-action':
+      actionForm.open = false; render(); break;
+    case 'save-action': saveAction(); break;
+    case 'del-action': {
+      const a = byId(id);
+      if (a && confirm(`Delete this standalone action item?\n\n"${a.text}"`)) {
+        actions = actions.filter(x => x.id !== id);
+        if (actionForm.id === id) actionForm.open = false;
+        render();
+      }
+      break;
+    }
+
+    case 'add-tool':
+      toolForm = { open:true, mode:'add', id:null, category:t.dataset.cat, _focus:true }; render(); break;
+    case 'edit-tool': {
+      const it = toolkit.find(x => x.id === id);
+      toolForm = { open:true, mode:'edit', id, category:it.category, _focus:true }; render(); break;
+    }
+    case 'cancel-tool':
+      toolForm.open = false; render(); break;
+    case 'save-tool': saveTool(); break;
+    case 'del-tool': {
+      const it = toolkit.find(x => x.id === id);
+      if (it && confirm(`Delete this toolkit item?\n\n"${it.name}"`)) {
+        toolkit = toolkit.filter(x => x.id !== id);
+        if (toolForm.id === id) toolForm.open = false;
+        render();
+      }
+      break;
+    }
+  }
+});
+
+/* inline status + due-date edits on existing rows */
+board.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.act === 'row-status') { const a = byId(t.dataset.id); if (a) { a.status = t.value; flashId = a.id; render(); } }
+  if (t.dataset.act === 'row-due')    { const a = byId(t.dataset.id); if (a) { a.dueDate = t.value || null; flashId = a.id; render(); } }
+});
+
+function saveAction() {
+  const text = (document.getElementById('f-text').value || '').trim();
+  if (!text) { document.getElementById('f-text').focus(); return; }
+  const status = document.getElementById('f-status').value;
+  const due    = document.getElementById('f-due').value || null;
+  if (actionForm.mode === 'edit') {
+    const a = byId(actionForm.id);
+    if (a) { a.text = text; a.status = status; a.dueDate = due; flashId = a.id; }
+  } else {
+    const nid = 'a' + Date.now();
+    actions.push({ id:nid, kind:'standalone', text, team:null, meetingDate:null, dueDate:due, status });
+    flashId = nid;
+  }
+  actionForm.open = false;
+  render();
+}
+
+function saveTool() {
+  const name = (document.getElementById('tf-name').value || '').trim();
+  if (!name) { document.getElementById('tf-name').focus(); return; }
+  const desc = (document.getElementById('tf-desc').value || '').trim();
+  if (toolForm.mode === 'edit') {
+    const it = toolkit.find(x => x.id === toolForm.id);
+    if (it) { it.name = name; it.desc = desc; flashId = it.id; }
+  } else {
+    const nid = 't' + Date.now();
+    toolkit.push({ id:nid, category:toolForm.category, name, desc });
+    flashId = nid;
+  }
+  toolForm.open = false;
+  render();
+}
+
+/* =========================================================================
+   VARIANT SWITCHER + THEME
+   ========================================================================= */
+function setVariant(v) {
+  variant = v;
+  actionForm.open = false; toolForm.open = false; activeTab = 'actions';
+  const u = new URL(location.href); u.searchParams.set('variant', v); history.replaceState(null, '', u);
+  render();
+}
+function step(d) {
+  const i = VARIANTS.findIndex(x => x[0] === variant);
+  setVariant(VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0]);
+}
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+
+document.addEventListener('keydown', e => {
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;        // ignore when editing a field
+  if (e.key === 'ArrowLeft')  step(-1);
+  if (e.key === 'ArrowRight') step(1);
+});
+
+const themeBtn = document.getElementById('theme-btn');
+themeBtn.onclick = () => {
+  const dark = document.body.getAttribute('data-theme') === 'dark';
+  document.body.setAttribute('data-theme', dark ? 'light' : 'dark');
+  themeBtn.textContent = dark ? '☾ Dark' : '☀ Light';
+};
+
+/* boot */
+const start = new URLSearchParams(location.search).get('variant');
+if (start && VARIANTS.some(x => x[0] === start.toUpperCase())) variant = start.toUpperCase();
+render();
+</script>
+</body>
+</html>

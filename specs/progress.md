@@ -5,14 +5,16 @@
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 98% (136/139)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 91% (136/149)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 136 / 139 | 98% |
+| 🟢 Done | 136 / 149 | 91% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 3 (Wave 14: 3) | 2% |
+| ⬜ Pending | 13 (Wave 14: 2 · 15: 8 · 16: 3) | 9% |
+
+> Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
 ---
 
@@ -36,7 +38,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
 | 14 | Not Started | — | — | 0/2 | **Go-live walkthrough (gate, before first air-gap insert)** — a focused ~20-min joint pass of README_HUMAN install/run + `backup_db.sh`; deep UPGRADING read deferred to the first real upgrade. See `task_breakdown.md` Wave 14 |
-| 15 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 15A explore+design; then implement (15B+). See `task_breakdown.md` Wave 15 |
+| 15 | Not Started | 0/2 | 0/2 | 0/8 | **AI-Lead board redesign + self-managed action items (Variant B)** — api-designer gate → 15A backend (nullable `report_id`, CRUD) + 15B FE (tabbed board) in parallel. Schema change frozen pre-1.0. See `task_breakdown.md` Wave 15 |
+| 16 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 16A explore+design; then implement (16B+). See `task_breakdown.md` Wave 16 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -424,11 +427,41 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 15 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 15 — AI-Lead board redesign + self-managed action items (Variant B)
 
-> Opens with a design/exploration task (15A → `specs/search_integration.md`); implementation (15B+) is scoped from the approved spec. See `task_breakdown.md` Wave 15.
+> Rebuild the AI-Lead page per the chosen prototype (`prototype/ai-lead-board-redesign.html?variant=B`) + let the AI Lead add/edit/delete their own action items directly. Schema change (nullable `action_item.report_id`) frozen pre-1.0. api-designer gate → 15A backend + 15B FE in parallel. **Locked:** tabbed board, both date columns, no page subtitle, toolkit desc = 2-line textarea, standalone = full CRUD / meeting-derived = status+due only + "Open report" link, no delete. See `task_breakdown.md` Wave 15.
 
-### Agent 15A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+### Gate: action-item CRUD contract (`api-designer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| G | Freeze POST/DELETE/PATCH-text contract + nullable AILeadActionItem fields | ⬜ Pending | DELETE/text only when report_id NULL else 409 |
+
+### Agent 15A: Backend — report-less action items + CRUD (`backend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | `action_item.report_id` → NULLABLE (recreate table; empty DB) | ⬜ Pending | the additive-migration story, for real |
+| 2 | `AILeadActionItem` nullable + LEFT-JOIN query (standalone rows appear) | ⬜ Pending | |
+| 3 | `POST /api/action-items` (standalone, owner "AI Lead") | ⬜ Pending | |
+| 4 | `DELETE /api/action-items/{id}` (409 if report-derived) | ⬜ Pending | |
+| 5 | Extend `PATCH` for `text` (409 if report-derived) | ⬜ Pending | |
+| 6 | Verify replay isolation (standalone untouched) | ⬜ Pending | throwaway-DB test |
+
+### Agent 15B: Frontend — tabbed board Variant B (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Tabbed board: header "AI Lead" (no subtitle) + tabs [Action items · My toolkit] | ⬜ Pending | |
+| 2 | Action items tab owns stats + toggle + "+ Add" + table (2 date cols) | ⬜ Pending | |
+| 3 | Standalone add/edit/delete; meeting-derived status/due only + "Open report" link | ⬜ Pending | |
+| 4 | Toolkit tab; description = 2-line textarea | ⬜ Pending | |
+| 5 | api.ts/types: actionItems create/delete + text patch; nullable AILead fields | ⬜ Pending | |
+
+---
+
+## Wave 16 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (16A → `specs/search_integration.md`); implementation (16B+) is scoped from the approved spec. See `task_breakdown.md` Wave 16.
+
+### Agent 16A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |
