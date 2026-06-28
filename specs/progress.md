@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-27 | **Branch:** `mvp-improvements` | **Waves 11–12 DONE**
+> **Last updated:** 2026-06-28 | **Branch:** `mvp-improvements` | **Waves 11–13 DONE**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 85% (118/139)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 98% (136/139)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 118 / 139 | 85% |
+| 🟢 Done | 136 / 139 | 98% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 21 (Wave 13: 18 · 14: 3) | 15% |
+| ⬜ Pending | 3 (Wave 14: 3) | 2% |
 
 ---
 
@@ -34,7 +34,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 10 | Done | 4/4 | 4/4 | 0/3 | Report editor REDESIGNED via prototype (Omer-approved flat-tables design). Backend (`b674a08`): `GET /api/teams/{id}/entities` picker endpoint + entity-detail `domain` + current-state `PATCH /api/tasks|artifacts/{id}` (no history). Frontend: task+artifact **detail pages** (`77a9f49`, dates-only history, contextual Edit, status read-only) + **flat report editor** (`74d81d2`: flat all-inline-editable tables, matched→link chip / NEW↔existing both ways, `@`/`#` triggers→icon-chips, discussion/issues as lists, domain colors). Each piece api-designed/code-reviewed/fixed. Full FE build green. **Live draft path needs Omer's LLM .env.** Open: discussion/issues are now single-line list items (see note) |
 | 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
-| 13 | Not Started | 0/3 | 0/3 | 18/18 | **FE consumers** (parallel, disjoint files) — 13A manage, 13B viewers+due-date/status (sole `types.ts` editor, additive), 13C AI-Lead view. Branch off Wave-12. Boundaries verified non-overlapping |
+| 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Deferred: AI-Lead status dropdown visual-only (needs `PATCH /api/action-items/{id}`); overdue derives from `meeting_date`; type tidy (dead `cc_baseline`/`ended_on`/`resolved`) |
 | 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -376,37 +376,37 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 > Branch off Wave-12. Disjoint file sets: 13A=`pages/manage/*`; 13B=`types.ts`(additive)+`pages/team|tasks|artifacts|domain/*`+`Badge.tsx`/`DomainStory.tsx`; 13C=`pages/ai-lead/*`+`AppShell.tsx`+`router.tsx`. 13B is the sole `types.ts` editor (additive `due_date` on the Task types). Dead optional type fields left as deferred tidy.
 
-### Agent 13A: Manage — remove CC baseline UI + delete (`frontend-developer`)
+### Agent 13A: Manage — remove CC baseline UI + delete (`frontend-developer`) — 🟢 DONE (`bf5feb6`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Remove CC baseline from `TeamForm`/`ManagePage` UI (leave optional type) | ⬜ Pending | item 2 |
-| 2 | Delete buttons (champions + domains) → `api.*.delete` | ⬜ Pending | item 6 |
+| 1 | Remove CC baseline from `TeamForm`/`ManagePage` UI (leave optional type) | 🟢 Done | textarea + state gone; sends `cc_baseline:null` (field still required in types.ts — deferred tidy) |
+| 2 | Delete buttons (champions + domains) → `api.*.delete` | 🟢 Done | confirm() + `alert(err.message)` surfaces backend 409/block; `loadAll()` refresh |
 
-### Agent 13B: Viewer pages — team redesign + due-date/status display (`frontend-developer`)
+### Agent 13B: Viewer pages — team redesign + due-date/status display (`frontend-developer`) — 🟢 DONE (`261b366`)
 > Design = `prototype/team-page-mock.html` (+ `.png`/`-expanded.png`). Sole `types.ts` editor (additive).
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Add `due_date` to Task/TaskHistory/TaskPatchBody types (additive) | ⬜ Pending | unblocks 8/9 |
-| 2 | Identity strip (no CC Baseline) | ⬜ Pending | item 9 |
-| 3 | Tile dashboard — 6 count tiles + click-to-fold | ⬜ Pending | item 9; counts from 12B #4 |
-| 4 | Foldable sections (Domains/Artifacts/Reports/Actions, default collapsed) | ⬜ Pending | item 9; Artifacts = new fold |
-| 5 | Section internals unchanged when expanded | ⬜ Pending | item 9 — do NOT redesign |
-| 6 | Last-meeting + overdue (only if date) | ⬜ Pending | item 9 |
-| 7 | team-page.css per mock | ⬜ Pending | item 9 |
-| 8 | Action items show status (not resolved); drop cc_baseline display | ⬜ Pending | items 8/2 |
-| 9 | Tasks show "Due on" (`due_date`) + Won't Fix — TaskDetail/TasksPage/DomainPage | ⬜ Pending | items 7/8; DomainPage was the gap |
-| 10 | Ensure `wont_fix` renders (lists/badges/dots) | ⬜ Pending | item 8 |
+| 1 | Add `due_date` to Task/TaskHistory/TaskPatchBody types (additive) | 🟢 Done | `due_date?: string\|null` (matches `ended_on` nullable convention); `ended_on`/`resolved` kept |
+| 2 | Identity strip (no CC Baseline) | 🟢 Done | avatar + name + "since" + domain count |
+| 3 | Tile dashboard — 6 count tiles + click-to-fold | 🟢 Done | counts from 12B; tile→fold open+scroll+flash; sub-callouts client-computed |
+| 4 | Foldable sections (Domains/Artifacts/Reports/Actions, default collapsed) | 🟢 Done | native `<details>`; **gate fix:** Artifacts fold = FULL catalog (matches tile + mock), not just gutter |
+| 5 | Section internals unchanged when expanded | 🟢 Done | wraps existing DomainCard/rows; no internal redesign |
+| 6 | Last-meeting + overdue (only if date) | 🟢 Done | overdue = `due_date` present AND `<today` AND not terminal |
+| 7 | team-page.css per mock | 🟢 Done | namespaced under `.team-page` (post-merge simplification — no cross-page bleed) |
+| 8 | Action items show status (not resolved); drop cc_baseline display | 🟢 Done | `StatusBadge(item.status)`; cc_baseline removed |
+| 9 | Tasks show "Due on" (`due_date`) + Won't Fix — TaskDetail/TasksPage/DomainPage | 🟢 Done | DomainPage gap closed |
+| 10 | Ensure `wont_fix` renders (lists/badges/dots) | 🟢 Done | Badge "Won't Fix", dot/StatusBadge/DomainStory via 12C CSS |
 
-### Agent 13C: AI-Lead cross-team view (`frontend-developer`)
+### Agent 13C: AI-Lead cross-team view (`frontend-developer`) — 🟢 DONE (`5fbef2f`)
 > Design = `prototype/ai-lead-mock.html` (+ `.png`).
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | "AI Lead" nav item + open-count badge (`AppShell`) | ⬜ Pending | item 10; not a team |
-| 2 | Route + page shell (`pages/ai-lead/*`) | ⬜ Pending | item 10 |
-| 3 | Cross-team table (text/team/date/status/Open-report) | ⬜ Pending | consumes 12B #6 |
-| 4 | Summary tiles (Open/Overdue/Blocked/Done) | ⬜ Pending | per mock |
-| 5 | Sort "By priority" + "By team" toggle | ⬜ Pending | per mock |
-| 6 | Inline status edit + no-date/overdue handling | ⬜ Pending | per mock |
+| 1 | "AI Lead" nav item + open-count badge (`AppShell`) | 🟢 Done | NavLink + open-count badge (independent fetch) |
+| 2 | Route + page shell (`pages/ai-lead/*`) | 🟢 Done | `AiLeadPage.tsx` + scoped `ai-lead-page.css` (`.ai-lead-page` namespace) |
+| 3 | Cross-team table (text/team/date/status/Open-report) | 🟢 Done | consumes `api.aiLead.actionItems()`; Open-report → `/reports/{id}/edit` |
+| 4 | Summary tiles (Open/Overdue/Blocked/Done) | 🟢 Done | per mock |
+| 5 | Sort "By priority" + "By team" toggle | 🟢 Done | priority sort uses stable comparator (post-review fix) |
+| 6 | Inline status edit + no-date/overdue handling | 🟢 Done | **VISUAL-ONLY (deferred):** no action-item PATCH in api.ts — dropdown is optimistic-local, not persisted. Overdue derives from `meeting_date` (no `due_date` on `AILeadActionItem`). Mock itself is visual-only |
 
 ---
 
