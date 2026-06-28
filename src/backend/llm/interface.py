@@ -475,21 +475,16 @@ Rules:
 - priority: a plain integer rank — 1 = highest priority, 2 = next, etc. \
 Determine it as follows:
   * If the text has an explicit ordering line like \
-"Priority Order: a -> b -> c -> …": the arrow sequence is a ranking over the \
-domains' LIST POSITIONS (1 = the first domain listed above, 2 = the second, …). \
-The i-th element of the sequence is the list-position of the domain whose \
-priority rank is i. So assign: the domain at the position named by the 1st \
-sequence element gets priority 1, the domain at the position named by the 2nd \
-element gets priority 2, and so on. \
-WORKED EXAMPLE — domains listed in order [1=Backend, 2=Web, 3=Deployment, \
-4=Monitor], with "Priority Order: 1 -> 4 -> 3 -> 2": sequence elem 1 is `1` so \
-list-position 1 (Backend) → priority 1; elem 2 is `4` so list-position 4 \
-(Monitor) → priority 2; elem 3 is `3` so list-position 3 (Deployment) → \
-priority 3; elem 4 is `2` so list-position 2 (Web) → priority 4. Result: \
-Backend=1, Web=4, Deployment=3, Monitor=2. (Do NOT just number domains \
-top-to-bottom in list order when such a line is present.)
-  * If domains are simply listed in priority order with NO explicit ordering \
-line, the list order IS the priority: first listed → 1, second → 2, etc.
+"Priority Order: a -> b -> c -> …", read it as MOST-IMPORTANT-FIRST. Each number \
+in the arrow sequence refers to a domain by its position in the list above. \
+The 1st number gets priority 1, the 2nd number gets priority 2, the 3rd gets \
+priority 3, and so on. \
+WORKED EXAMPLE — four domains listed in order (positions 1, 2, 3, 4), with \
+"Priority Order: 4 -> 2 -> 1 -> 3": the 1st number is `4`, so the domain at \
+position 4 → priority 1; the 2nd is `2`, so position 2 → priority 2; the 3rd is \
+`1`, so position 1 → priority 3; the 4th is `3`, so position 3 → priority 4.
+  * If domains are simply listed in order with NO ordering line, the list order \
+IS the priority: first listed → 1, second → 2, etc.
   * If there is no ordering at all, use null.
 NEVER output words or labels such as "high", "P1", or "medium"; priority is \
 ALWAYS a plain integer or null.
