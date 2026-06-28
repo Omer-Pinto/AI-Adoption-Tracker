@@ -87,6 +87,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // ---- Meta ----
+  health: (): Promise<{ status: string; version: string }> => request('/health'),
   // ---- Management (backend routes/management.py — task_breakdown 1A) ----
   teams: {
     list: (): Promise<Team[]> => request('/teams'),

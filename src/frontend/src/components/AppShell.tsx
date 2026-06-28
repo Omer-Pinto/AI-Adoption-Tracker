@@ -21,6 +21,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 export function AppShell() {
   const [aiLeadOpen, setAiLeadOpen] = useState(0);
+  const [version, setVersion] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,9 @@ export function AppShell() {
         }
       })
       .catch(() => { /* badge is best-effort; ignore load failures */ });
+    api.health()
+      .then((h) => { if (!cancelled) setVersion(h.version); })
+      .catch(() => { /* version footer is best-effort */ });
     return () => { cancelled = true; };
   }, []);
 
@@ -67,6 +71,7 @@ export function AppShell() {
             <span className="nav-icon">&#9881;</span> Manage
           </NavLink>
         </div>
+        {version && <div className="nav-version">v{version}</div>}
       </nav>
 
       <div className="main-content">

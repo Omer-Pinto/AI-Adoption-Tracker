@@ -127,6 +127,16 @@ a:hover { text-decoration: underline; }
   margin: 8px 0;
 }
 
+/* Running product version, pinned to the bottom of the sidebar. */
+.nav-version {
+  margin-top: auto;
+  padding: 12px 20px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: #6b7280;
+  border-top: 1px solid #2e3240;
+}
+
 /* ---- Main Content ---- */
 .main-content {
   margin-left: 220px;
