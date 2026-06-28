@@ -1,5 +1,5 @@
 import './domain-page.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { DomainPage as DomainPageData, Artifact, Task, ArtifactDetail } from '@/types';
@@ -8,6 +8,7 @@ import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
+import { ErrorState } from '@/components/EmptyState';
 
 // Route: "/domains/:domainId" — single domain: current tasks/artifacts + story. Wave-3 agent 3B.
 
@@ -16,39 +17,45 @@ export default function DomainPage() {
 
   const [data, setData] = useState<DomainPageData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   // Artifact detail modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!domainId) return;
+    setLoading(true);
+    setError(false);
     api.views
       .domainPage(Number(domainId))
       .then(setData)
-      .catch((e: unknown) => setError(String(e)))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [domainId]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   function openArtifactModal(artifactId: number) {
-    setModalError(null);
+    setModalError(false);
     api.views
       .artifact(artifactId)
       .then((detail) => {
         setModalDetail(detail);
         setModalOpen(true);
       })
-      .catch((e: unknown) => {
-        setModalError(String(e));
+      .catch(() => {
+        setModalError(true);
       });
   }
 
   function closeModal() {
     setModalOpen(false);
     setModalDetail(null);
-    setModalError(null);
+    setModalError(false);
   }
 
   if (loading) {
@@ -75,7 +82,13 @@ export default function DomainPage() {
           </div>
         </div>
         <div className="page-body">
-          <div className="blocker-banner">{error ?? 'No data.'}</div>
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load this domain"
+              hint="The domain failed to load. Try again."
+              onRetry={load}
+            />
+          </div>
         </div>
       </>
     );
@@ -203,8 +216,8 @@ export default function DomainPage() {
       </div>
 
       {modalError && (
-        <div className="blocker-banner" style={{ margin: '12px 0' }}>
-          Failed to load artifact: {modalError}
+        <div className="warning-banner" style={{ margin: '12px 0' }}>
+          Couldn&apos;t open that artifact. Please try again.
         </div>
       )}
       <ArtifactDetailModal open={modalOpen} onClose={closeModal} detail={modalDetail} />

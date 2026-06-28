@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type { ReportJson, TeamEntities } from '@/types';
+import { ErrorState } from '@/components/EmptyState';
 import {
   FlatReportEditor,
   findMissingArtifactTypes,
@@ -35,9 +36,11 @@ export default function ReportEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!reportId) return;
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     api.reports
       .get(Number(reportId))
       .then(async ({ report: saved }) => {
@@ -66,6 +69,8 @@ export default function ReportEditPage() {
       cancelled = true;
     };
   }, [reportId]);
+
+  useEffect(() => load(), [load]);
 
   async function handleSave() {
     if (!report || !reportId) return;
@@ -113,9 +118,12 @@ export default function ReportEditPage() {
           </div>
         </div>
         <div className="page-body">
-          <div className="blocker-banner">
-            <div className="blocker-banner-label">Error</div>
-            {error}
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load this report"
+              hint="The report failed to load. Try again."
+              onRetry={load}
+            />
           </div>
         </div>
       </>

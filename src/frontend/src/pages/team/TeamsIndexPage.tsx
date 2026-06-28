@@ -1,23 +1,30 @@
 import './team-page.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { TeamPageIndexEntry } from '@/types';
+import { EmptyState, ErrorState } from '@/components/EmptyState';
 
 // Route: "/" — Teams index (list of champion portfolios). Wave-3 agent 3B.
 
 export default function TeamsIndexPage() {
   const [entries, setEntries] = useState<TeamPageIndexEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(false);
     api.views
       .teamsIndex()
       .then(setEntries)
-      .catch((e: unknown) => setError(String(e)))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <>
@@ -35,20 +42,34 @@ export default function TeamsIndexPage() {
 
       <div className="page-body">
         {loading && <div className="text-muted text-sm">Loading teams…</div>}
-        {error && <div className="blocker-banner">{error}</div>}
 
-        {!loading && !error && entries.length === 0 && (
+        {!loading && error && (
           <div className="panel">
-            <div className="panel-body-padded text-muted">
-              No teams found. Add teams and champions in{' '}
-              <Link to="/manage">Manage</Link>.
-            </div>
+            <ErrorState
+              title="Couldn't load teams"
+              hint="The teams list failed to load. Try again."
+              onRetry={load}
+            />
           </div>
         )}
 
-        {entries.map((entry) => (
-          <TeamCard key={entry.champion_id} entry={entry} />
-        ))}
+        {!loading && !error && entries.length === 0 && (
+          <div className="panel">
+            <EmptyState
+              icon="◇"
+              title="No teams yet"
+              hint={
+                <>
+                  Add your first team and champion in <Link to="/manage">Manage</Link> to
+                  start tracking adoption.
+                </>
+              }
+            />
+          </div>
+        )}
+
+        {!loading && !error &&
+          entries.map((entry) => <TeamCard key={entry.champion_id} entry={entry} />)}
       </div>
     </>
   );

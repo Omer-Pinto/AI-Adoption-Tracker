@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import type { Champion, ReportJson } from '@/types';
+import { EmptyState, ErrorState } from '@/components/EmptyState';
 
 // Route: "/reports/new"
 // 1. Select champion from the full list.
@@ -19,8 +20,14 @@ export default function ReportCreatePage() {
   const [notes, setNotes] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Champion-list load state — kept apart from the draft action error so a
+  // transient fetch blip degrades to a calm message, not a red banner.
+  const [loadingChampions, setLoadingChampions] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadChampions = useCallback(() => {
+    setLoadingChampions(true);
+    setLoadError(false);
     api.champions.list().then((list) => {
       setChampions(list);
       // Pre-select champion from ?champion= query param when present and valid.
@@ -32,11 +39,15 @@ export default function ReportCreatePage() {
         }
       }
     }).catch(() => {
-      setError('Failed to load champions.');
+      setLoadError(true);
+    }).finally(() => {
+      setLoadingChampions(false);
     });
     // searchParams is stable from useSearchParams and intentionally read once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => loadChampions(), [loadChampions]);
 
   const selectedChampion = champions.find((c) => c.id === championId) ?? null;
 
@@ -111,6 +122,28 @@ export default function ReportCreatePage() {
           </div>
         )}
 
+        {loadError ? (
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load champions"
+              hint="The champion list failed to load. Try again."
+              onRetry={loadChampions}
+            />
+          </div>
+        ) : !loadingChampions && champions.length === 0 ? (
+          <div className="panel">
+            <EmptyState
+              icon="◇"
+              title="No champions yet"
+              hint={
+                <>
+                  Add a team and champion in <Link to="/manage">Manage</Link> before
+                  creating a report.
+                </>
+              }
+            />
+          </div>
+        ) : (
         <div className="form-shell">
           {/* Champion selector */}
           <div className="form-section">
@@ -180,6 +213,7 @@ export default function ReportCreatePage() {
             </span>
           </div>
         </div>
+        )}
       </div>
     </>
   );

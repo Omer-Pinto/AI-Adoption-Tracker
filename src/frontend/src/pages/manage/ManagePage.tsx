@@ -8,6 +8,7 @@ import type { Column } from '@/components/DataTable';
 import { TeamForm } from './TeamForm';
 import { ChampionForm } from './ChampionForm';
 import { DomainForm } from './DomainForm';
+import { ErrorState } from '@/components/EmptyState';
 
 // Route: "/manage" — Teams, Champions, Domains lists with Add/Edit.
 
@@ -26,16 +27,22 @@ export default function ManagePage() {
   const [champions, setChampions] = useState<Champion[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+  const [loadError, setLoadError] = useState(false);
 
   const loadAll = useCallback(async () => {
-    const [t, c, d] = await Promise.all([
-      api.teams.list(),
-      api.champions.list(),
-      api.domains.list(),
-    ]);
-    setTeams(t);
-    setChampions(c);
-    setDomains(d);
+    setLoadError(false);
+    try {
+      const [t, c, d] = await Promise.all([
+        api.teams.list(),
+        api.champions.list(),
+        api.domains.list(),
+      ]);
+      setTeams(t);
+      setChampions(c);
+      setDomains(d);
+    } catch {
+      setLoadError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -363,7 +370,16 @@ export default function ManagePage() {
 
       {/* Page body */}
       <div className="page-body">
-        {tab === 'teams' && (
+        {loadError && (
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load this"
+              hint="Teams, champions and domains failed to load. Try again."
+              onRetry={() => void loadAll()}
+            />
+          </div>
+        )}
+        {!loadError && tab === 'teams' && (
           <div className="panel">
             <DataTable
               columns={teamColumns}
@@ -373,7 +389,7 @@ export default function ManagePage() {
             />
           </div>
         )}
-        {tab === 'champions' &&
+        {!loadError && tab === 'champions' &&
           (champions.length === 0 ? (
             <div className="panel">
               <div className="page-body text-muted text-sm">
@@ -396,7 +412,7 @@ export default function ManagePage() {
               </TeamGroupCard>
             ))
           ))}
-        {tab === 'domains' &&
+        {!loadError && tab === 'domains' &&
           (domains.length === 0 ? (
             <div className="panel">
               <div className="page-body text-muted text-sm">

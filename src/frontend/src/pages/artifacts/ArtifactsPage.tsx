@@ -6,6 +6,7 @@ import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import { ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { SearchBar } from '@/search/SearchBar';
 import { useSearchQuery } from '@/search/useSearchQuery';
+import { EmptyState, ErrorState } from '@/components/EmptyState';
 
 // Route: "/artifacts" — artifacts registry (search bar + detail modal).
 
@@ -13,19 +14,19 @@ export default function ArtifactsPage() {
   const [query, setQuery] = useSearchQuery();
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   // Detail modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [detail, setDetail] = useState<ArtifactDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState(false);
 
   // Fetch artifacts list when query changes
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setError(false);
     api.views
       .artifacts(query || undefined)
       .then((data) => {
@@ -34,30 +35,32 @@ export default function ArtifactsPage() {
           setLoading(false);
         }
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load artifacts');
+          setError(true);
           setLoading(false);
         }
       });
     return () => { cancelled = true; };
   }, [query]);
 
+  useEffect(() => load(), [load]);
+
   const openDetail = useCallback((artifact: Artifact) => {
     setModalOpen(true);
     setDetail(null);
     setDetailLoading(true);
-    setDetailError(null);
+    setDetailError(false);
     api.views
       .artifact(artifact.id)
       .then((d) => {
         setDetail(d);
         setDetailLoading(false);
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         setDetailLoading(false);
         setModalOpen(false);
-        setDetailError(err instanceof Error ? err.message : 'Failed to load artifact detail');
+        setDetailError(true);
       });
   }, []);
 
@@ -107,16 +110,34 @@ export default function ArtifactsPage() {
       <div className="page-body">
         <SearchBar query={query} onChange={setQuery} />
 
-        {error && (
-          <div className="warning-banner" style={{ marginBottom: 16 }}>{error}</div>
-        )}
-
         {detailError && (
-          <div className="warning-banner" style={{ marginBottom: 16 }}>{detailError}</div>
+          <div className="warning-banner" style={{ marginBottom: 16 }}>
+            Couldn&apos;t open that artifact. Please try again.
+          </div>
         )}
 
         {loading ? (
           <div className="text-muted text-sm">Loading artifacts…</div>
+        ) : error ? (
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load artifacts"
+              hint="The artifacts list failed to load. Try again."
+              onRetry={load}
+            />
+          </div>
+        ) : artifacts.length === 0 ? (
+          <div className="panel">
+            <EmptyState
+              icon="◈"
+              title={query ? 'No matching artifacts' : 'No artifacts yet'}
+              hint={
+                query
+                  ? 'Nothing matches that search. Try clearing the filter.'
+                  : 'Artifacts appear here as they are captured in reports.'
+              }
+            />
+          </div>
         ) : (
           <div className="panel">
             <DataTable
@@ -132,7 +153,7 @@ export default function ArtifactsPage() {
 
       <ArtifactDetailModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setDetailError(null); }}
+        onClose={() => { setModalOpen(false); setDetailError(false); }}
         detail={detailLoading ? null : detail}
       />
     </>

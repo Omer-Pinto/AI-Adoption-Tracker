@@ -1,5 +1,5 @@
 import './team-page.css';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import type { TeamPage, DomainPage, Artifact, ArtifactDetail, ActionItem, TaskStatus } from '@/types';
@@ -8,6 +8,7 @@ import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
+import { ErrorState } from '@/components/EmptyState';
 
 // Route: "/teams/:championId" — one champion's portfolio, labeled by team. Wave-13 redesign (13B).
 
@@ -34,39 +35,45 @@ export default function TeamPage() {
 
   const [data, setData] = useState<TeamPage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   // Artifact detail modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!championId) return;
+    setLoading(true);
+    setError(false);
     api.views
       .teamPage(Number(championId))
       .then(setData)
-      .catch((e: unknown) => setError(String(e)))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [championId]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   function openArtifactModal(artifactId: number) {
-    setModalError(null);
+    setModalError(false);
     api.views
       .artifact(artifactId)
       .then((detail) => {
         setModalDetail(detail);
         setModalOpen(true);
       })
-      .catch((e: unknown) => {
-        setModalError(String(e));
+      .catch(() => {
+        setModalError(true);
       });
   }
 
   function closeModal() {
     setModalOpen(false);
     setModalDetail(null);
-    setModalError(null);
+    setModalError(false);
   }
 
   if (loading) {
@@ -93,7 +100,13 @@ export default function TeamPage() {
           </div>
         </div>
         <div className="page-body">
-          <div className="blocker-banner">{error ?? 'No data.'}</div>
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load this team"
+              hint="The team portfolio failed to load. Try again."
+              onRetry={load}
+            />
+          </div>
         </div>
       </>
     );
@@ -347,8 +360,8 @@ export default function TeamPage() {
       </div>
 
       {modalError && (
-        <div className="blocker-banner" style={{ margin: '12px 0' }}>
-          Failed to load artifact: {modalError}
+        <div className="warning-banner" style={{ margin: '12px 0' }}>
+          Couldn&apos;t open that artifact. Please try again.
         </div>
       )}
       <ArtifactDetailModal open={modalOpen} onClose={closeModal} detail={modalDetail} />

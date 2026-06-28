@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { Task, TaskHistoryEntry, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
 import { SearchBar } from '@/search/SearchBar';
 import { useSearchQuery } from '@/search/useSearchQuery';
+import { EmptyState, ErrorState } from '@/components/EmptyState';
 
 // Route: "/tasks" — all tasks with week-by-week journey expand.
 
@@ -12,17 +13,20 @@ export default function TasksPage() {
   const [query, setQuery] = useSearchQuery();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  // Separate, non-blocking flag for a failed history expand (calm inline note).
+  const [historyError, setHistoryError] = useState(false);
 
   // Map of expanded task id → history (undefined = not yet loaded, null = loading)
   const [expandedMap, setExpandedMap] = useState<Map<number, TaskHistoryEntry[] | null>>(
     new Map(),
   );
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setError(false);
+    setHistoryError(false);
     // Collapse all expansions when query changes
     setExpandedMap(new Map());
     api.views
@@ -33,14 +37,16 @@ export default function TasksPage() {
           setLoading(false);
         }
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load tasks');
+          setError(true);
           setLoading(false);
         }
       });
     return () => { cancelled = true; };
   }, [query]);
+
+  useEffect(() => load(), [load]);
 
   function toggleExpand(task: Task) {
     setExpandedMap((prev) => {
@@ -61,13 +67,13 @@ export default function TasksPage() {
           }
           return updated;
         });
-      }).catch((err: unknown) => {
+      }).catch(() => {
         setExpandedMap((m) => {
           const updated = new Map(m);
           updated.delete(task.id);
           return updated;
         });
-        setError(err instanceof Error ? err.message : 'Failed to load task history');
+        setHistoryError(true);
       });
       return next;
     });
@@ -89,14 +95,34 @@ export default function TasksPage() {
       <div className="page-body">
         <SearchBar query={query} onChange={setQuery} />
 
-        {error && (
-          <div className="warning-banner" style={{ marginBottom: 16 }}>{error}</div>
+        {historyError && (
+          <div className="warning-banner" style={{ marginBottom: 16 }}>
+            Couldn&apos;t load that task&apos;s history. Please try again.
+          </div>
         )}
 
         {loading ? (
           <div className="text-muted text-sm">Loading tasks…</div>
+        ) : error ? (
+          <div className="panel">
+            <ErrorState
+              title="Couldn't load tasks"
+              hint="The tasks list failed to load. Try again."
+              onRetry={load}
+            />
+          </div>
         ) : tasks.length === 0 ? (
-          <div className="page-body text-muted text-sm">No tasks found. Try clearing the search filter.</div>
+          <div className="panel">
+            <EmptyState
+              icon="▣"
+              title={query ? 'No matching tasks' : 'No tasks yet'}
+              hint={
+                query
+                  ? 'Nothing matches that search. Try clearing the filter.'
+                  : 'Tasks appear here as they are captured in reports.'
+              }
+            />
+          </div>
         ) : (
           <div className="panel">
             <table className="data-table">

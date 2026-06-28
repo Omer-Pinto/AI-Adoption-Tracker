@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '@/api';
 import type { Domain, TaskDetail, TaskHistoryEntry, TaskPatchBody, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
+import { ErrorState } from '@/components/EmptyState';
 
 // A subtle, calm marker showing whether a history entry came from a report or a
 // manual current-state edit. Report entries stay unlabeled (the common case);
@@ -54,20 +55,21 @@ export default function TaskDetailPage() {
 
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 'invalid' = bad id (not found), 'error' = genuine load failure, null = ok.
+  const [error, setError] = useState<'invalid' | 'error' | null>(null);
 
   // Domain options for the team this task belongs to (resolved via its domain).
   const [domains, setDomains] = useState<Domain[]>([]);
 
   const [editing, setEditing] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     setEditing(false);
     if (!Number.isFinite(taskId)) {
-      setError('Invalid task id.');
+      setError('invalid');
       setLoading(false);
       return;
     }
@@ -93,15 +95,17 @@ export default function TaskDetailPage() {
           // Non-fatal: the page still renders; the picker just stays empty.
         }
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load task');
+        setError('error');
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [taskId]);
+
+  useEffect(() => load(), [load]);
 
   // After a successful PATCH, re-read the authoritative detail from the backend
   // (it resolves the domain NAME server-side) rather than guessing the name from
@@ -135,7 +139,20 @@ export default function TaskDetailPage() {
           </button>
         </div>
         <div className="page-body">
-          <div className="warning-banner">{error ?? 'Task not found.'}</div>
+          <div className="panel">
+            {error === 'invalid' || (!detail && !error) ? (
+              <ErrorState
+                title="Task not found"
+                hint="This task may have been removed or the link is no longer valid."
+              />
+            ) : (
+              <ErrorState
+                title="Couldn't load this task"
+                hint="The task failed to load. Try again."
+                onRetry={load}
+              />
+            )}
+          </div>
         </div>
       </>
     );
