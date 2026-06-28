@@ -11,11 +11,22 @@ import type {
 } from '@/types';
 import './ai-lead-page.css';
 
-// Route: "/ai-lead" — the personal cross-team view of every action item owned by
-// the literal 'AI Lead', pulled from all teams' reports. Built to match
-// prototype/ai-lead-mock.html. This is NOT a team page.
+// Route: "/ai-lead" — the AI Lead's personal cross-team board. Tabbed (Variant B
+// of prototype/ai-lead-board-redesign.html): an "Action items" tab (every item
+// owned by the literal 'AI Lead' — both report-derived AND self-managed
+// standalone items) and a "My toolkit" tab. This is NOT a team page.
 
 type View = 'priority' | 'team';
+type Tab = 'actions' | 'toolkit';
+
+// Inline action-item form (shared by add + edit). `id` null = adding a new
+// standalone item; a number = editing that standalone item.
+type ActionForm = {
+  id: number | null;
+  text: string;
+  status: TaskStatus;
+  due_date: string; // '' = no due date
+};
 
 const STATUS_OPTIONS: ReadonlyArray<readonly [TaskStatus, string]> = [
   ['planned', 'Planned'],
@@ -58,6 +69,11 @@ function isOverdue(it: AILeadActionItem): boolean {
   return !!it.due_date && it.due_date < TODAY && !isClosed(it.status);
 }
 
+// A standalone (self-managed) item carries no report — fully editable + deletable.
+function isStandalone(it: AILeadActionItem): boolean {
+  return it.report_id === null;
+}
+
 // Stable per-team dot color (real team names are arbitrary; the mock hard-codes a
 // palette). Hash the name into a fixed palette so each team keeps one color.
 const TEAM_PALETTE = [
@@ -74,9 +90,16 @@ export default function AiLeadPage() {
   const [items, setItems] = useState<AILeadActionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('actions');
   const [view, setView] = useState<View>('priority');
-  // Per-row inline save errors (keyed by item id), set on a failed PATCH.
+  // Per-row inline save errors (keyed by item id), set on a failed PATCH/DELETE.
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+  // Inline add/edit form (null when closed) + its save state.
+  const [actionForm, setActionForm] = useState<ActionForm | null>(null);
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  // Toolkit count surfaced into its tab badge (the Toolkit owns its own data).
+  const [toolkitCount, setToolkitCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,27 +123,21 @@ export default function AiLeadPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Persisted edit: optimistically apply the patch, PATCH the backend, then
-  // reconcile the row from the returned bare ActionItem (status/due_date only —
-  // the cross-team fields are NOT returned). Roll back + surface an inline error
-  // on failure.
+  // Persisted inline edit (status / due_date): optimistically apply the patch,
+  // PATCH the backend, then reconcile the row from the returned bare ActionItem.
+  // Roll back + surface an inline error on failure.
   function patchItem(id: number, patch: ActionItemPatchBody) {
     const prev = items.find((it) => it.id === id);
     if (!prev) return;
     setItems((list) => list.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-    setRowErrors((e) => {
-      if (!(id in e)) return e;
-      const next = { ...e };
-      delete next[id];
-      return next;
-    });
+    clearRowError(id);
     api.aiLead
       .patch(id, patch)
       .then((updated) => {
         setItems((list) =>
           list.map((it) =>
             it.id === id
-              ? { ...it, status: updated.status ?? it.status, due_date: updated.due_date }
+              ? { ...it, status: updated.status ?? it.status, due_date: updated.due_date, text: updated.text }
               : it,
           ),
         );
@@ -131,13 +148,94 @@ export default function AiLeadPage() {
       });
   }
 
+  function clearRowError(id: number) {
+    setRowErrors((e) => {
+      if (!(id in e)) return e;
+      const next = { ...e };
+      delete next[id];
+      return next;
+    });
+  }
+
+  // ---- standalone add / edit / delete ----
+
+  function openAdd() {
+    setActionError(null);
+    setTab('actions');
+    setActionForm({ id: null, text: '', status: 'planned', due_date: '' });
+  }
+
+  function openEdit(it: AILeadActionItem) {
+    setActionError(null);
+    setActionForm({ id: it.id, text: it.text, status: it.status, due_date: it.due_date ?? '' });
+  }
+
+  function closeForm() {
+    setActionForm(null);
+    setActionError(null);
+  }
+
+  function saveAction() {
+    if (!actionForm) return;
+    const text = actionForm.text.trim();
+    if (!text) return; // Save is disabled, but guard anyway.
+    setActionSaving(true);
+    setActionError(null);
+    const due = actionForm.due_date || null;
+    if (actionForm.id === null) {
+      api.aiLead
+        .create({ text, status: actionForm.status, due_date: due })
+        .then((created) => {
+          setItems((list) => [...list, created]); // enriched row — append directly.
+          setActionSaving(false);
+          setActionForm(null);
+        })
+        .catch(() => {
+          setActionSaving(false);
+          setActionError("Couldn't save — try again.");
+        });
+    } else {
+      const id = actionForm.id;
+      api.aiLead
+        .patch(id, { text, status: actionForm.status, due_date: due })
+        .then((updated) => {
+          // Reconcile from the returned bare ActionItem (cross-team fields stay null).
+          setItems((list) =>
+            list.map((it) =>
+              it.id === id
+                ? { ...it, text: updated.text, status: updated.status ?? it.status, due_date: updated.due_date }
+                : it,
+            ),
+          );
+          setActionSaving(false);
+          setActionForm(null);
+        })
+        .catch(() => {
+          setActionSaving(false);
+          setActionError("Couldn't save — try again.");
+        });
+    }
+  }
+
+  function deleteAction(it: AILeadActionItem) {
+    if (!confirm(`Delete this standalone action item?\n\n"${it.text}"`)) return;
+    const prev = items;
+    setItems((list) => list.filter((x) => x.id !== it.id));
+    setActionForm((f) => (f && f.id === it.id ? null : f));
+    api.aiLead
+      .delete(it.id)
+      .catch(() => {
+        setItems(prev); // roll back
+        setRowErrors((e) => ({ ...e, [it.id]: "Couldn't delete — try again." }));
+      });
+  }
+
   const counts = useMemo(() => {
     const open = items.filter((it) => !isClosed(it.status)).length;
     const overdue = items.filter(isOverdue).length;
     const blocked = items.filter((it) => it.status === 'blocked').length;
     const done = items.filter((it) => isClosed(it.status)).length;
-    const teams = new Set(items.map((it) => it.team_name)).size;
-    return { open, overdue, blocked, done, teams };
+    return { open, overdue, blocked, done };
   }, [items]);
 
   // "By priority": overdue floats up, then by status rank, then newer meeting first.
@@ -151,9 +249,11 @@ export default function AiLeadPage() {
     });
   }, [items]);
 
-  // "By team": one section per team (insertion order by team name), open first.
+  // "By team": one section per team, open first. Standalone items (team_name null)
+  // group under "Personal", floated to the top.
   const byTeam = useMemo(() => {
     const teams = [...new Set(items.map((it) => it.team_name))];
+    teams.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
     return teams.map((team) => {
       const group = items
         .filter((it) => it.team_name === team)
@@ -166,135 +266,229 @@ export default function AiLeadPage() {
   return (
     <>
       <div className="top-bar">
-        <div>
-          <span className="top-bar-title">AI Lead</span>
-          <span className="top-bar-sub">My action items across all teams</span>
-        </div>
-        <div className="top-bar-actions">
-          <div className="ail-toggle">
-            <button
-              type="button"
-              className={view === 'priority' ? 'on' : ''}
-              onClick={() => setView('priority')}
-            >
-              By priority
-            </button>
-            <button
-              type="button"
-              className={view === 'team' ? 'on' : ''}
-              onClick={() => setView('team')}
-            >
-              By team
-            </button>
-          </div>
-        </div>
+        <span className="top-bar-title">AI Lead</span>
       </div>
 
       <div className="page-body ai-lead-page">
         <div className="identity">
           <div className="id-avatar">AL</div>
-          <div>
-            <div className="id-name">AI Lead — my action items</div>
-            <div className="id-meta">
-              Action items assigned to the <b>AI Lead</b>, pulled from every team&apos;s reports
-            </div>
-          </div>
+          <div className="id-name">AI Lead</div>
         </div>
 
-        {loading ? (
-          <div className="text-muted text-sm">Loading action items…</div>
-        ) : error ? (
-          <div className="ail-load-error">{error}</div>
-        ) : (
-          <>
-            <div className="tile-grid">
-              <div className="tile acc-blue">
-                <div className="tile-label">Open</div>
-                <div className="tile-value">{counts.open}</div>
-                <div className="tile-sub">planned · in&nbsp;progress · blocked</div>
-              </div>
-              <div className="tile acc-red">
-                <div className="tile-label">Overdue</div>
-                <div className="tile-value">{counts.overdue}</div>
-                <div className="tile-sub">past due date</div>
-              </div>
-              <div className="tile acc-amber">
-                <div className="tile-label">Blocked</div>
-                <div className="tile-value">{counts.blocked}</div>
-                <div className="tile-sub">needs unblocking</div>
-              </div>
-              <div className="tile acc-green">
-                <div className="tile-label">Done</div>
-                <div className="tile-value">{counts.done}</div>
-                <div className="tile-sub">finished / closed</div>
-              </div>
-            </div>
+        <div className="tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'actions'}
+            className={`tab${tab === 'actions' ? ' on' : ''}`}
+            onClick={() => setTab('actions')}
+          >
+            Action items <span className="tab-badge">{counts.open} open</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'toolkit'}
+            className={`tab${tab === 'toolkit' ? ' on' : ''}`}
+            onClick={() => setTab('toolkit')}
+          >
+            My toolkit <span className="tab-badge">{toolkitCount}</span>
+          </button>
+        </div>
 
-            <div className="list-card">
-              <div className="list-head">
-                <span className="list-title">
-                  My action items
-                  <span className="count">
-                    {items.length} across {counts.teams} team{counts.teams === 1 ? '' : 's'}
+        <div style={{ display: tab === 'actions' ? undefined : 'none' }}>
+          {loading ? (
+            <div className="text-muted text-sm">Loading action items…</div>
+          ) : error ? (
+            <div className="ail-load-error">{error}</div>
+          ) : (
+            <>
+              <div className="tile-grid">
+                <div className="tile acc-blue">
+                  <div className="tile-label">Open</div>
+                  <div className="tile-value">{counts.open}</div>
+                  <div className="tile-sub">planned · in&nbsp;progress · blocked</div>
+                </div>
+                <div className="tile acc-red">
+                  <div className="tile-label">Overdue</div>
+                  <div className="tile-value">{counts.overdue}</div>
+                  <div className="tile-sub">past due date</div>
+                </div>
+                <div className="tile acc-amber">
+                  <div className="tile-label">Blocked</div>
+                  <div className="tile-value">{counts.blocked}</div>
+                  <div className="tile-sub">needs unblocking</div>
+                </div>
+                <div className="tile acc-green">
+                  <div className="tile-label">Done</div>
+                  <div className="tile-value">{counts.done}</div>
+                  <div className="tile-sub">finished / closed</div>
+                </div>
+              </div>
+
+              <div className="list-card">
+                <div className="list-head">
+                  <span className="list-title">
+                    Action items
+                    <span className="count">
+                      {items.length} item{items.length === 1 ? '' : 's'}
+                    </span>
                   </span>
-                </span>
-                <span className="list-spacer" />
-                <span className="sort-note">
-                  {view === 'priority'
-                    ? 'Open & overdue first · closed sink to the bottom'
-                    : 'Grouped by team · open items first within each'}
-                </span>
-              </div>
+                  <span className="list-spacer" />
+                  <div className="ail-toggle">
+                    <button
+                      type="button"
+                      className={view === 'priority' ? 'on' : ''}
+                      onClick={() => setView('priority')}
+                    >
+                      By priority
+                    </button>
+                    <button
+                      type="button"
+                      className={view === 'team' ? 'on' : ''}
+                      onClick={() => setView('team')}
+                    >
+                      By team
+                    </button>
+                  </div>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
+                    + Add action item
+                  </button>
+                </div>
 
-              <table className="ai-table">
-                <thead>
-                  <tr>
-                    <th className="col-item">Action item</th>
-                    <th className="col-team">Team</th>
-                    <th className="col-date">Meeting date</th>
-                    <th className="col-due">Due date</th>
-                    <th className="col-status">Status</th>
-                    <th className="col-open" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.length === 0 ? (
+                {actionForm && (
+                  <div className="tk-form af-form">
+                    <div className="af-title">
+                      {actionForm.id === null
+                        ? 'Add action item (personal — owner: AI Lead)'
+                        : 'Edit action item'}
+                    </div>
+                    <div className="af-grid">
+                      <div className="af-field grow">
+                        <label className="af-label" htmlFor="af-text">Action item</label>
+                        <input
+                          id="af-text"
+                          type="text"
+                          className="tk-input"
+                          placeholder="What needs to happen?"
+                          value={actionForm.text}
+                          autoFocus
+                          onChange={(e) => setActionForm({ ...actionForm, text: e.target.value })}
+                        />
+                      </div>
+                      <div className="af-field">
+                        <label className="af-label" htmlFor="af-status">Status</label>
+                        <select
+                          id="af-status"
+                          className="tk-input"
+                          value={actionForm.status}
+                          onChange={(e) =>
+                            setActionForm({ ...actionForm, status: e.target.value as TaskStatus })
+                          }
+                        >
+                          {STATUS_OPTIONS.map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="af-field">
+                        <label className="af-label" htmlFor="af-due">Due date</label>
+                        <input
+                          id="af-due"
+                          type="date"
+                          className="tk-input"
+                          value={actionForm.due_date}
+                          onChange={(e) => setActionForm({ ...actionForm, due_date: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="tk-form-actions">
+                      {actionError && <span className="row-error">{actionError}</span>}
+                      <span className="list-spacer" />
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={closeForm}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={!actionForm.text.trim() || actionSaving}
+                        onClick={saveAction}
+                      >
+                        {actionSaving ? 'Saving…' : actionForm.id === null ? 'Add' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <table className="ai-table">
+                  <thead>
                     <tr>
-                      <td colSpan={6} className="text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
-                        No action items assigned to the AI Lead yet.
-                      </td>
+                      <th className="col-item">Action item</th>
+                      <th className="col-team">Team</th>
+                      <th className="col-date">Meeting date</th>
+                      <th className="col-due">Due date</th>
+                      <th className="col-status">Status</th>
+                      <th className="col-open" />
                     </tr>
-                  ) : view === 'priority' ? (
-                    byPriority.map((it) => (
-                      <ItemRow key={it.id} it={it} onPatch={patchItem} error={rowErrors[it.id]} />
-                    ))
-                  ) : (
-                    byTeam.map(({ team, group, open }) => (
-                      <Fragment key={team}>
-                        <tr className="group-row">
-                          <td colSpan={6}>
-                            <span className="gh">
-                              <span className="gdot" style={{ '--tc': teamColor(team) } as CSSProperties} />
-                              {team}
-                              <span className="gcount">
-                                {group.length} item{group.length === 1 ? '' : 's'} · {open} open
+                  </thead>
+                  <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
+                          No action items yet — add one with “+ Add action item”.
+                        </td>
+                      </tr>
+                    ) : view === 'priority' ? (
+                      byPriority.map((it) => (
+                        <ItemRow
+                          key={it.id}
+                          it={it}
+                          onPatch={patchItem}
+                          onEdit={openEdit}
+                          onDelete={deleteAction}
+                          error={rowErrors[it.id]}
+                        />
+                      ))
+                    ) : (
+                      byTeam.map(({ team, group, open }) => (
+                        <Fragment key={team ?? '__personal'}>
+                          <tr className="group-row">
+                            <td colSpan={6}>
+                              <span className="gh">
+                                <span
+                                  className="gdot"
+                                  style={{ '--tc': team ? teamColor(team) : '#94a3b8' } as CSSProperties}
+                                />
+                                {team ?? 'Personal'}
+                                <span className="gcount">
+                                  {group.length} item{group.length === 1 ? '' : 's'} · {open} open
+                                </span>
                               </span>
-                            </span>
-                          </td>
-                        </tr>
-                        {group.map((it) => (
-                          <ItemRow key={it.id} it={it} onPatch={patchItem} error={rowErrors[it.id]} />
-                        ))}
-                      </Fragment>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+                            </td>
+                          </tr>
+                          {group.map((it) => (
+                            <ItemRow
+                              key={it.id}
+                              it={it}
+                              onPatch={patchItem}
+                              onEdit={openEdit}
+                              onDelete={deleteAction}
+                              error={rowErrors[it.id]}
+                            />
+                          ))}
+                        </Fragment>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
 
-        <Toolkit />
+        <div style={{ display: tab === 'toolkit' ? undefined : 'none' }}>
+          <Toolkit onCountChange={setToolkitCount} />
+        </div>
       </div>
     </>
   );
@@ -303,28 +497,42 @@ export default function AiLeadPage() {
 function ItemRow({
   it,
   onPatch,
+  onEdit,
+  onDelete,
   error,
 }: {
   it: AILeadActionItem;
   onPatch: (id: number, patch: ActionItemPatchBody) => void;
+  onEdit: (it: AILeadActionItem) => void;
+  onDelete: (it: AILeadActionItem) => void;
   error?: string | undefined;
 }) {
+  const standalone = isStandalone(it);
   const closed = isClosed(it.status);
   const overdue = isOverdue(it);
   return (
-    <tr className={`${closed ? 'is-closed ' : ''}st-${it.status}`}>
-      <td className="col-item"><div className="ai-text">{it.text}</div></td>
-      <td className="col-team">
-        <span className="team-chip" style={{ '--tc': teamColor(it.team_name) } as CSSProperties}>
-          <span className="tdot" />
-          {it.team_name}
+    <tr className={`item-row ${closed ? 'is-closed ' : ''}st-${it.status}`}>
+      <td className="col-item">
+        <div className="ai-text">{it.text}</div>
+        <span className={`kind-tag ${standalone ? 'kind-personal' : 'kind-meeting'}`}>
+          {standalone ? 'Personal' : 'From report'}
         </span>
+      </td>
+      <td className="col-team">
+        {standalone ? (
+          <span className="team-personal">Personal</span>
+        ) : (
+          <span className="team-chip" style={{ '--tc': teamColor(it.team_name ?? '') } as CSSProperties}>
+            <span className="tdot" />
+            {it.team_name}
+          </span>
+        )}
       </td>
       <td className="col-date">
         {it.meeting_date ? (
           <span className="mtg-date">{it.meeting_date}</span>
         ) : (
-          <span className="mtg-none">no date</span>
+          <span className="date-dash">—</span>
         )}
       </td>
       <td className="col-due">
@@ -354,13 +562,32 @@ function ItemRow({
         {error && <div className="row-error">{error}</div>}
       </td>
       <td className="col-open">
-        <Link
-          to={`/reports/${it.report_id}/edit`}
-          className="btn btn-secondary btn-sm"
-          title="Open the report this item lives on"
-        >
-          Open report ↗
-        </Link>
+        {standalone ? (
+          <div className="row-acts">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
+              Edit
+            </button>
+            <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
+              Delete
+            </button>
+          </div>
+        ) : (
+          <div className="managed-cell">
+            <Link
+              to={`/reports/${it.report_id}/edit`}
+              className="btn btn-secondary btn-sm"
+              title="Open the report this item lives on"
+            >
+              Open report ↗
+            </Link>
+            <span
+              className="managed-hint"
+              title="Mined from its champion report. Edit its status and due date here; the wording and team are managed on the report."
+            >
+              <span className="qi">i</span>Report-managed
+            </span>
+          </div>
+        )}
       </td>
     </tr>
   );
@@ -369,7 +596,7 @@ function ItemRow({
 // ---- My toolkit -----------------------------------------------------------
 // The AI Lead's personal list of meta-skills + Claude Code enhancements. A
 // standalone resource (`/api/ai-lead/items`) — no teams/reports. Self-contained:
-// owns its own load effect, so the action-items board above is untouched.
+// owns its own load effect; reports its count up for the tab badge.
 
 const TOOLKIT_GROUPS: ReadonlyArray<readonly [AILeadItemCategory, string]> = [
   ['meta_skill', 'Meta-skills'],
@@ -391,7 +618,7 @@ type ToolkitForm = {
 
 const BLANK_FORM: ToolkitForm = { id: null, name: '', description: '', category: 'meta_skill' };
 
-function Toolkit() {
+function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
   const [items, setItems] = useState<AILeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -422,6 +649,9 @@ function Toolkit() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  // Keep the parent's tab-badge count in sync with the loaded list.
+  useEffect(() => { onCountChange(items.length); }, [items, onCountChange]);
 
   const groups = useMemo(
     () =>

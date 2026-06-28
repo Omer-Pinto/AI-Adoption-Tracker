@@ -62,7 +62,7 @@
 .ai-lead-page .col-date { width: 116px; }
 .ai-lead-page .col-due { width: 148px; }
 .ai-lead-page .col-status { width: 170px; }
-.ai-lead-page .col-open { width: 116px; text-align: right; }
+.ai-lead-page .col-open { width: 150px; text-align: right; }
 
 /* calm, non-alarming load-failure message (replaces the old red banner) */
 .ai-lead-page .ail-load-error {
@@ -136,6 +136,55 @@
 .ai-lead-page .group-row .gdot { width: 9px; height: 9px; border-radius: 50%; background: var(--tc, #94a3b8); }
 .ai-lead-page .group-row .gcount { color: var(--text-faint); font-weight: 700; margin-left: 4px; }
 
+/* ---- Tabs (Variant B board) ---- */
+.ai-lead-page .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 2px solid var(--border); }
+.ai-lead-page .tab {
+  border: none; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text-muted);
+  padding: 10px 16px 12px; cursor: pointer; position: relative; top: 2px; border-bottom: 2px solid transparent;
+}
+.ai-lead-page .tab:hover { color: var(--text-secondary); }
+.ai-lead-page .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.ai-lead-page .tab .tab-badge {
+  font-size: 10.5px; font-weight: 700; margin-left: 7px; background: var(--surface-2); color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 20px; padding: 1px 8px;
+}
+.ai-lead-page .tab.on .tab-badge { background: var(--accent-weak); color: var(--accent); border-color: var(--accent-weak); }
+
+/* disabled buttons (add/edit forms) */
+.ai-lead-page .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+/* ---- Action-item kind tag (Personal vs From report) ---- */
+.ai-lead-page .kind-tag {
+  display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  border-radius: 4px; padding: 1px 5px; margin-top: 5px;
+}
+.ai-lead-page .kind-personal { background: #ede9fe; color: #6d28d9; }
+.ai-lead-page .kind-meeting  { background: #e0f2fe; color: #0369a1; }
+
+/* standalone "Personal" team cell + "—" meeting-date placeholder */
+.ai-lead-page .team-personal { color: var(--text-muted); font-style: italic; font-size: 12px; }
+.ai-lead-page .date-dash { font-size: 13px; color: var(--text-faint); }
+
+/* ---- Row actions (standalone Edit/Delete vs report-managed link + hint) ---- */
+.ai-lead-page .row-acts { display: inline-flex; gap: 6px; justify-content: flex-end; }
+.ai-lead-page .managed-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.ai-lead-page .managed-hint {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-faint);
+  white-space: nowrap; cursor: help;
+}
+.ai-lead-page .managed-hint .qi {
+  width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--border); color: var(--text-faint);
+  font-size: 8.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ---- Inline action-item form (add + edit) — reuses .tk-form container ---- */
+.ai-lead-page .af-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--text-secondary); }
+.ai-lead-page .af-grid { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.ai-lead-page .af-field { display: flex; flex-direction: column; gap: 5px; }
+.ai-lead-page .af-field.grow { flex: 1 1 320px; min-width: 240px; }
+.ai-lead-page .af-field .tk-input { width: 100%; }
+.ai-lead-page .af-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint); }
+
 /* ---- My toolkit card ---------------------------------------------------- */
 /* Personal meta-skills + Claude Code enhancements, grouped by category. Reuses
    the shared .list-card / .list-head chrome; tokens only (light + dark safe). */
@@ -189,3 +238,5 @@ html[data-theme="dark"] .ai-lead-page .overdue-tag { background: rgba(220, 38, 3
 html[data-theme="dark"] .ai-lead-page .due-input.overdue { color: #fca5a5; border-color: rgba(220, 38, 38, 0.40); background: rgba(220, 38, 38, 0.10); }
 html[data-theme="dark"] .ai-lead-page .mtg-none { color: var(--text-faint); }
 html[data-theme="dark"] .ai-lead-page .ail-toggle button.on { background: var(--accent); color: #fff; }
+html[data-theme="dark"] .ai-lead-page .kind-personal { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+html[data-theme="dark"] .ai-lead-page .kind-meeting  { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }

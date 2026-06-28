@@ -312,25 +312,42 @@ export interface TeamPageIndexEntry {
  *  `GET /api/ai-lead/action-items` (backend routes/views.py `AILeadActionItem`).
  *  Every action item whose owner is the literal 'AI Lead', resolved against its
  *  report/champion/team and (optional) domain. `domain` is null when the item is
- *  unplaced/team-wide. */
+ *  unplaced/team-wide.
+ *
+ *  Two flavours, discriminated by `report_id` (equivalently `meeting_date`):
+ *    * report-derived (`report_id` set) — mined from a champion report; team /
+ *      champion / meeting_date are all set; status + due are editable here.
+ *    * standalone (`report_id` null) — a self-managed item owned by the AI Lead;
+ *      team_name / champion_name / meeting_date are null; fully editable here. */
 export interface AILeadActionItem {
   id: number;
   text: string;
-  team_name: string;
-  champion_name: string;
-  meeting_date: string;
+  team_name: string | null;
+  champion_name: string | null;
+  meeting_date: string | null;
   status: TaskStatus;
   domain: string | null;
-  report_id: number;
+  report_id: number | null;
   /** Target date the item is due; null = no due date set (never overdue). */
   due_date?: string | null;
 }
 
 /** Body for `PATCH /api/action-items/{id}` — partial; send only the changed
- *  field (`{status}` or `{due_date}`; `due_date: null` clears it). Returns the
- *  full updated bare `ActionItem` (no enriched team/champion/meeting fields).
- *  Mirrors the `TaskPatchBody` partial-PATCH convention. */
+ *  field (`{status}`, `{due_date}` — `due_date: null` clears it — or `{text}`).
+ *  `text` is standalone-only; the backend 409s if the item is report-derived.
+ *  Returns the full updated bare `ActionItem` (no enriched team/champion/meeting
+ *  fields). Mirrors the `TaskPatchBody` partial-PATCH convention. */
 export interface ActionItemPatchBody {
+  status?: TaskStatus;
+  due_date?: string | null;
+  text?: string;
+}
+
+/** Body for `POST /api/action-items` — create a standalone AI-Lead-owned item.
+ *  `text` is required + non-blank; `status` defaults to 'planned'. Returns the
+ *  enriched `AILeadActionItem` (with null team/champion/meeting_date/report_id). */
+export interface ActionItemCreateBody {
+  text: string;
   status?: TaskStatus;
   due_date?: string | null;
 }
