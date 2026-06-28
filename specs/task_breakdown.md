@@ -515,7 +515,7 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ---
 
-## Wave 17 — Go-live walkthrough (gate, before first air-gap insert)  ·  ⏸ DEFERRED — run AFTER Wave 16 (1:1 refactor)
+## Wave 17 — Go-live walkthrough (gate, before first air-gap insert)
 
 A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters — **not a code wave** (orchestrator + Omer). Keeps the go-live essentials front-and-centre and defers the deep upgrade material until it's actually needed. **Deferred behind Wave 16** — no point walking install/backup before the schema refactor lands.
 
@@ -570,115 +570,86 @@ Rebuild the AI-Lead page per the chosen prototype (**Variant B — tabbed board*
 
 ---
 
-## Wave 16 — One champion per team (1:1 refactor)  ·  ⏯ NEXT WAVE TO EXECUTE
+## Wave 16 — One champion per team (1:1 refactor)
 
-> **The big architectural refactor.** Collapse team↔champion from many-to-one to **exactly ONE champion per team**, folding the champion INTO the team. The champion is **edited in place** (rename = one text edit; NO champion history/journaling); all existing history simply displays under the team's **current** champion name. Designed by `architect-reviewer` (2026-06-29) off two full coupling explorations. **Built as a phased chain** (the proven Wave 11→13 pattern): frozen-contract GATE → backend + FE-foundation in parallel (disjoint files) → FE consumers in parallel → DB recreate + QA-dataset fix + integration verify.
+> Collapse team↔champion to **exactly ONE champion per team**, folding the champion INTO the team. Champion is **edited in place** (rename = one text edit; NO champion history/journaling) — all history displays under the team's current champion name. **Design already approved** (architect-reviewer off two coupling explorations) — the target shape below IS the spec. **ONE wave:** all agents build to it on disjoint files, in parallel, cherry-picked together. No gate, no sign-off step.
 
-> **Decisions locked (Omer):** (1) `team.champion_name` **NOT NULL** (required). (2) **Nuke** the dead `cc_baseline`/`baseline_date` FE fields entirely (never were real columns; backend already drops them). (3) Report-create is entered from a TEAM (champion implied, **no picker**); a context-less `/reports/new` → minimal **team** chooser fallback (never a champion picker). (4) DB is **expunged + recreated clean** (no migration, no re-seed) — Omer re-enters QA data; the new schema (NOT NULL `champion_name`, no `champion` table) makes a 2-champion team structurally impossible. (5) **Team + champion are created TOGETHER** in one team form — `champion_name` is a required field at team creation; there is **NO standalone champion insertion** ("Add Champion") anywhere. Replacing a champion later = editing that field on the team.
+> **Decisions (approved):** (1) `team.champion_name` **NOT NULL**. (2) **Nuke** dead `cc_baseline`/`baseline_date`. (3) Report-create entered from a TEAM (no champion picker); context-less `/reports/new` → minimal team chooser. (4) DB **expunged + recreated clean** (Omer re-enters QA). (5) **Team + champion created TOGETHER** in one form; NO standalone champion insertion.
 
-> **Target shape (frozen):** DROP the `champion` table; `team` gains `champion_name TEXT NOT NULL` + `champion_start_date TEXT`; `report.champion_id → team_id` with `UNIQUE(team_id, meeting_date)`; `domain` DROPS `champion_id` (team_id is the sole scope). `artifact` + `search/` are already team-scoped (the reference shape — unchanged). A saved report stores **no champion identity** — only `team_id`; `ReportDocument.champion` stays a non-authoritative draft/display label (overwritten with the team's current name on save, NEVER used to resolve the team).
+> **Target shape (the spec all agents build to):** DROP the `champion` table; `team` gains `champion_name TEXT NOT NULL` + `champion_start_date TEXT`; `report.champion_id → team_id` with `UNIQUE(team_id, meeting_date)`; `domain` DROPS `champion_id`. `artifact` + `search/` already team-scoped (unchanged). A saved report stores only `team_id`; `ReportDocument.champion` = non-authoritative label (overwritten with the team's current name on save, NEVER used to resolve the team). **Engine:** `build_draft_context(team_id)`; fan-out/replay by `report.team_id`; DELETE `_resolve_champion_id`/`_champion_team_id`; ONE team-keyed `_ensure_general_domain`/`_ensure_context_creation_domain`; owner-default reads `team.champion_name`. **API:** remove ALL `/api/champions` CRUD; `GET /teams/{id}/page` `{id}`=team_id; `GET /team-pages` one row/team; `POST /teams`+`PATCH /teams/{id}` carry champion fields; `POST /reports/draft` `{team_id,notes}`; `POST /reports?team_id=`; domains drop `champion_id`; AI-Lead worklist JOIN `report→team`. **FE types/api:** `Team` += champion fields & DROP `cc_baseline`/`baseline_date`; `TeamPageIndexEntry` one-per-team; drop `Champion`/`Domain.champion_id`/`Report.champion_id`/`DomainWriteBody.champion_id`; remove `api.champions.*` + `domains.listByChampion`; `views.teamPage(teamId)`, `reports.draft(teamId)`, `reports.create(teamId, body)`.
 
-### Phase 16.A — Contract gate (orchestrator + `api-designer`; sequential, BLOCKING — no feature code)
-Freeze the seam every 16.B/16.C agent obeys verbatim.
-| # | Task | Notes |
-|---|------|-------|
-| G1 | Freeze **schema** | new `team` (`champion_name NOT NULL`, `champion_start_date`); drop `champion`; `report.team_id` + `UNIQUE(team_id, meeting_date)`; `domain` minus `champion_id` |
-| G2 | Freeze **engine signatures** | `build_draft_context(conn, team_id)`, `fan_out_report(conn, team_id, doc)`, `replay_report_edit(conn, report_id, doc)` (uses `report.team_id`); ONE `_ensure_general_domain(conn, team_id)` / `_ensure_context_creation_domain(conn, team_id)` (engine, team-keyed); owner-default reads `team.champion_name` |
-| G3 | Freeze **endpoint contract** | remove ALL `/api/champions` CRUD; `GET /teams/{id}/page` `{id}`=team_id; `GET /team-pages` one row/team; `POST /teams`+`PATCH /teams/{id}` accept `champion_name`/`champion_start_date`; `POST /reports/draft` body `{team_id,notes}`; `POST /reports?team_id=`; domain create/patch drop `champion_id`; AI-Lead worklist JOIN `report→team` |
-| G4 | Freeze **FE types/api** | `Team` += champion fields and **LOSES** `cc_baseline`/`baseline_date`; `TeamPageIndexEntry` one-per-team (drop `champion_id`); drop `Champion` type, `Domain.champion_id`, `Report.champion_id`, `DomainWriteBody.champion_id`; remove `api.champions.*` + `domains.listByChampion`; `views.teamPage(teamId)`, `reports.draft(teamId)`, `reports.create(teamId, body)` |
-**Gate:** Omer signs off the frozen contract before 16.B launches.
+> **Parallel, disjoint files.** 6 agents, each owning a non-overlapping file set, all coding to the target shape above (the approved spec — that's why they don't need a gate or to wait on each other). Cherry-picked together; the combined tree compiles.
 
-### Phase 16.B — Backend core + routes + FE foundation (3 agents, parallel, DISJOINT files)
-
-#### Agent 16B-1: Backend core — schema, models, engine
+### Agent 16A: Backend core
 **Type:** `python-pro` · **Scope:** `src/backend/{schema.sql, models.py, reports/engine.py, seed.py}`
 | # | Task | Notes |
 |---|------|-------|
-| 1 | New schema (G1) | recreate handled in 16.D; write the new DDL |
-| 2 | Models | drop `Champion`; `Report.champion_id→team_id`; `Domain` drop `champion_id`; `Team` += `champion_name`/`champion_start_date`; keep `ReportDocument.champion` (non-authoritative) |
-| 3 | Re-key engine to team | `build_draft_context(team_id)`; fan-out/replay use `team_id`/`report.team_id`; **DELETE** `_resolve_champion_id` + `_champion_team_id`; dup-date guard `(team_id, meeting_date)` |
-| 4 | Consolidate constant-domain helpers | ONE engine `_ensure_general_domain`/`_ensure_context_creation_domain` keyed by team_id (kills the triple definition) |
+| 1 | New schema | per target shape (recreate handled in After-Wave) |
+| 2 | Models | drop `Champion`; `Report.champion_id→team_id`; `Domain` drop `champion_id`; `Team` += champion fields; keep `ReportDocument.champion` (non-authoritative) |
+| 3 | Re-key engine to team | `build_draft_context(team_id)`; fan-out/replay by `report.team_id`; **DELETE** `_resolve_champion_id` + `_champion_team_id`; dup-date guard `(team_id, meeting_date)` |
+| 4 | ONE constant-domain helper | single team-keyed `_ensure_general_domain`/`_ensure_context_creation_domain` (kills the triple def) |
 | 5 | Owner-default | `_champion_name` reads `team.champion_name` (null-tolerant) |
 | 6 | Seed | set `champion_name` on the team; domains drop `champion_id` |
-**Commit:** `Wave 16 Agent 16B-1: backend core (champion folded into team)`
-**Gate after 16B-1:** `ai-engineer` reviews the engine/prompt diff (team-keyed context, owner default, no name-based team resolution).
+**Commit:** `Wave 16 Agent 16A: backend core (champion folded into team)`
 
-#### Agent 16B-2: Backend routes
+### Agent 16B: Backend routes
 **Type:** `backend-developer` · **Scope:** `src/backend/routes/{management.py, views.py, reports.py}`
 | # | Task | Notes |
 |---|------|-------|
 | 1 | Remove champion CRUD | delete `GET/POST/PATCH/DELETE /champions`, `_assert_champion_belongs_to_team`, the `GET /domains?champion_id=` filter |
-| 2 | Team create/update (team + champion TOGETHER) | `TeamCreate` **requires** `champion_name` (+ optional `champion_start_date`) so a team is always created WITH its champion in one call; `TeamUpdate` edits them in place (replace champion = edit name). **NO standalone champion-create endpoint** |
+| 2 | Team create/update (team + champion TOGETHER) | `TeamCreate` **requires** `champion_name` (+ optional `champion_start_date`); `TeamUpdate` edits in place (replace champion = edit name). **NO standalone champion-create endpoint** |
 | 3 | Team page + index | `team_page` `{id}`=team_id; `list_team_pages` one row/team; drop `champion: Champion` (surface `champion_name`) |
-| 4 | Domains | create/patch drop `champion_id`; ensure-domain helpers (imported from engine) team-keyed |
+| 4 | Domains | create/patch drop `champion_id`; ensure-domain helpers (from engine) team-keyed |
 | 5 | Reports | `DraftRequest.team_id`; `POST /reports?team_id=`; `PATCH` uses `report.team_id` |
 | 6 | AI-Lead worklist | JOIN `action_item→report→team`; `champion_name = team.champion_name` |
-**Commit:** `Wave 16 Agent 16B-2: backend routes (team-keyed; drop champion CRUD)`
+**Commit:** `Wave 16 Agent 16B: backend routes (team-keyed; drop champion CRUD)`
 
-#### Agent 16B-3: FE foundation — types + api
-**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{types.ts, api.ts}` (sole owner; compiles against the frozen contract)
+### Agent 16C: FE foundation — types + api
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{types.ts, api.ts}`
 | # | Task | Notes |
 |---|------|-------|
-| 1 | Types (G4) | `Team` += champion fields, **DELETE `cc_baseline`/`baseline_date`**; `TeamPageIndexEntry` one-per-team; drop `Champion`, `Domain.champion_id`, `Report.champion_id`, `DomainWriteBody.champion_id` |
+| 1 | Types | `Team` += champion fields, **DELETE `cc_baseline`/`baseline_date`**; `TeamPageIndexEntry` one-per-team; drop `Champion`, `Domain.champion_id`, `Report.champion_id`, `DomainWriteBody.champion_id` |
 | 2 | api.ts | remove `champions.*` + `domains.listByChampion`; `views.teamPage(teamId)`; `reports.draft(teamId)`; `reports.create(teamId, body)`; `teams.update` carries champion fields |
-**Commit:** `Wave 16 Agent 16B-3: FE foundation (team-folded types/api; nuke cc_baseline)`
+**Commit:** `Wave 16 Agent 16C: FE foundation (team-folded types/api; nuke cc_baseline)`
 
-### After 16.B
-- Cherry-pick 16B-1/2/3; `import app` clean; new endpoints in `/docs`. FE consumers still reference old shapes (fixed in 16.C) — foundation files must compile.
-
-### Phase 16.C — FE consumers (3 agents, parallel, DISJOINT files; branch off 16.B-merged)
-
-#### Agent 16C-1: Navigation + hub
+### Agent 16D: FE navigation + hub
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/{router.tsx, pages/team/TeamPage.tsx, pages/team/TeamsIndexPage.tsx}`
 | # | Task | Notes |
 |---|------|-------|
 | 1 | Route | `teams/:championId` → `teams/:teamId` |
-| 2 | TeamPage | `useParams teamId`; fetch `teamPage(teamId)`; champion from team fields; all `/teams/${id}` + `/reports/new?team=` links use team_id |
-| 3 | TeamsIndexPage | collapse to one card per team (drop the per-champion rows added during bug-fixes); links by team_id |
-**Commit:** `Wave 16 Agent 16C-1: nav + team pages (team-keyed routing)`
+| 2 | TeamPage | `useParams teamId`; fetch `teamPage(teamId)`; champion from team fields; all `/teams/${id}` + `/reports/new?team=` links by team_id |
+| 3 | TeamsIndexPage | one card per team (drop the per-champion rows added during bug-fixes); links by team_id |
+**Commit:** `Wave 16 Agent 16D: nav + team pages (team-keyed routing)`
 
-#### Agent 16C-2: Manage cluster
+### Agent 16E: FE manage
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/manage/{ManagePage.tsx, TeamForm.tsx, DomainForm.tsx}` + **DELETE** `ChampionForm.tsx`
 | # | Task | Notes |
 |---|------|-------|
 | 1 | ManagePage | drop the Champions tab + "N champions" grouping + Add/Delete-champion; tabs = Teams · Domains; Teams table shows `champion_name` (read-only) |
-| 2 | TeamForm (create + edit) | ONE form collects team name + `champion_name` (required) + `champion_start_date` → team and champion entered **TOGETHER** on create; editing the same fields replaces the champion in place. **NO separate Add-Champion form/flow** |
+| 2 | TeamForm (create + edit) | ONE form: team name + `champion_name` (required) + `champion_start_date` → team + champion entered **TOGETHER** on create; same fields replace the champion in place. **NO separate Add-Champion** |
 | 3 | DomainForm | drop the champion `<select>` + `champion_id` from the create body |
 | 4 | Delete `ChampionForm.tsx` | champion-as-entity removed |
-**Commit:** `Wave 16 Agent 16C-2: manage (champion folded into TeamForm)`
+**Commit:** `Wave 16 Agent 16E: manage (champion folded into TeamForm)`
 
-#### Agent 16C-3: Report + domain-setup cluster
+### Agent 16F: FE report + domain-setup
 **Type:** `frontend-developer` · **Scope:** `src/frontend/src/{pages/report/ReportCreatePage.tsx, ReportPreviewPage.tsx, ReportEditPage.tsx, pages/domain/DomainSetupPage.tsx}`
 | # | Task | Notes |
 |---|------|-------|
 | 1 | ReportCreate | REMOVE champion `<select>` + `?champion=`; enter via `?team=`; show the team's champion as static text; context-less → minimal **team** chooser; draft by team_id |
 | 2 | Preview/Edit | drop the `champions.list()`→find-team hop; use team_id (router state / `report.team_id`); `domains.listByTeam`; post-save nav `/teams/${team_id}`; display the live champion name (not `report_json.champion`) |
 | 3 | DomainSetup | drop the champion select + auto-select-sole logic; extract/create by team_id; nav `/teams/${teamId}` |
-**Commit:** `Wave 16 Agent 16C-3: report + domain-setup (team-scoped, no champion picker)`
+**Commit:** `Wave 16 Agent 16F: report + domain-setup (team-scoped, no champion picker)`
 
-### After 16.C
-- Cherry-pick 16C-1/2/3; **full `npm run build` green** (all consumers match the foundation); zero dead champion imports/links.
-
-### Phase 16.D — DB recreate + QA dataset + integration verify (orchestrator + 1 agent)
-| # | Task | Notes |
-|---|------|-------|
-| 1 | Expunge + recreate DB | stop uvicorn; delete `tracker.db`(+`-wal`/`-shm`); restart so the NEW schema regenerates empty. **Omer-authorized clean wipe, this DB only** — Omer re-enters QA data |
-| 2 | Fix QA dataset (`qa/`) | `qa/Web-Experience/` → ONE champion (drop the Daniel/Rivka split — merge into a single champion's report stream); update `qa/README.md` + every `setup.md` to the 1:1 model (champion is a team field, not per-champion report files); rename/merge the `*-Daniel.md`/`*-Rivka.md` reports |
-| 3 | Integration verify (live) | team page by team_id; create report from a team (no champion picker); **rename champion in TeamForm → confirm old reports/tasks now display the NEW name**; domains team-keyed; AI-Lead worklist resolves team+champion; every `/teams/:teamId` link works |
-**Type (task 2):** `frontend-developer` or `technical-writer` (QA docs).
-
-### After Wave 16
-- 1:1 model live end-to-end; no `champion` table; champion edited in place; QA dataset 1:1; DB clean. Wave 17 (go-live) and Wave 18 (search) then become eligible.
-
-### Wave 16 risks (architect)
-1. **`/teams/:id` champion→team re-key** must be atomic across ~8 links / 5 files (16C-1 owns ALL nav links; 16.D clicks every "View team"/post-save redirect).
-2. **Report team-resolution:** DELETE the name-based `_resolve_champion_id` — team_id is explicit on save, `report.team_id` on edit (else the duplicate-team bug returns).
-3. **Triple `_ensure_general_domain`** must consolidate to ONE team-keyed engine def (16B-1) or risk duplicate/mis-scoped "General" domains.
-4. **DB wipe under the HARD RULE** — Omer-authorized clean recreate, this DB only; nothing to preserve (throwaway QA).
+### After Wave 16 (orchestrator)
+- Cherry-pick 16A–16F together; `import app` clean; `npm run build` green; new endpoints in `/docs`. `ai-engineer` reviews the engine/prompt diff (team-keyed context, owner default, no name-based team resolution).
+- **Expunge + recreate the DB clean** — delete `tracker.db`(+`-wal`/`-shm`), restart so the new schema regenerates empty (Omer re-enters QA). Authorized clean wipe, this DB only.
+- **Fix the `qa/` dataset** → `qa/Web-Experience/` to ONE champion (merge the `*-Daniel`/`*-Rivka` report streams); update `qa/README.md` + each `setup.md` to the 1:1 model.
+- **Integration verify (live):** team page by team_id; create report from a team (no picker); **rename champion in TeamForm → old reports/tasks now show the NEW name**; domains team-keyed; AI-Lead worklist; every `/teams/:teamId` link works.
+- **Risks:** atomic `/teams/:id` champion→team re-key (16D owns ALL nav links); DELETE the name-based `_resolve_champion_id` (else duplicate-team bug); consolidate the triple `_ensure_general_domain` to one team-keyed engine def (16A).
 
 ---
 
-## Wave 18 — Search bar + DSL on entity pages (design first, then implement)  ·  ⏸ DEFERRED — run AFTER Wave 16 (1:1 refactor)
+## Wave 18 — Search bar + DSL on entity pages (design first, then implement)
 
 Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (16A); implementation (16B+) is scoped from that spec once Omer approves it.
 
