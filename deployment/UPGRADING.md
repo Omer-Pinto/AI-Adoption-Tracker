@@ -1,5 +1,10 @@
 # Upgrading to a New Version Without Losing Data
 
+> **What this doc is:** a *safety-net procedure* (backup → staging → verify →
+> switch/rollback) that holds regardless of what changed between versions. It is
+> **not** an exhaustive enumeration of every possible backend/API/schema change —
+> it is the disciplined flow that keeps your data safe through any of them.
+
 The golden rule: **the production database file persists across upgrades.** A
 new product version is a new bundle; you point it at the *same* data and verify
 on a staging port before switching real traffic to it.

@@ -18,7 +18,7 @@ Anything that would require an actual source edit is written to
 
 ```
 deployment/
-  make_bundle.sh          # builds dist/ai-tracker-airgap.zip
+  make_bundle.sh          # builds dist/ai-tracker-airgap-v<VERSION>.zip (reads root VERSION)
   bundle/                 # TEMPLATE files copied verbatim into the zip
     serve.py              # single-process UI+API entrypoint (composition, no src edit)
     env.example           # the 4 TRACKER_LLM_* vars + HOST/PORT
@@ -48,10 +48,18 @@ README_HUMAN.md, DB_LIFECYCLE.md, UPGRADING.md
 
 ```bash
 cd deployment
-./make_bundle.sh                 # default target: manylinux2014_x86_64 / cp311
-# other target:
-TARGET_PLATFORM=manylinux2014_aarch64 TARGET_PYVER=312 ./make_bundle.sh
+./make_bundle.sh                 # default target: Rocky Linux 9.4 / x86_64 / cp311
+                                 #   (platforms: "manylinux_2_28_x86_64 manylinux2014_x86_64")
+                                 #   version + zip name read from repo-root VERSION
+# other target (TARGET_PLATFORM is a SPACE-SEPARATED list of pip --platform tags):
+TARGET_PLATFORM="manylinux2014_aarch64" TARGET_PYVER=312 ./make_bundle.sh
 ```
+
+`make_bundle.sh` reads the repo-root `VERSION` file, stamps `bundle/VERSION` from
+it, and emits `dist/ai-tracker-airgap-v<VERSION>.zip`. Older versioned zips in
+`dist/` are kept (rollback); only the same-version zip is overwritten. The zip's
+internal top dir stays unversioned (`ai-tracker-airgap/`) so unzip/install steps
+are stable across releases.
 
 Requires (on the build machine, which HAS internet): `pip`, `npx`/node with
 `src/frontend/node_modules` present, `zip`, and ideally `rsync`. The script:
@@ -60,7 +68,10 @@ Requires (on the build machine, which HAS internet): `pip`, `npx`/node with
 2. drops in `serve.py`,
 3. `npx vite build --outDir <stage>/web --emptyOutDir` (does NOT touch
    `src/frontend/dist` or the running dev servers — vite dev serves from memory),
-4. `pip download --only-binary=:all: --platform … --python-version … --implementation cp`,
+4. `pip download --only-binary=:all: --platform … [--platform …] --python-version … --implementation cp`
+   (one `--platform` flag per tag in `TARGET_PLATFORM`), then verifies the
+   wheelhouse is binary-only and target-compatible (no sdists; compiled wheels
+   are manylinux x86_64 / cp311),
 5. derives `requirements.lock.txt` from the wheel filenames,
 6. copies scripts/docs, zips to `dist/`.
 
@@ -89,7 +100,11 @@ starlette, tqdm, typing-extensions, typing-inspection, uvicorn.
 ## Target platform — the #1 gotcha
 
 `pydantic-core` and `jiter` ship platform+pyversion-specific wheels. The
-DEFAULT build targets **Linux x86_64 / CPython 3.11**. If the air-gap box is
+DEFAULT build targets **Rocky Linux 9.4 / x86_64 / CPython 3.11**. Both ship as
+`manylinux_2_17_x86_64.manylinux2014_x86_64` (glibc 2.17) wheels, which run on
+Rocky 9.4's glibc 2.34; `TARGET_PLATFORM` lists `manylinux_2_28_x86_64` first
+(preferred if a dep ever ships it) and `manylinux2014_x86_64` as the fallback,
+and pip picks whichever each dep actually publishes. If the air-gap box is
 different (arch or python minor version), set `TARGET_PLATFORM`/`TARGET_PYVER`,
 or — most reliably — run `make_bundle.sh` on a machine matching the target. A
 mismatch surfaces as `pip install` on the box failing to find a compatible

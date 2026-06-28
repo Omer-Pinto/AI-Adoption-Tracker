@@ -1,5 +1,16 @@
 # AI Adoption Tracker — Air-Gap Install & Operation (for Omer)
 
+### Which file do I read?
+
+- **README_HUMAN.md (this file)** — the **only** file you must read to install
+  and run. Start here, top to bottom.
+- **DB_LIFECYCLE.md / UPGRADING.md** — *reference only*. Open DB_LIFECYCLE when
+  setting up backups, and UPGRADING when shipping a new version. Skip otherwise.
+- **README_CLAUDE.md / RECOMMENDATIONS.md** — for Claude/maintainers (how the
+  bundle is built, deferred source changes). Not needed to operate the app.
+
+---
+
 This is the operator guide for running the tracker on an on-prem box with **no
 internet**. Everything it needs is inside `ai-tracker-airgap.zip`: the backend,
 the pre-built web UI, and all Python dependencies as offline wheels. The only
@@ -10,14 +21,39 @@ both the web UI and the `/api` backend. No Node, no reverse proxy, no CDN.
 
 ---
 
-## 0. Prerequisites on the air-gap box
+## 0. Prerequisites on the air-gap box (Rocky Linux 9.4, x86_64)
 
-- **Python 3.11** (with `venv`/`pip` — standard on most distros). If your box
-  has a different Python (e.g. 3.12), the bundle must be built for it — see
-  README_CLAUDE.md "Target platform".
-- **`sqlite3` CLI** — used by the backup script. `which sqlite3` should work.
-- **`unzip`**, **`gzip`** — standard.
+This bundle is built for **Rocky Linux 9.4 (RHEL 9 family, glibc 2.34, x86_64)**.
+Rocky 9's default `python3` is **3.9** — too old. The app needs **Python 3.11**,
+which ships in AppStream. Install everything you need with `dnf`:
+
+```bash
+sudo dnf install -y python3.11 python3.11-pip   # the 3.11 interpreter + pip (venv is included)
+sudo dnf install -y sqlite unzip gzip           # sqlite CLI (backups) + unzip/gzip
+```
+
+- `install.sh` and `start.sh` call **`python3.11` explicitly** (never bare
+  `python3`), so 3.9 being the system default is fine.
+- **`sqlite` CLI** — used by the backup script; `which sqlite3` should work after
+  the install above.
 - A reachable **vLLM** server on the LAN (OpenAI- or Anthropic-compatible).
+
+**Firewall (firewalld is on by default on Rocky 9).** If browsers on the LAN
+must reach the app (i.e. `HOST=0.0.0.0`), open the chosen port (default `8080`):
+
+```bash
+sudo firewall-cmd --add-port=8080/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+**SELinux** is enforcing by default on Rocky 9, but binding a normal user process
+to a high port like `8080` needs no special SELinux rule. (If you front the app
+with nginx/httpd as a reverse proxy, *that* daemon may need
+`setsebool -P httpd_can_network_connect 1` — not required for this single-process
+bundle.)
+
+> Building for a different box? See README_CLAUDE.md "Target platform" — set
+> `TARGET_PLATFORM`/`TARGET_PYVER` (e.g. another arch or Python minor).
 
 ---
 
