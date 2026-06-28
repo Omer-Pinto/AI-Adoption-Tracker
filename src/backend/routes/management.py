@@ -27,6 +27,7 @@ import llm.interface as llm
 from db import get_connection
 from domain_helpers import build_domain, build_domains_for_query
 from models import Champion, Domain, Team
+from reports.engine import _ensure_context_creation_domain, _ensure_general_domain
 
 router = APIRouter(prefix="/api", tags=["management"])
 
@@ -413,6 +414,12 @@ def create_domain(body: DomainCreate) -> Domain:
         }
         new_id = _insert(conn, "domain", domain_data)
         _reconcile_links(conn, new_id, body.cross_domain_ids)
+        # Once a champion has a real domain, ensure their two constant domains
+        # exist. Both helpers are idempotent (case-insensitive name lookup), so
+        # they create 'General' / 'Context creation' only the first time and
+        # never duplicate them on subsequent domain creations.
+        _ensure_general_domain(conn, body.champion_id, body.team_id)
+        _ensure_context_creation_domain(conn, body.champion_id, body.team_id)
         conn.commit()
         return build_domain(conn, new_id)
     finally:
