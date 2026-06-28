@@ -43,8 +43,36 @@ export function AppShell() {
     <div className="app-shell">
       <nav className="nav-sidebar">
         <div className="nav-logo">
-          <div className="nav-logo-title">Adoption Tracker</div>
-          <div className="nav-logo-sub">AI Adoption Journal</div>
+          <span className="nav-logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="30" height="30" role="presentation" focusable="false">
+              <defs>
+                <linearGradient id="navLogoMark" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#5b73f0" />
+                  <stop offset="1" stopColor="#3a4fd0" />
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="8" fill="url(#navLogoMark)" />
+              <path
+                d="M7 22 L13 15.5 L18.5 18.5 L25 9.5"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="7" cy="22" r="2.2" fill="#ffffff" />
+              <circle cx="13" cy="15.5" r="2.2" fill="#ffffff" />
+              <circle cx="18.5" cy="18.5" r="2.2" fill="#ffffff" />
+              <circle cx="25" cy="9.5" r="2.7" fill="#ffffff" />
+            </svg>
+          </span>
+          <div className="nav-logo-lockup">
+            <div className="nav-logo-titlerow">
+              <span className="nav-logo-title">Adoption Tracker</span>
+              {version && <span className="nav-logo-version">v{version}</span>}
+            </div>
+            <div className="nav-logo-sub">AI Adoption Journal</div>
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-section-label">Main</div>
@@ -71,7 +99,6 @@ export function AppShell() {
             <span className="nav-icon">&#9881;</span> Manage
           </NavLink>
         </div>
-        {version && <div className="nav-version">v{version}</div>}
       </nav>
 
       <div className="main-content">

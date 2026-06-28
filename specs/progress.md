@@ -35,7 +35,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 11 | **Done** | — | — | 0/3 | **Gate CLOSED** — `mvp-improvements` cut, old DB deleted, contract frozen, team-page + AI-Lead mocks approved. Ready for Wave 12 |
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
-| 14 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 14A explore+design; then implement (14B+). See `task_breakdown.md` Wave 14 |
+| 14 | Not Started | — | — | 0/2 | **Go-live walkthrough (gate, before first air-gap insert)** — a focused ~20-min joint pass of README_HUMAN install/run + `backup_db.sh`; deep UPGRADING read deferred to the first real upgrade. See `task_breakdown.md` Wave 14 |
+| 15 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 15A explore+design; then implement (15B+). See `task_breakdown.md` Wave 15 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -412,11 +413,22 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 14 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 14 — Go-live walkthrough (gate, before first air-gap insert)
 
-> Opens with a design/exploration task (14A → `specs/search_integration.md`); implementation (14B+) is scoped from the approved spec. See `task_breakdown.md` Wave 14.
+> A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters. NOT a code wave — orchestrator + Omer. Deep UPGRADING review is deferred to the first real upgrade (when we'll know exactly what changed).
 
-### Agent 14A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Walk `deployment/README_HUMAN.md` install/run together (Rocky prereqs → install → LLM env → start → verify) | ⬜ Pending | the only must-read for go-live |
+| 2 | Walk `deployment/bundle/scripts/backup_db.sh` (run it, confirm a snapshot lands; set a cadence) | ⬜ Pending | data-safety essential |
+
+---
+
+## Wave 15 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (15A → `specs/search_integration.md`); implementation (15B+) is scoped from the approved spec. See `task_breakdown.md` Wave 15.
+
+### Agent 15A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |

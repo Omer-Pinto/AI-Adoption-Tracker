@@ -515,18 +515,33 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ---
 
-## Wave 14 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 14 — Go-live walkthrough (gate, before first air-gap insert)
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (14A); implementation (14B+) is scoped from that spec once Omer approves it.
+A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters — **not a code wave** (orchestrator + Omer). Keeps the go-live essentials front-and-centre and defers the deep upgrade material until it's actually needed.
 
-### Agent 14A: Explore + design SearchBar/DSL integration
+### Gate: go-live readiness (orchestrator + Omer)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Walk install/run | step through `deployment/README_HUMAN.md` together — Rocky 9.4 prereqs → install → LLM env (provider/endpoint/key/model) → start → verify | the only must-read for go-live |
+| 2 | Walk backup | run `deployment/bundle/scripts/backup_db.sh`, confirm a snapshot lands, agree a cadence | data-safety essential before real data exists |
+
+### After Wave 14
+- Omer is confident to install on the air-gap box. **Deep `UPGRADING.md` review is deferred to the first real upgrade** (when the actual backend/API/schema change is known) — the backup → staging-port → verify → switch/rollback safety net holds meanwhile.
+
+---
+
+## Wave 15 — Search bar + DSL on entity pages (design first, then implement)
+
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (15A); implementation (15B+) is scoped from that spec once Omer approves it.
+
+### Agent 15A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 14 Agent 14A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 15 Agent 15A: SearchBar/DSL integration design spec`
 
-### After Wave 14 (14A)
-- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (14B+) from the approved spec.
+### After Wave 15 (15A)
+- Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (15B+) from the approved spec.

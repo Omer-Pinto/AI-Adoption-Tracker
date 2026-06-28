@@ -43,8 +43,31 @@ a:hover { text-decoration: underline; }
 }
 
 .nav-logo {
-  padding: 20px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 18px 20px 16px;
   border-bottom: 1px solid #2e3240;
+}
+
+.nav-logo-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  line-height: 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(67, 97, 238, 0.35);
+}
+
+.nav-logo-lockup {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-logo-titlerow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .nav-logo-title {
@@ -53,6 +76,19 @@ a:hover { text-decoration: underline; }
   color: #ffffff;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+.nav-logo-version {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+  color: #9db0f4;
+  background: rgba(67, 97, 238, 0.16);
+  border: 1px solid rgba(67, 97, 238, 0.4);
+  padding: 1px 5px;
+  border-radius: 5px;
 }
 
 .nav-logo-sub {
@@ -125,16 +161,6 @@ a:hover { text-decoration: underline; }
   border: none;
   border-top: 1px solid #2e3240;
   margin: 8px 0;
-}
-
-/* Running product version, pinned to the bottom of the sidebar. */
-.nav-version {
-  margin-top: auto;
-  padding: 12px 20px;
-  font-size: 11px;
-  letter-spacing: 0.3px;
-  color: #6b7280;
-  border-top: 1px solid #2e3240;
 }
 
 /* ---- Main Content ---- */
