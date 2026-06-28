@@ -186,6 +186,11 @@ class ArtifactPatch(BaseModel):
     domain_id: int | None = None
 
 
+class ActionItemPatch(BaseModel):
+    status: TaskStatus | None = None
+    due_date: str | None = None
+
+
 class AILeadActionItem(BaseModel):
     """One AI-Lead-owned action item, flattened across ALL teams (Wave 12).
 
@@ -199,6 +204,7 @@ class AILeadActionItem(BaseModel):
     champion_name: str
     meeting_date: str
     status: str
+    due_date: str | None = None
     domain: str | None = None
     report_id: int
 
@@ -744,6 +750,49 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
         conn.close()
 
 
+@router.patch("/action-items/{id}", response_model=models.ActionItem)
+def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
+    """Manager edit for an action item's current state — UN-JOURNALED.
+
+    Accepts `status` (validated against `TaskStatus`) and `due_date` (partial
+    PATCH). Action items have NO history table, so this writes current state ONLY:
+    re-saving/replaying the owning report can later overwrite this manual edit —
+    same accepted caveat as `PATCH /api/tasks`. Known & accepted.
+
+    An explicit `null` clears a field; an omitted field is untouched
+    (`model_dump(exclude_unset=True)`). 404 if the action item is missing.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM action_item WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Action item not found")
+
+        changes = body.model_dump(exclude_unset=True)
+
+        # `status` arrives as a TaskStatus enum (Pydantic already rejected an
+        # invalid value as 422); persist its string value in the TEXT column.
+        if "status" in changes and changes["status"] is not None:
+            changes["status"] = changes["status"].value
+
+        if changes:
+            cols = ", ".join(f"{k} = ?" for k in changes)
+            conn.execute(
+                f"UPDATE action_item SET {cols} WHERE id = ?",
+                (*changes.values(), id),
+            )
+            conn.commit()
+
+        updated = conn.execute(
+            "SELECT * FROM action_item WHERE id = ?", (id,)
+        ).fetchone()
+        return _action_item(updated)
+    finally:
+        conn.close()
+
+
 # ── Wave-12: cross-team AI-Lead worklist ─────────────────────────────────────
 
 @router.get("/ai-lead/action-items", response_model=list[AILeadActionItem])
@@ -765,6 +814,7 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
                 c.name         AS champion_name,
                 r.meeting_date AS meeting_date,
                 ai.status      AS status,
+                ai.due_date    AS due_date,
                 d.name         AS domain,
                 r.id           AS report_id
             FROM action_item ai
