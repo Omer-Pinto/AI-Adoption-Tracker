@@ -1,7 +1,9 @@
 # macOS
 .DS_Store
-# tooling
-.claude/
+# tooling — ignore local Claude state, but DO track project skills (shared infra)
+.claude/*
+!.claude/skills/
+.claude/skills/*/*-workspace/
 # python
 __pycache__/
 *.pyc
