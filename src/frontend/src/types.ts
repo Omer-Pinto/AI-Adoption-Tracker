@@ -322,6 +322,17 @@ export interface AILeadActionItem {
   status: TaskStatus;
   domain: string | null;
   report_id: number;
+  /** Target date the item is due; null = no due date set (never overdue). */
+  due_date?: string | null;
+}
+
+/** Body for `PATCH /api/action-items/{id}` — partial; send only the changed
+ *  field (`{status}` or `{due_date}`; `due_date: null` clears it). Returns the
+ *  full updated bare `ActionItem` (no enriched team/champion/meeting fields).
+ *  Mirrors the `TaskPatchBody` partial-PATCH convention. */
+export interface ActionItemPatchBody {
+  status?: TaskStatus;
+  due_date?: string | null;
 }
 
 // ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----

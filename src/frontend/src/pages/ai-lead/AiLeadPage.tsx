@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/api';
-import type { AILeadActionItem, TaskStatus } from '@/types';
+import type { ActionItemPatchBody, AILeadActionItem, TaskStatus } from '@/types';
 import './ai-lead-page.css';
 
 // Route: "/ai-lead" — the personal cross-team view of every action item owned by
@@ -45,9 +45,11 @@ function isClosed(s: TaskStatus): boolean {
   return CLOSED.has(s);
 }
 
-// Overdue ONLY when a meeting date exists, it is in the past, and the item is open.
+// Overdue = a real due_date exists, is in the past, and the item is still open.
+// (Per the frozen contract overdue keys off due_date, NOT meeting_date; a closed
+// item is never flagged.)
 function isOverdue(it: AILeadActionItem): boolean {
-  return !!it.meeting_date && it.meeting_date < TODAY && !isClosed(it.status);
+  return !!it.due_date && it.due_date < TODAY && !isClosed(it.status);
 }
 
 // Stable per-team dot color (real team names are arbitrary; the mock hard-codes a
@@ -67,6 +69,8 @@ export default function AiLeadPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('priority');
+  // Per-row inline save errors (keyed by item id), set on a failed PATCH.
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -80,19 +84,45 @@ export default function AiLeadPage() {
           setLoading(false);
         }
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load action items');
+          // Calm, fixed message — never surface a raw "ApiError: GET … → 500".
+          setError("Couldn't load action items.");
           setLoading(false);
         }
       });
     return () => { cancelled = true; };
   }, []);
 
-  // Local optimistic status edit. NOTE: there is no action-item PATCH in api.ts,
-  // so this updates the UI only and is NOT persisted (see report uncertainties).
-  function setStatus(id: number, status: TaskStatus) {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, status } : it)));
+  // Persisted edit: optimistically apply the patch, PATCH the backend, then
+  // reconcile the row from the returned bare ActionItem (status/due_date only —
+  // the cross-team fields are NOT returned). Roll back + surface an inline error
+  // on failure.
+  function patchItem(id: number, patch: ActionItemPatchBody) {
+    const prev = items.find((it) => it.id === id);
+    if (!prev) return;
+    setItems((list) => list.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+    setRowErrors((e) => {
+      if (!(id in e)) return e;
+      const next = { ...e };
+      delete next[id];
+      return next;
+    });
+    api.aiLead
+      .patch(id, patch)
+      .then((updated) => {
+        setItems((list) =>
+          list.map((it) =>
+            it.id === id
+              ? { ...it, status: updated.status ?? it.status, due_date: updated.due_date }
+              : it,
+          ),
+        );
+      })
+      .catch(() => {
+        setItems((list) => list.map((it) => (it.id === id ? prev : it)));
+        setRowErrors((e) => ({ ...e, [id]: "Couldn't save — try again." }));
+      });
   }
 
   const counts = useMemo(() => {
@@ -165,10 +195,10 @@ export default function AiLeadPage() {
           </div>
         </div>
 
-        {error && <div className="warning-banner" style={{ marginBottom: 16 }}>{error}</div>}
-
         {loading ? (
           <div className="text-muted text-sm">Loading action items…</div>
+        ) : error ? (
+          <div className="ail-load-error">{error}</div>
         ) : (
           <>
             <div className="tile-grid">
@@ -180,7 +210,7 @@ export default function AiLeadPage() {
               <div className="tile acc-red">
                 <div className="tile-label">Overdue</div>
                 <div className="tile-value">{counts.overdue}</div>
-                <div className="tile-sub">past meeting-set date</div>
+                <div className="tile-sub">past due date</div>
               </div>
               <div className="tile acc-amber">
                 <div className="tile-label">Blocked</div>
@@ -216,6 +246,7 @@ export default function AiLeadPage() {
                     <th className="col-item">Action item</th>
                     <th className="col-team">Team</th>
                     <th className="col-date">Meeting date</th>
+                    <th className="col-due">Due date</th>
                     <th className="col-status">Status</th>
                     <th className="col-open" />
                   </tr>
@@ -223,17 +254,19 @@ export default function AiLeadPage() {
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
+                      <td colSpan={6} className="text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
                         No action items assigned to the AI Lead yet.
                       </td>
                     </tr>
                   ) : view === 'priority' ? (
-                    byPriority.map((it) => <ItemRow key={it.id} it={it} onStatus={setStatus} />)
+                    byPriority.map((it) => (
+                      <ItemRow key={it.id} it={it} onPatch={patchItem} error={rowErrors[it.id]} />
+                    ))
                   ) : (
                     byTeam.map(({ team, group, open }) => (
                       <Fragment key={team}>
                         <tr className="group-row">
-                          <td colSpan={5}>
+                          <td colSpan={6}>
                             <span className="gh">
                               <span className="gdot" style={{ '--tc': teamColor(team) } as CSSProperties} />
                               {team}
@@ -243,7 +276,9 @@ export default function AiLeadPage() {
                             </span>
                           </td>
                         </tr>
-                        {group.map((it) => <ItemRow key={it.id} it={it} onStatus={setStatus} />)}
+                        {group.map((it) => (
+                          <ItemRow key={it.id} it={it} onPatch={patchItem} error={rowErrors[it.id]} />
+                        ))}
                       </Fragment>
                     ))
                   )}
@@ -257,7 +292,15 @@ export default function AiLeadPage() {
   );
 }
 
-function ItemRow({ it, onStatus }: { it: AILeadActionItem; onStatus: (id: number, s: TaskStatus) => void }) {
+function ItemRow({
+  it,
+  onPatch,
+  error,
+}: {
+  it: AILeadActionItem;
+  onPatch: (id: number, patch: ActionItemPatchBody) => void;
+  error?: string | undefined;
+}) {
   const closed = isClosed(it.status);
   const overdue = isOverdue(it);
   return (
@@ -271,13 +314,21 @@ function ItemRow({ it, onStatus }: { it: AILeadActionItem; onStatus: (id: number
       </td>
       <td className="col-date">
         {it.meeting_date ? (
-          <>
-            <span className={`mtg-date${overdue ? ' overdue' : ''}`}>{it.meeting_date}</span>
-            {overdue && <div className="overdue-tag">Overdue</div>}
-          </>
+          <span className="mtg-date">{it.meeting_date}</span>
         ) : (
           <span className="mtg-none">no date</span>
         )}
+      </td>
+      <td className="col-due">
+        <input
+          type="date"
+          className={`due-input${overdue ? ' overdue' : ''}`}
+          value={it.due_date ?? ''}
+          // Empty value clears the due date (→ null per contract).
+          onChange={(e) => onPatch(it.id, { due_date: e.target.value || null })}
+          aria-label="Due date"
+        />
+        {overdue && <div className="overdue-tag">Overdue</div>}
       </td>
       <td className="col-status">
         <span className="status-wrap">
@@ -285,13 +336,14 @@ function ItemRow({ it, onStatus }: { it: AILeadActionItem; onStatus: (id: number
           <select
             className="status-sel"
             value={it.status}
-            onChange={(e) => onStatus(it.id, e.target.value as TaskStatus)}
+            onChange={(e) => onPatch(it.id, { status: e.target.value as TaskStatus })}
           >
             {STATUS_OPTIONS.map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
         </span>
+        {error && <div className="row-error">{error}</div>}
       </td>
       <td className="col-open">
         <Link

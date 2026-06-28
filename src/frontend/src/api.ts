@@ -6,6 +6,8 @@
 // Vite `/api` proxy (see vite.config.ts).
 
 import type {
+  ActionItem,
+  ActionItemPatchBody,
   AILeadActionItem,
   Artifact,
   ArtifactDetail,
@@ -179,6 +181,11 @@ export const api = {
     // `GET /api/ai-lead/action-items` — every AI-Lead-owned action item (owner =
     // 'AI Lead') across ALL teams, of any status, newest first.
     actionItems: (): Promise<AILeadActionItem[]> => request('/ai-lead/action-items'),
+    // `PATCH /api/action-items/{id}` — partial edit (status and/or due_date).
+    // Returns the full updated bare ActionItem (no enriched team/meeting fields),
+    // so callers reconcile their list row from the returned status/due_date.
+    patch: (id: number, body: ActionItemPatchBody): Promise<ActionItem> =>
+      request(`/action-items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
 };
 
