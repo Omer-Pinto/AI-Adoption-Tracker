@@ -101,7 +101,7 @@ export default function DomainPage() {
       <div className="top-bar">
         <div>
           <span className="top-bar-title">{domain.name}</span>
-          <span className="top-bar-sub">Current state + week-by-week story</span>
+          <span className="top-bar-sub">Current state + week-by-week history</span>
         </div>
         <div className="top-bar-actions">
           <Link
@@ -195,14 +195,9 @@ export default function DomainPage() {
           <ArtifactsTable artifacts={artifacts} onArtifactClick={openArtifactModal} />
         </div>
 
-        {/* Story — Week by Week */}
-        <div className="index-section-title" style={{ marginBottom: 6 }}>
-          Story — Week by Week
-        </div>
-
-        <div className="info-banner" style={{ marginBottom: 20 }}>
-          The story is the heart of this product. Each entry records what changed at a
-          meeting. Read top to bottom to follow the full arc of this domain.
+        {/* History — week by week (data-driven from report history; not narration) */}
+        <div className="index-section-title" style={{ marginBottom: 20 }}>
+          History — week by week
         </div>
 
         <DomainStory

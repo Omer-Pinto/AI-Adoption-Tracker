@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Team, Champion, Domain } from '@/types';
 import type { DomainProposal } from '@/api';
 import { api } from '@/api';
@@ -150,6 +150,7 @@ export default function DomainSetupPage() {
   const [errors, setErrors] = useState<Record<number, string | null>>({});
   const [batchSaving, setBatchSaving] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
+  const navigate = useNavigate();
 
   // Load teams + all domains on mount
   useEffect(() => {
@@ -300,6 +301,14 @@ export default function DomainSetupPage() {
 
   const allApproved = proposals.length > 0 && savedIds.size === proposals.length;
   const canExtract = Boolean(selectedTeamId && selectedChampionId && text.trim());
+
+  // Once every proposal is approved (batch or one-by-one), leave the extract page
+  // and open the champion's team page — the work is done here.
+  useEffect(() => {
+    if (allApproved && selectedChampionId) {
+      navigate(`/teams/${selectedChampionId}`);
+    }
+  }, [allApproved, selectedChampionId, navigate]);
 
   return (
     <>

@@ -502,7 +502,7 @@ function DomainCard({
                 marginBottom: 10,
               }}
             >
-              Story — Week by Week
+              History — week by week
             </div>
             <DomainStory
               tasks={dp.tasks}
