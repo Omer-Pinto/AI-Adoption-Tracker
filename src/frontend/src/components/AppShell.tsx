@@ -45,7 +45,7 @@ export function AppShell() {
       <nav className="nav-sidebar">
         <div className="nav-logo">
           <span className="nav-logo-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="30" height="30" role="presentation" focusable="false">
+            <svg viewBox="0 0 32 32" width="28" height="28" role="presentation" focusable="false">
               <defs>
                 <linearGradient id="navLogoMark" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#5b73f0" />
@@ -68,11 +68,8 @@ export function AppShell() {
             </svg>
           </span>
           <div className="nav-logo-lockup">
-            <div className="nav-logo-titlerow">
-              <span className="nav-logo-title">Adoption Tracker</span>
-              {version && <span className="nav-logo-version">v{version}</span>}
-            </div>
-            <div className="nav-logo-sub">AI Adoption Journal</div>
+            <span className="nav-logo-title">Adoption Tracker</span>
+            {version && <span className="nav-logo-version">v{version}</span>}
           </div>
         </div>
         <div className="nav-section">
