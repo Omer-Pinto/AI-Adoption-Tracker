@@ -12,73 +12,32 @@ import type { DomainFormFieldValues } from '@/pages/manage/DomainForm';
 // and approve each proposal (POST /api/domains).
 
 // ---- Proposal card ----------------------------------------------------------
+//
+// Controlled: the editable field values live on the page (so both "Approve &
+// save" and "Approve all" read the same source of truth). The card just renders
+// the fields and reports edits / approve clicks up via props.
 
 interface ProposalCardProps {
-  proposal: DomainProposal;
   index: number;
+  fields: DomainFormFieldValues;
+  onFieldsChange: (index: number, next: DomainFormFieldValues) => void;
   allDomains: Domain[];
-  teamId: number;
-  championId: number;
-  onApproved: (saved: Domain) => void;
-  onDirtyChange: (index: number, dirty: boolean) => void;
+  onApprove: (index: number) => void;
+  saving: boolean;
+  error: string | null;
   alreadySaved: boolean;
 }
 
 function ProposalCard({
-  proposal,
   index,
+  fields,
+  onFieldsChange,
   allDomains,
-  teamId,
-  championId,
-  onApproved,
-  onDirtyChange,
+  onApprove,
+  saving,
+  error,
   alreadySaved,
 }: ProposalCardProps) {
-  const initial: DomainFormFieldValues = {
-    name: proposal.name,
-    description: proposal.description ?? '',
-    priority: proposal.priority ?? '',
-    crossDomainIds: [],
-  };
-  const [fields, setFields] = useState<DomainFormFieldValues>(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleFieldsChange(next: DomainFormFieldValues) {
-    setFields(next);
-    const dirty =
-      next.name !== initial.name ||
-      next.description !== initial.description ||
-      next.priority !== initial.priority ||
-      next.crossDomainIds.length !== initial.crossDomainIds.length;
-    onDirtyChange(index, dirty);
-  }
-
-  async function handleApprove() {
-    if (!fields.name.trim()) {
-      setError('Name is required.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const saved = await api.domains.create({
-        team_id: teamId,
-        champion_id: championId,
-        name: fields.name,
-        description: fields.description || null,
-        priority: fields.priority || null,
-        cross_domain_ids: fields.crossDomainIds,
-      });
-      onDirtyChange(index, false);
-      onApproved(saved);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (alreadySaved) {
     return (
       <div
@@ -135,7 +94,7 @@ function ProposalCard({
 
       <DomainFormFields
         values={fields}
-        onChange={handleFieldsChange}
+        onChange={(next) => onFieldsChange(index, next)}
         allDomains={allDomains}
         autoFocusName={false}
       />
@@ -143,7 +102,7 @@ function ProposalCard({
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
         <button
           className="btn btn-primary btn-sm"
-          onClick={() => void handleApprove()}
+          onClick={() => onApprove(index)}
           disabled={saving}
         >
           {saving ? 'Saving…' : 'Approve & save'}
@@ -154,6 +113,19 @@ function ProposalCard({
 }
 
 // ---- Main page ---------------------------------------------------------------
+
+// Seed a card's editable fields from a raw proposal. `priority` is coerced to a
+// string — the extraction returns it as a number, but POST /api/domains expects
+// a free-text string (DB column is TEXT), so un-edited proposals must not carry
+// a number through to the save body (that 422s on `priority`).
+function proposalToFields(p: DomainProposal): DomainFormFieldValues {
+  return {
+    name: p.name,
+    description: p.description ?? '',
+    priority: p.priority != null ? String(p.priority) : '',
+    crossDomainIds: [],
+  };
+}
 
 export default function DomainSetupPage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -169,8 +141,14 @@ export default function DomainSetupPage() {
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const [proposals, setProposals] = useState<DomainProposal[]>([]);
+  // Editable field values per proposal — lifted here (out of each card) so both
+  // single "Approve & save" and "Approve all" read the user's current edits.
+  const [fieldValues, setFieldValues] = useState<DomainFormFieldValues[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
+  const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
+  const [errors, setErrors] = useState<Record<number, string | null>>({});
+  const [batchSaving, setBatchSaving] = useState(false);
   const [hasExtracted, setHasExtracted] = useState(false);
 
   // Load teams + all domains on mount
@@ -221,12 +199,16 @@ export default function DomainSetupPage() {
     setExtracting(true);
     setExtractError(null);
     setProposals([]);
+    setFieldValues([]);
     setSavedIds(new Set());
     setDirtyIds(new Set());
+    setSavingIds(new Set());
+    setErrors({});
     setHasExtracted(false);
     try {
       const result = await api.domains.extract(text);
       setProposals(result.domains);
+      setFieldValues(result.domains.map(proposalToFields));
       setHasExtracted(true);
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Extraction failed.');
@@ -250,6 +232,70 @@ export default function DomainSetupPage() {
       else next.delete(index);
       return next;
     });
+  }
+
+  function handleFieldsChange(index: number, next: DomainFormFieldValues) {
+    setFieldValues((prev) => prev.map((f, i) => (i === index ? next : f)));
+    const orig = proposals[index] ? proposalToFields(proposals[index]) : next;
+    const dirty =
+      next.name !== orig.name ||
+      next.description !== orig.description ||
+      next.priority !== orig.priority ||
+      next.crossDomainIds.length !== orig.crossDomainIds.length;
+    handleDirtyChange(index, dirty);
+  }
+
+  // Save one proposal by index, using its CURRENT (possibly edited) field values.
+  // Returns true on success. Shared by single-approve and the approve-all batch.
+  async function saveProposal(index: number): Promise<boolean> {
+    const f = fieldValues[index];
+    if (!f || !f.name.trim()) {
+      setErrors((prev) => ({ ...prev, [index]: 'Name is required.' }));
+      return false;
+    }
+    setSavingIds((prev) => new Set(prev).add(index));
+    setErrors((prev) => ({ ...prev, [index]: null }));
+    try {
+      const saved = await api.domains.create({
+        team_id: Number(selectedTeamId),
+        champion_id: Number(selectedChampionId),
+        name: f.name,
+        description: f.description || null,
+        priority: f.priority || null,
+        cross_domain_ids: f.crossDomainIds,
+      });
+      handleDirtyChange(index, false);
+      handleProposalApproved(index, saved);
+      return true;
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [index]: err instanceof Error ? err.message : 'Save failed.',
+      }));
+      return false;
+    } finally {
+      setSavingIds((prev) => {
+        const nextSet = new Set(prev);
+        nextSet.delete(index);
+        return nextSet;
+      });
+    }
+  }
+
+  // Approve every not-yet-saved proposal, sequentially (a proposal may cross-link
+  // to one saved earlier in the batch, and sequencing surfaces errors cleanly).
+  // Stops at the first failure; already-saved ones stay saved.
+  async function handleApproveAll() {
+    setBatchSaving(true);
+    try {
+      for (let i = 0; i < proposals.length; i++) {
+        if (savedIds.has(i)) continue;
+        const ok = await saveProposal(i);
+        if (!ok) break;
+      }
+    } finally {
+      setBatchSaving(false);
+    }
   }
 
   const allApproved = proposals.length > 0 && savedIds.size === proposals.length;
@@ -385,7 +431,8 @@ export default function DomainSetupPage() {
               </div>
               <div className="form-section-subtitle">
                 Edit each proposal as needed (name, description, priority, cross-domain links),
-                then click &ldquo;Approve &amp; save&rdquo; to persist it. You can link
+                then click &ldquo;Approve &amp; save&rdquo; to persist it — or use
+                &ldquo;Approve all&rdquo; to save every remaining proposal at once. You can link
                 cross-domains to domains already saved in this batch.
               </div>
 
@@ -399,19 +446,34 @@ export default function DomainSetupPage() {
                 </div>
               )}
 
-              {proposals.map((p, i) => (
-                <ProposalCard
-                  key={i}
-                  proposal={p}
-                  index={i}
-                  allDomains={allDomains}
-                  teamId={Number(selectedTeamId)}
-                  championId={Number(selectedChampionId)}
-                  onApproved={(saved) => handleProposalApproved(i, saved)}
-                  onDirtyChange={handleDirtyChange}
-                  alreadySaved={savedIds.has(i)}
-                />
-              ))}
+              {!allApproved && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => void handleApproveAll()}
+                    disabled={batchSaving}
+                  >
+                    {batchSaving ? 'Approving…' : 'Approve all'}
+                  </button>
+                </div>
+              )}
+
+              {proposals.map((p, i) => {
+                const fields = fieldValues[i] ?? proposalToFields(p);
+                return (
+                  <ProposalCard
+                    key={i}
+                    index={i}
+                    fields={fields}
+                    onFieldsChange={handleFieldsChange}
+                    allDomains={allDomains}
+                    onApprove={(idx) => void saveProposal(idx)}
+                    saving={savingIds.has(i) || batchSaving}
+                    error={errors[i] ?? null}
+                    alreadySaved={savedIds.has(i)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
