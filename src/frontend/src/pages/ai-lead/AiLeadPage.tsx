@@ -279,6 +279,8 @@ export default function AiLeadPage() {
           <button
             type="button"
             role="tab"
+            id="ail-tab-actions"
+            aria-controls="ail-panel-actions"
             aria-selected={tab === 'actions'}
             className={`tab${tab === 'actions' ? ' on' : ''}`}
             onClick={() => setTab('actions')}
@@ -288,6 +290,8 @@ export default function AiLeadPage() {
           <button
             type="button"
             role="tab"
+            id="ail-tab-toolkit"
+            aria-controls="ail-panel-toolkit"
             aria-selected={tab === 'toolkit'}
             className={`tab${tab === 'toolkit' ? ' on' : ''}`}
             onClick={() => setTab('toolkit')}
@@ -296,7 +300,12 @@ export default function AiLeadPage() {
           </button>
         </div>
 
-        <div style={{ display: tab === 'actions' ? undefined : 'none' }}>
+        <div
+          role="tabpanel"
+          id="ail-panel-actions"
+          aria-labelledby="ail-tab-actions"
+          hidden={tab !== 'actions'}
+        >
           {loading ? (
             <div className="text-muted text-sm">Loading action items…</div>
           ) : error ? (
@@ -486,7 +495,12 @@ export default function AiLeadPage() {
           )}
         </div>
 
-        <div style={{ display: tab === 'toolkit' ? undefined : 'none' }}>
+        <div
+          role="tabpanel"
+          id="ail-panel-toolkit"
+          aria-labelledby="ail-tab-toolkit"
+          hidden={tab !== 'toolkit'}
+        >
           <Toolkit onCountChange={setToolkitCount} />
         </div>
       </div>
@@ -551,6 +565,7 @@ function ItemRow({
           <span className={`status-dot sd-${it.status}`} />
           <select
             className="status-sel"
+            aria-label="Status"
             value={it.status}
             onChange={(e) => onPatch(it.id, { status: e.target.value as TaskStatus })}
           >
@@ -756,6 +771,7 @@ function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
             <input
               type="text"
               className="tk-input tk-name"
+              aria-label="Toolkit item name"
               placeholder="Name (e.g. “Spec-first planning”)"
               value={form.name}
               autoFocus
@@ -776,6 +792,7 @@ function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
           </div>
           <textarea
             className="tk-input tk-desc"
+            aria-label="Toolkit item description"
             placeholder="Description (optional)"
             rows={2}
             value={form.description}

@@ -669,10 +669,14 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
 
         # `status` arrives as a TaskStatus enum (Pydantic already rejected an
         # invalid value as 422); persist its string value in the TEXT column.
-        if "status" in changes and changes["status"] is not None:
+        # An explicit `null` status is invalid (the column is NOT NULL) → 422,
+        # not a DB IntegrityError 500.
+        if "status" in changes:
+            if changes["status"] is None:
+                raise HTTPException(status_code=422, detail="status cannot be null")
             changes["status"] = changes["status"].value
 
-        # owner / status may be edited freely; null owner clears the owner.
+        # owner may be edited freely; null owner clears the owner.
 
         if "domain_id" in changes:
             new_domain_id = changes["domain_id"]
@@ -884,7 +888,11 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
 
         # `status` arrives as a TaskStatus enum (Pydantic already rejected an
         # invalid value as 422); persist its string value in the TEXT column.
-        if "status" in changes and changes["status"] is not None:
+        # An explicit `null` status is invalid (the column is NOT NULL) → 422,
+        # not a DB IntegrityError 500.
+        if "status" in changes:
+            if changes["status"] is None:
+                raise HTTPException(status_code=422, detail="status cannot be null")
             changes["status"] = changes["status"].value
 
         if changes:
