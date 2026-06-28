@@ -1,0 +1,2 @@
+# The built air-gap zip is large and reproducible — do not commit it.
+dist/
