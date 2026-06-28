@@ -252,10 +252,10 @@ export default function TeamPage() {
               <span className="tile-label">Domains</span>
               <span className="tile-ico">◆</span>
             </div>
-            <div className="tile-value">{realDomainCount}</div>
-            <div className="tile-sub">
-              {constantDomainCount > 0 ? `+ ${constantDomainCount} constant` : '—'}
+            <div className="tile-value">
+              {constantDomainCount > 0 ? `${realDomainCount} + ${constantDomainCount}` : realDomainCount}
             </div>
+            <div className="tile-sub">{constantDomainCount > 0 ? 'constants' : '—'}</div>
           </button>
 
           <button type="button" className="tile acc-violet" onClick={() => jumpTo(artifactsRef)}>

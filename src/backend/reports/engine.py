@@ -220,8 +220,8 @@ def _ensure_context_creation_domain(
     items here) but is NOT the unplaced fallback."""
     return _ensure_constant_domain(
         conn, champion_id, team_id, _CONTEXT_DOMAIN_NAME,
-        "Context engineering for Claude Code: CLAUDE.md, context files, "
-        "knowledge docs, and conventions.", "1",
+        "Claude Code context and/or artifacts - hooks, skills, MCPs, agents, "
+        "workflows and context files (CLAUDE.md and others).", "1",
     )
 
 
