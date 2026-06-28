@@ -57,6 +57,12 @@ export default function TeamPage() {
 
   useEffect(() => load(), [load]);
 
+  // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
+  const domainsRef = useRef<HTMLDetailsElement>(null);
+  const artifactsRef = useRef<HTMLDetailsElement>(null);
+  const reportsRef = useRef<HTMLDetailsElement>(null);
+  const actionsRef = useRef<HTMLDetailsElement>(null);
+
   function openArtifactModal(artifactId: number) {
     setModalError(false);
     api.views
@@ -133,12 +139,6 @@ export default function TeamPage() {
   const lastMeeting = reports.length
     ? reports.map((r) => r.meeting_date).sort().slice(-1)[0]
     : null;
-
-  // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
-  const domainsRef = useRef<HTMLDetailsElement>(null);
-  const artifactsRef = useRef<HTMLDetailsElement>(null);
-  const reportsRef = useRef<HTMLDetailsElement>(null);
-  const actionsRef = useRef<HTMLDetailsElement>(null);
 
   function jumpTo(ref: React.RefObject<HTMLDetailsElement>) {
     const el = ref.current;
