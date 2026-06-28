@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-28 | **Branch:** `mvp-improvements` | **Waves 11–13 DONE**
+> **Last updated:** 2026-06-28 | **Branch:** `mvp-improvements` | **Waves 11–13 + 15 DONE**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 91% (136/149)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (144/149)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 136 / 149 | 91% |
+| 🟢 Done | 144 / 149 | 97% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 13 (Wave 14: 2 · 15: 8 · 16: 3) | 9% |
+| ⬜ Pending | 5 (Wave 14: 2 · 16: 3) | 3% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -38,7 +38,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
 | 14 | Not Started | — | — | 0/2 | **Go-live walkthrough (gate, before first air-gap insert)** — a focused ~20-min joint pass of README_HUMAN install/run + `backup_db.sh`; deep UPGRADING read deferred to the first real upgrade. See `task_breakdown.md` Wave 14 |
-| 15 | Not Started | 0/2 | 0/2 | 0/8 | **AI-Lead board redesign + self-managed action items (Variant B)** — api-designer gate → 15A backend (nullable `report_id`, CRUD) + 15B FE (tabbed board) in parallel. Schema change frozen pre-1.0. See `task_breakdown.md` Wave 15 |
+| 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
 | 16 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on domain/team/champion pages — 16A explore+design; then implement (16B+). See `task_breakdown.md` Wave 16 |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -434,26 +434,27 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Gate: action-item CRUD contract (`api-designer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| G | Freeze POST/DELETE/PATCH-text contract + nullable AILeadActionItem fields | ⬜ Pending | DELETE/text only when report_id NULL else 409 |
+| G | Freeze POST/DELETE/PATCH-text contract + nullable AILeadActionItem fields | 🟢 Done | Frozen: POST 201→enriched item; DELETE/PATCH-text only when report_id NULL else 409 (`"Cannot delete/edit … Mark it won't_fix or abandoned instead."`); 404 beats 409; standalone (NULL meeting_date) sorts first; PATCH stays bare ActionItem |
 
-### Agent 15A: Backend — report-less action items + CRUD (`backend-developer`)
+### Agent 15A: Backend — report-less action items + CRUD (`backend-developer`) — 🟢 DONE (`e731dfe`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | `action_item.report_id` → NULLABLE (recreate table; empty DB) | ⬜ Pending | the additive-migration story, for real |
-| 2 | `AILeadActionItem` nullable + LEFT-JOIN query (standalone rows appear) | ⬜ Pending | |
-| 3 | `POST /api/action-items` (standalone, owner "AI Lead") | ⬜ Pending | |
-| 4 | `DELETE /api/action-items/{id}` (409 if report-derived) | ⬜ Pending | |
-| 5 | Extend `PATCH` for `text` (409 if report-derived) | ⬜ Pending | |
-| 6 | Verify replay isolation (standalone untouched) | ⬜ Pending | throwaway-DB test |
+| 1 | `action_item.report_id` → NULLABLE (recreate table; empty DB) | 🟢 Done | schema nullable + non-destructive startup migration in `db.py` (`_migrate_action_item_report_id_nullable`: PRAGMA-guarded, atomic rebuild, row-preserving, idempotent). Applied live to real empty DB |
+| 2 | `AILeadActionItem` nullable + LEFT-JOIN query (standalone rows appear) | 🟢 Done | team/champion/meeting/report_id nullable; INNER→LEFT JOINs; `ORDER BY (meeting_date IS NULL) DESC, …` (standalone first) |
+| 3 | `POST /api/action-items` (standalone, owner "AI Lead") | 🟢 Done | `ActionItemCreate` (blank-text→422); owner/report_id/domain_id server-set; 201→enriched `AILeadActionItem` |
+| 4 | `DELETE /api/action-items/{id}` (409 if report-derived) | 🟢 Done | 204; 404 missing; 409 if report_id set |
+| 5 | Extend `PATCH` for `text` (409 if report-derived) | 🟢 Done | `text` added (409 on report-derived); status/due always; bare `ActionItem` return |
+| 6 | Verify replay isolation (standalone untouched) | 🟢 Done | engine `DELETE … WHERE report_id = ?` never matches NULL rows; proven on throwaway DB |
 
-### Agent 15B: Frontend — tabbed board Variant B (`frontend-developer`)
+### Agent 15B: Frontend — tabbed board Variant B (`frontend-developer`) — 🟢 DONE (`4987778`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Tabbed board: header "AI Lead" (no subtitle) + tabs [Action items · My toolkit] | ⬜ Pending | |
-| 2 | Action items tab owns stats + toggle + "+ Add" + table (2 date cols) | ⬜ Pending | |
-| 3 | Standalone add/edit/delete; meeting-derived status/due only + "Open report" link | ⬜ Pending | |
-| 4 | Toolkit tab; description = 2-line textarea | ⬜ Pending | |
-| 5 | api.ts/types: actionItems create/delete + text patch; nullable AILead fields | ⬜ Pending | |
+| 1 | Tabbed board: header "AI Lead" (no subtitle) + tabs [Action items · My toolkit] | 🟢 Done | narration subtitles removed; tabbed Variant-B layout |
+| 2 | Action items tab owns stats + toggle + "+ Add" + table (2 date cols) | 🟢 Done | 4 stat cards + priority/team toggle + "+ Add action item" + table (Meeting read-only, Due editable) |
+| 3 | Standalone add/edit/delete; meeting-derived status/due only + "Open report" link | 🟢 Done | discriminator `report_id===null`; optimistic create/patch/delete + rollback; meeting rows: "Report-managed" + "Open report ↗" |
+| 4 | Toolkit tab; description = 2-line textarea | 🟢 Done | toolkit moved into its tab; live count badge; `<textarea rows={2}>` |
+| 5 | api.ts/types: actionItems create/delete + text patch; nullable AILead fields | 🟢 Done | `aiLead.create`/`delete`, `ActionItemPatchBody.text`, `ActionItemCreateBody`, nullable `AILeadActionItem` |
+**Verification:** 45/45 journal scenarios + 16/16 live TestClient smoke (throwaway DBs); `npm run build` green (69 modules, tsc clean); `import app` OK (43 routes). Post-merge simplification `f939cb5` (dead CSS swept, shared blank-text validator, docstrings refreshed). **Deferred (consultant-blessed, non-blocking):** standalone items are domain-less by design; `PATCH {status:null}`→500 (pre-existing pattern, also in `patch_task`); minor a11y (tabpanel ARIA, unlabeled status select); priority tiebreak uses `meeting_date DESC`. **Live UI walk = Omer.**
 
 ---
 
