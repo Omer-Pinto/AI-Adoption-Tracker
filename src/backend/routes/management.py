@@ -188,7 +188,8 @@ def create_team(body: TeamCreate) -> Team:
 @router.patch("/teams/{team_id}", response_model=Team)
 def update_team(team_id: int, body: TeamUpdate) -> Team:
     conn = get_connection()
-    if _fetch(conn, "team", team_id) is None:
+    existing = _fetch(conn, "team", team_id)
+    if existing is None:
         conn.close()
         raise HTTPException(status_code=404, detail="Team not found")
     changes = body.model_dump(exclude_unset=True)
@@ -196,8 +197,31 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
         if field in changes and changes[field] is None:
             conn.close()
             raise HTTPException(status_code=422, detail=f"{field} cannot be null")
+    old_champion = existing["champion_name"]
+    new_champion = changes.get("champion_name")
     if changes:
         _update(conn, "team", team_id, changes)
+        # Renaming the champion must re-point already-stored owner snapshots
+        # (which captured the champion's name at save time) to the new name,
+        # scoped to THIS team. Only owners equal to the OLD champion name are
+        # touched — a differently-named owner (e.g. "Tomer") is left alone.
+        if new_champion is not None and new_champion != old_champion:
+            conn.execute(
+                "UPDATE task SET owner = ? WHERE owner = ? AND domain_id IN ("
+                "SELECT id FROM domain WHERE team_id = ?)",
+                (new_champion, old_champion, team_id),
+            )
+            conn.execute(
+                "UPDATE task_history SET owner = ? WHERE owner = ? AND task_id IN ("
+                "SELECT t.id FROM task t JOIN domain d ON t.domain_id = d.id "
+                "WHERE d.team_id = ?)",
+                (new_champion, old_champion, team_id),
+            )
+            conn.execute(
+                "UPDATE action_item SET owner = ? WHERE owner = ? AND report_id IN ("
+                "SELECT id FROM report WHERE team_id = ?)",
+                (new_champion, old_champion, team_id),
+            )
         conn.commit()
     row = _fetch(conn, "team", team_id)
     conn.close()
