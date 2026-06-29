@@ -10,7 +10,7 @@ import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 import { ErrorState } from '@/components/EmptyState';
 
-// Route: "/teams/:championId" — one champion's portfolio, labeled by team. Wave-13 redesign (13B).
+// Route: "/teams/:teamId" — one team's portfolio (champion folded in). Wave-13 redesign (13B).
 
 // Terminal statuses = "closed". An action item / task in one of these is done.
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
@@ -38,7 +38,7 @@ function isOverdue(item: ActionItem): boolean {
 }
 
 export default function TeamPage() {
-  const { championId } = useParams<{ championId: string }>();
+  const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
 
   const [data, setData] = useState<TeamPage | null>(null);
@@ -51,17 +51,17 @@ export default function TeamPage() {
   const [modalError, setModalError] = useState(false);
 
   const load = useCallback(() => {
-    if (!championId) return;
+    if (!teamId) return;
     let cancelled = false;
     setLoading(true);
     setError(false);
     api.views
-      .teamPage(Number(championId))
+      .teamPage(Number(teamId))
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => { console.error(e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [championId]);
+  }, [teamId]);
 
   useEffect(() => load(), [load]);
 
@@ -126,7 +126,7 @@ export default function TeamPage() {
     );
   }
 
-  const { team, champion, domains, all_team_artifacts, reports, action_items } = data;
+  const { team, domains, all_team_artifacts, reports, action_items } = data;
 
   // ── Derived breakdowns for tile sub-callouts (computed client-side) ─────
   const allTasks = domains.flatMap((d) => d.tasks);
@@ -163,7 +163,7 @@ export default function TeamPage() {
     el.classList.add('flash');
   }
 
-  const avatarLetter = (champion.name || team.name || '?').trim().charAt(0).toUpperCase();
+  const avatarLetter = (team.champion_name || team.name || '?').trim().charAt(0).toUpperCase();
 
   return (
     <>
@@ -171,14 +171,14 @@ export default function TeamPage() {
         <div>
           <span className="top-bar-title">Team {team.name}</span>
           <span className="top-bar-sub">
-            Champion portfolio &bull; {champion.name}
-            {champion.start_date ? ` • since ${champion.start_date}` : ''}
+            Champion portfolio &bull; {team.champion_name}
+            {team.champion_start_date ? ` • since ${team.champion_start_date}` : ''}
           </span>
         </div>
         <div className="top-bar-actions">
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => navigate('/reports/new')}
+            onClick={() => navigate(`/reports/new?team=${team.id}`)}
           >
             + Create report
           </button>
@@ -192,8 +192,8 @@ export default function TeamPage() {
           <div>
             <div className="id-name">{team.name}</div>
             <div className="id-meta">
-              Champion <b>{champion.name}</b>
-              {champion.start_date && <> &bull; since <b>{champion.start_date}</b></>}
+              Champion <b>{team.champion_name}</b>
+              {team.champion_start_date && <> &bull; since <b>{team.champion_start_date}</b></>}
               {' '}&bull; <b>{data.domain_count}</b> domains
             </div>
           </div>
@@ -334,13 +334,13 @@ export default function TeamPage() {
           </summary>
           <div className="fold-body">
             {reports.length === 0 ? (
-              <div className="empty-note">No reports yet for {champion.name}.</div>
+              <div className="empty-note">No reports yet for {team.champion_name}.</div>
             ) : (
               reports.map((r) => (
                 <div className="report-row" key={r.id}>
                   <div>
                     <div className="report-date">{r.meeting_date}</div>
-                    <div className="report-label">Champion meeting &bull; {champion.name}</div>
+                    <div className="report-label">Champion meeting &bull; {team.champion_name}</div>
                   </div>
                   <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
                     View / Edit
@@ -366,7 +366,7 @@ export default function TeamPage() {
           </summary>
           <div className="fold-body">
             {action_items.length === 0 ? (
-              <div className="empty-note">No action items for {champion.name}.</div>
+              <div className="empty-note">No action items for {team.champion_name}.</div>
             ) : (
               <ActionItemsList items={action_items} />
             )}

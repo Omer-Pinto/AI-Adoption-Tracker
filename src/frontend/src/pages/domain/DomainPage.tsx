@@ -105,7 +105,7 @@ export default function DomainPage() {
         </div>
         <div className="top-bar-actions">
           <Link
-            to={`/teams/${domain.champion_id}`}
+            to={`/teams/${domain.team_id}`}
             className="btn btn-secondary btn-sm"
           >
             &#8592; Team page
@@ -118,7 +118,7 @@ export default function DomainPage() {
         <div className="breadcrumb" style={{ marginBottom: 16 }}>
           <Link to="/">Teams</Link>
           <span className="breadcrumb-sep">/</span>
-          <Link to={`/teams/${domain.champion_id}`}>Team</Link>
+          <Link to={`/teams/${domain.team_id}`}>Team</Link>
           <span className="breadcrumb-sep">/</span>
           <span>{domain.name}</span>
         </div>
