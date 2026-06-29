@@ -1,18 +1,18 @@
 """Views & lists API — team/domain pages, task & artifact lists/details.
 
 Wave-1 Agent 1B. Implements API contract §2 (Views & lists). Read-only
-endpoints over the §5 storage tables: the landing index, the team page (a
-champion's portfolio labeled by team), the domain page, and the task/artifact
-list + detail endpoints.
+endpoints over the §5 storage tables: the landing index, the team page (the
+team's portfolio of domains), the domain page, and the task/artifact list +
+detail endpoints.
 
 The two list endpoints (`/tasks`, `/artifacts`) accept the optional `q` DSL and
 delegate filtering to Agent 1D's `search` package via the
 `filter_tasks` / `filter_artifacts` / `ParseError` seam — this module never
 implements the DSL itself. All other endpoints are self-contained here.
 
-`{id}` on the team page is the CHAMPION id: the page is a champion's portfolio
-of domains, labeled by the team (spec §7, "keyed internally by champion,
-labeled by team"). The team is derived from the champion.
+`{id}` on the team page is the TEAM id (Wave 16): a team owns exactly one
+champion (`team.champion_name`), so the page keys directly by team. Everything
+on it (domains, reports, action items) hangs off `team_id`.
 """
 
 from __future__ import annotations
@@ -50,10 +50,12 @@ _AI_LEAD_OWNER = "AI Lead"
 # Field names match the contract §2 shapes EXACTLY.
 
 class TeamPageIndexEntry(BaseModel):
-    """One landing-index entry per (team, champion) pair (contract §2)."""
+    """One landing-index entry per team (contract §2; Wave 16: one champion/team).
+
+    `champion_name` is the team's single champion (`team.champion_name`).
+    """
     team_id: int
     team_name: str
-    champion_id: int
     champion_name: str
     domain_count: int
 
@@ -68,14 +70,16 @@ class DomainBlock(BaseModel):
 
 
 class TeamPage(BaseModel):
-    """The hub: a champion's portfolio of domains, labeled by team (contract §2).
+    """The hub: a team's portfolio of domains (contract §2).
+
+    Wave 16: the team owns its single champion, so the champion is surfaced via
+    `team.champion_name` — there is no longer an embedded `champion` entity.
 
     The `*_count` / open-closed fields are summary tallies over the data already
     loaded for the page (Wave 12). "Closed" uses the terminal status set; "open"
     is everything else.
     """
     team: models.Team
-    champion: models.Champion
     domains: list[DomainBlock]
     all_team_artifacts: list[models.Artifact]
     reports: list[models.Report]
@@ -256,10 +260,6 @@ def _team(row: sqlite3.Row) -> models.Team:
     return models.Team(**dict(row))
 
 
-def _champion(row: sqlite3.Row) -> models.Champion:
-    return models.Champion(**dict(row))
-
-
 def _domain(conn: sqlite3.Connection, domain_id: int) -> models.Domain:
     """Build the enriched Domain model (team_name + cross_domains) for `domain_id`."""
     return build_domain(conn, domain_id)
@@ -362,25 +362,23 @@ def _artifact_history_for_domain(
 
 @router.get("/team-pages", response_model=list[TeamPageIndexEntry])
 def list_team_pages() -> list[TeamPageIndexEntry]:
-    """Landing index: one entry per (team, champion) pair (contract §2).
+    """Landing index: one entry per team (contract §2; Wave 16).
 
-    A team split across two champions yields two entries. `domain_count` counts
-    the champion's own domains (domain.champion_id).
+    One row per team (a team owns exactly one champion). `champion_name` is the
+    team's champion; `domain_count` counts the team's domains (domain.team_id).
     """
     conn = get_connection()
     try:
         rows = conn.execute(
             """
             SELECT
-                t.id   AS team_id,
-                t.name AS team_name,
-                c.id   AS champion_id,
-                c.name AS champion_name,
-                (SELECT COUNT(*) FROM domain d WHERE d.champion_id = c.id)
+                t.id            AS team_id,
+                t.name          AS team_name,
+                t.champion_name AS champion_name,
+                (SELECT COUNT(*) FROM domain d WHERE d.team_id = t.id)
                     AS domain_count
-            FROM champion c
-            JOIN team t ON t.id = c.team_id
-            ORDER BY t.name, c.name, c.id
+            FROM team t
+            ORDER BY t.name, t.id
             """
         ).fetchall()
         return [TeamPageIndexEntry(**dict(r)) for r in rows]
@@ -390,32 +388,24 @@ def list_team_pages() -> list[TeamPageIndexEntry]:
 
 @router.get("/teams/{id}/page", response_model=TeamPage)
 def team_page(id: int) -> TeamPage:
-    """The hub for one champion's portfolio. `{id}` is the CHAMPION id.
+    """The hub for one team's portfolio. `{id}` is the TEAM id (Wave 16).
 
-    Derives the team from the champion. Returns each domain with current
-    tasks/artifacts plus full history, the all-team gutter (team artifacts with
-    domain_id NULL), the champion's reports (newest first), and action items
-    from that champion's reports.
+    Returns each domain with current tasks/artifacts plus full history, the
+    all-team gutter (team artifacts with domain_id NULL), the team's reports
+    (newest first), and the action items from those reports. The champion is
+    surfaced via `team.champion_name`.
     """
     conn = get_connection()
     try:
-        champ_row = conn.execute(
-            "SELECT * FROM champion WHERE id = ?", (id,)
-        ).fetchone()
-        if champ_row is None:
-            raise HTTPException(status_code=404, detail="Champion not found")
-        champion = _champion(champ_row)
-
         team_row = conn.execute(
-            "SELECT * FROM team WHERE id = ?", (champion.team_id,)
+            "SELECT * FROM team WHERE id = ?", (id,)
         ).fetchone()
         if team_row is None:
-            # Champion's team missing is a data-integrity 404 (FK should prevent).
             raise HTTPException(status_code=404, detail="Team not found")
         team = _team(team_row)
 
         domain_id_rows = conn.execute(
-            "SELECT id FROM domain WHERE champion_id = ? ORDER BY priority IS NULL, priority, id",
+            "SELECT id FROM domain WHERE team_id = ? ORDER BY priority IS NULL, priority, id",
             (id,),
         ).fetchall()
         domains: list[DomainBlock] = []
@@ -431,7 +421,7 @@ def team_page(id: int) -> TeamPage:
                 )
             )
 
-        # All-team gutter: this champion's team's artifacts with no domain.
+        # All-team gutter: this team's artifacts with no domain.
         gutter_rows = conn.execute(
             "SELECT * FROM artifact WHERE team_id = ? AND domain_id IS NULL ORDER BY id",
             (team.id,),
@@ -439,7 +429,7 @@ def team_page(id: int) -> TeamPage:
         all_team_artifacts = [_artifact(r) for r in gutter_rows]
 
         report_rows = conn.execute(
-            "SELECT * FROM report WHERE champion_id = ? ORDER BY meeting_date DESC, id DESC",
+            "SELECT * FROM report WHERE team_id = ? ORDER BY meeting_date DESC, id DESC",
             (id,),
         ).fetchall()
         reports = [_report(r) for r in report_rows]
@@ -448,7 +438,7 @@ def team_page(id: int) -> TeamPage:
             """
             SELECT ai.* FROM action_item ai
             JOIN report r ON r.id = ai.report_id
-            WHERE r.champion_id = ?
+            WHERE r.team_id = ?
             ORDER BY ai.id
             """,
             (id,),
@@ -476,7 +466,6 @@ def team_page(id: int) -> TeamPage:
 
         return TeamPage(
             team=team,
-            champion=champion,
             domains=domains,
             all_team_artifacts=all_team_artifacts,
             reports=reports,
@@ -918,9 +907,10 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
     """Every action item owned by the AI Lead — report-derived AND standalone.
 
     LEFT-JOINs each `action_item` (owner = 'AI Lead') against its report
-    (meeting_date, report_id), champion (name, team_id) and team (name); a
-    standalone item (report_id NULL) leaves those null. `domain` is resolved via
-    the nullable `action_item.domain_id` (null = unplaced/team-wide). Ordered with
+    (meeting_date, report_id) and team (name + champion_name); a standalone item
+    (report_id NULL) leaves those null. `champion_name` is the team's single
+    champion (`team.champion_name`, Wave 16). `domain` is resolved via the
+    nullable `action_item.domain_id` (null = unplaced/team-wide). Ordered with
     standalone/NULL-meeting-date items first, then meeting items newest-first
     (meeting_date DESC, id DESC for same-date ties)."""
     conn = get_connection()
@@ -928,19 +918,18 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
         rows = conn.execute(
             """
             SELECT
-                ai.id          AS id,
-                ai.text        AS text,
-                t.name         AS team_name,
-                c.name         AS champion_name,
-                r.meeting_date AS meeting_date,
-                ai.status      AS status,
-                ai.due_date    AS due_date,
-                d.name         AS domain,
-                r.id           AS report_id
+                ai.id             AS id,
+                ai.text           AS text,
+                t.name            AS team_name,
+                t.champion_name   AS champion_name,
+                r.meeting_date    AS meeting_date,
+                ai.status         AS status,
+                ai.due_date       AS due_date,
+                d.name            AS domain,
+                r.id              AS report_id
             FROM action_item ai
-            LEFT JOIN report r   ON r.id = ai.report_id
-            LEFT JOIN champion c ON c.id = r.champion_id
-            LEFT JOIN team t     ON t.id = c.team_id
+            LEFT JOIN report r ON r.id = ai.report_id
+            LEFT JOIN team t   ON t.id = r.team_id
             LEFT JOIN domain d ON d.id = ai.domain_id
             WHERE ai.owner = ?
             ORDER BY (r.meeting_date IS NULL) DESC, r.meeting_date DESC, ai.id DESC

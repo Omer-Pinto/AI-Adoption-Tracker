@@ -1,12 +1,17 @@
-"""Management API — teams, champions, domains CRUD.
+"""Management API — teams (with their champion) + domains CRUD.
 
-Implements API contract §1 (Agent 1A). CRUD for the three management entities,
-each a list with Add/Edit (spec §7). Plain parameterized SQL via
-`get_connection()`; one connection opened/committed/closed per request.
+Implements API contract §1 (Agent 1A). CRUD for the management entities, each a
+list with Add/Edit (spec §7). Plain parameterized SQL via `get_connection()`;
+one connection opened/committed/closed per request.
 
-Response shapes are the entity models from `models.py` (`Team`, `Champion`,
-`Domain`). The request models referenced by the contract (`TeamCreate`/etc.) do
-not live in `models.py`, so they are defined locally here:
+A team OWNS its single champion (Wave 16): the champion is folded into the team
+row (`team.champion_name` NOT NULL + `team.champion_start_date`), so there is no
+separate champion entity/CRUD — creating/editing a team creates/edits its
+champion in place.
+
+Response shapes are the entity models from `models.py` (`Team`, `Domain`). The
+request models referenced by the contract (`TeamCreate`/etc.) do not live in
+`models.py`, so they are defined locally here:
   * `*Create` — the entity fields minus `id`; required vs optional mirrors the
     entity model's nullability (NOT NULL columns required, nullable optional).
   * `*Update` — every field optional (partial PATCH; only provided fields are
@@ -26,8 +31,8 @@ from pydantic import BaseModel
 import llm.interface as llm
 from db import get_connection
 from domain_helpers import build_domain, build_domains_for_query
-from models import Champion, Domain, Team
-from reports.engine import _ensure_context_creation_domain, _ensure_general_domain
+from models import Domain, Team
+from reports.engine import _ensure_context_creation_domain
 
 router = APIRouter(prefix="/api", tags=["management"])
 
@@ -35,30 +40,30 @@ router = APIRouter(prefix="/api", tags=["management"])
 # ── request models (contract §1; not in models.py) ──────────────────────────
 
 class TeamCreate(BaseModel):
+    """Create a team together with its single champion (Wave 16).
+
+    `champion_name` is REQUIRED (the team's champion is mandatory);
+    `champion_start_date` is optional. There is no standalone champion-create.
+    """
     name: str
+    champion_name: str
+    champion_start_date: str | None = None
 
 
 class TeamUpdate(BaseModel):
+    """Edit a team and/or its champion in place (partial PATCH).
+
+    Renaming or replacing the champion = editing `champion_name`. `name` and
+    `champion_name` are NOT NULL columns, so an explicit null is rejected (422);
+    an omitted field is untouched.
+    """
     name: str | None = None
-
-
-class ChampionCreate(BaseModel):
-    name: str
-    team_id: int
-    start_date: str | None = None
-    end_date: str | None = None
-
-
-class ChampionUpdate(BaseModel):
-    name: str | None = None
-    team_id: int | None = None
-    start_date: str | None = None
-    end_date: str | None = None
+    champion_name: str | None = None
+    champion_start_date: str | None = None
 
 
 class DomainCreate(BaseModel):
     team_id: int
-    champion_id: int
     name: str
     description: str | None = None
     priority: str | None = None
@@ -67,7 +72,6 @@ class DomainCreate(BaseModel):
 
 class DomainUpdate(BaseModel):
     team_id: int | None = None
-    champion_id: int | None = None
     name: str | None = None
     description: str | None = None
     priority: str | None = None
@@ -82,22 +86,20 @@ _UNDELETABLE_DOMAIN_NAMES = {"general", "context creation"}
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _ensure_general_domain(
-    conn: sqlite3.Connection, champion_id: int, team_id: int
-) -> int:
-    """Find (or create) this champion's 'General' catch-all domain; return its id.
+def _ensure_general_domain(conn: sqlite3.Connection, team_id: int) -> int:
+    """Find (or create) this team's 'General' catch-all domain; return its id.
 
     Mirrors the report engine's catch-all bucket so a domain-delete can reassign
     orphaned tasks/artifacts. Plain-SQL to match this module's style (management
     never reaches into the engine)."""
     for row in conn.execute(
-        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+        "SELECT id, name FROM domain WHERE team_id = ?", (team_id,)
     ).fetchall():
         if row["name"].strip().lower() == _GENERAL_DOMAIN_NAME.lower():
             return row["id"]
     cur = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name, description) VALUES (?, ?, ?, ?)",
-        (team_id, champion_id, _GENERAL_DOMAIN_NAME,
+        "INSERT INTO domain (team_id, name, description) VALUES (?, ?, ?)",
+        (team_id, _GENERAL_DOMAIN_NAME,
          "Catch-all for items not yet assigned to a specific domain."),
     )
     return cur.lastrowid
@@ -126,31 +128,6 @@ def _update(conn: sqlite3.Connection, table: str, row_id: int, data: dict) -> No
 
 def _fetch(conn: sqlite3.Connection, table: str, row_id: int):
     return conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
-
-
-def _assert_champion_belongs_to_team(
-    conn: sqlite3.Connection, champion_id: int, team_id: int
-) -> None:
-    """Raise 422 if the champion's team_id does not match `team_id`.
-
-    Call AFTER the individual FK existence checks so callers already know both
-    the champion and team rows exist.
-    """
-    row = conn.execute(
-        "SELECT team_id FROM champion WHERE id = ?", (champion_id,)
-    ).fetchone()
-    if row is None:
-        # Shouldn't happen — caller already checked — but be defensive.
-        raise HTTPException(status_code=404, detail="Champion not found")
-    if row["team_id"] != team_id:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Champion {champion_id} belongs to team {row['team_id']}, "
-                f"not team {team_id}. A domain's champion must belong to the "
-                "same team as the domain."
-            ),
-        )
 
 
 def _reconcile_links(
@@ -235,7 +212,7 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
         conn.close()
         raise HTTPException(status_code=404, detail="Team not found")
     changes = body.model_dump(exclude_unset=True)
-    for field in ("name",):
+    for field in ("name", "champion_name"):
         if field in changes and changes[field] is None:
             conn.close()
             raise HTTPException(status_code=422, detail=f"{field} cannot be null")
@@ -245,97 +222,6 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
     row = _fetch(conn, "team", team_id)
     conn.close()
     return Team(**dict(row))
-
-
-# ── champions ────────────────────────────────────────────────────────────────
-
-@router.get("/champions", response_model=list[Champion])
-def list_champions(team_id: int | None = Query(default=None)) -> list[Champion]:
-    conn = get_connection()
-    if team_id is None:
-        rows = conn.execute("SELECT * FROM champion").fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM champion WHERE team_id = ?", (team_id,)
-        ).fetchall()
-    conn.close()
-    return [Champion(**dict(r)) for r in rows]
-
-
-@router.get("/champions/{champion_id}", response_model=Champion)
-def get_champion(champion_id: int) -> Champion:
-    conn = get_connection()
-    row = _fetch(conn, "champion", champion_id)
-    conn.close()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Champion not found")
-    return Champion(**dict(row))
-
-
-@router.post("/champions", response_model=Champion, status_code=status.HTTP_201_CREATED)
-def create_champion(body: ChampionCreate) -> Champion:
-    conn = get_connection()
-    if _fetch(conn, "team", body.team_id) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Team not found")
-    new_id = _insert(conn, "champion", body.model_dump())
-    conn.commit()
-    row = _fetch(conn, "champion", new_id)
-    conn.close()
-    return Champion(**dict(row))
-
-
-@router.patch("/champions/{champion_id}", response_model=Champion)
-def update_champion(champion_id: int, body: ChampionUpdate) -> Champion:
-    conn = get_connection()
-    if _fetch(conn, "champion", champion_id) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Champion not found")
-    changes = body.model_dump(exclude_unset=True)
-    for field in ("name", "team_id"):
-        if field in changes and changes[field] is None:
-            conn.close()
-            raise HTTPException(status_code=422, detail=f"{field} cannot be null")
-    if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Team not found")
-    if changes:
-        _update(conn, "champion", champion_id, changes)
-        conn.commit()
-    row = _fetch(conn, "champion", champion_id)
-    conn.close()
-    return Champion(**dict(row))
-
-
-@router.delete("/champions/{champion_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_champion(champion_id: int) -> None:
-    """Delete a champion and its (now-empty) domains.
-
-    Guards meeting history: if the champion has ANY reports, refuse with 409 —
-    deleting would destroy the fanned-out timeline. A champion with no reports has
-    no tasks/artifacts (both are report-driven), so its domains are empty and are
-    removed alongside it (domain_link rows cascade). 404 if the champion is
-    unknown."""
-    conn = get_connection()
-    try:
-        if _fetch(conn, "champion", champion_id) is None:
-            raise HTTPException(status_code=404, detail="Champion not found")
-        report_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM report WHERE champion_id = ?", (champion_id,)
-        ).fetchone()["n"]
-        if report_count:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Champion {champion_id} has {report_count} report(s); "
-                    "delete is blocked to preserve meeting history."
-                ),
-            )
-        conn.execute("DELETE FROM domain WHERE champion_id = ?", (champion_id,))
-        conn.execute("DELETE FROM champion WHERE id = ?", (champion_id,))
-        conn.commit()
-    finally:
-        conn.close()
 
 
 # ── domains ──────────────────────────────────────────────────────────────────
@@ -367,7 +253,6 @@ def extract_domains(body: DomainExtractRequest) -> dict:
 @router.get("/domains", response_model=list[Domain])
 def list_domains(
     team_id: int | None = Query(default=None),
-    champion_id: int | None = Query(default=None),
 ) -> list[Domain]:
     conn = get_connection()
     try:
@@ -376,9 +261,6 @@ def list_domains(
         if team_id is not None:
             clauses.append("d.team_id = ?")
             params.append(team_id)
-        if champion_id is not None:
-            clauses.append("d.champion_id = ?")
-            params.append(champion_id)
         return build_domains_for_query(conn, clauses, params)
     finally:
         conn.close()
@@ -402,24 +284,20 @@ def create_domain(body: DomainCreate) -> Domain:
     try:
         if _fetch(conn, "team", body.team_id) is None:
             raise HTTPException(status_code=404, detail="Team not found")
-        if _fetch(conn, "champion", body.champion_id) is None:
-            raise HTTPException(status_code=404, detail="Champion not found")
-        _assert_champion_belongs_to_team(conn, body.champion_id, body.team_id)
         domain_data = {
             "team_id": body.team_id,
-            "champion_id": body.champion_id,
             "name": body.name,
             "description": body.description,
             "priority": body.priority,
         }
         new_id = _insert(conn, "domain", domain_data)
         _reconcile_links(conn, new_id, body.cross_domain_ids)
-        # Once a champion has a real domain, ensure their two constant domains
-        # exist. Both helpers are idempotent (case-insensitive name lookup), so
-        # they create 'General' / 'Context creation' only the first time and
-        # never duplicate them on subsequent domain creations.
-        _ensure_general_domain(conn, body.champion_id, body.team_id)
-        _ensure_context_creation_domain(conn, body.champion_id, body.team_id)
+        # Once a team has a real domain, ensure its two constant domains exist.
+        # Both helpers are idempotent (case-insensitive name lookup), so they
+        # create 'General' / 'Context creation' only the first time and never
+        # duplicate them on subsequent domain creations.
+        _ensure_general_domain(conn, body.team_id)
+        _ensure_context_creation_domain(conn, body.team_id)
         conn.commit()
         return build_domain(conn, new_id)
     finally:
@@ -436,19 +314,11 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
         changes = body.model_dump(exclude_unset=True)
         # Pop cross_domain_ids before building the SQL update dict.
         cross_domain_ids: list[int] | None = changes.pop("cross_domain_ids", None)
-        for field in ("name", "team_id", "champion_id"):
+        for field in ("name", "team_id"):
             if field in changes and changes[field] is None:
                 raise HTTPException(status_code=422, detail=f"{field} cannot be null")
         if "team_id" in changes and _fetch(conn, "team", changes["team_id"]) is None:
             raise HTTPException(status_code=404, detail="Team not found")
-        if "champion_id" in changes and _fetch(conn, "champion", changes["champion_id"]) is None:
-            raise HTTPException(status_code=404, detail="Champion not found")
-        # Cross-team guard: if either team_id or champion_id is being changed,
-        # ensure the effective (post-patch) champion belongs to the effective team.
-        if "team_id" in changes or "champion_id" in changes:
-            effective_team_id = changes.get("team_id", existing_row["team_id"])
-            effective_champion_id = changes.get("champion_id", existing_row["champion_id"])
-            _assert_champion_belongs_to_team(conn, effective_champion_id, effective_team_id)
         if changes:
             _update(conn, "domain", domain_id, changes)
         if cross_domain_ids is not None:
@@ -461,7 +331,7 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
 
 @router.delete("/domains/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_domain(domain_id: int) -> None:
-    """Delete a domain, reassigning its tasks & artifacts to the champion's
+    """Delete a domain, reassigning its tasks & artifacts to the team's
     'General' catch-all first.
 
     Blocks (409) deleting the system-provided constant domains 'General' and
@@ -481,9 +351,7 @@ def delete_domain(domain_id: int) -> None:
                     "deleted."
                 ),
             )
-        general_id = _ensure_general_domain(
-            conn, row["champion_id"], row["team_id"]
-        )
+        general_id = _ensure_general_domain(conn, row["team_id"])
         conn.execute(
             "UPDATE task SET domain_id = ? WHERE domain_id = ?",
             (general_id, domain_id),

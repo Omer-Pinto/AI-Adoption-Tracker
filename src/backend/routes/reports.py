@@ -8,7 +8,7 @@ shape the response. See `reports/engine.py` for the fan-out + replay logic and
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 import llm.interface as llm
@@ -27,9 +27,9 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 class DraftRequest(BaseModel):
-    """Body for `POST /api/reports/draft` (§3): the champion + raw notes."""
+    """Body for `POST /api/reports/draft` (§3): the team + raw notes (Wave 16)."""
 
-    champion_id: int
+    team_id: int
     notes: str
 
 
@@ -56,7 +56,7 @@ def draft(req: DraftRequest) -> ReportDocument:
     conn = get_connection()
     try:
         try:
-            context = build_draft_context(conn, req.champion_id)
+            context = build_draft_context(conn, req.team_id)
         except EngineError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -74,12 +74,22 @@ def draft(req: DraftRequest) -> ReportDocument:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ReportResponse)
-def save(doc: ReportDocument) -> ReportResponse:
-    """Confirm a previewed draft -> fan out to the tables in one transaction."""
+def save(doc: ReportDocument, team_id: int = Query(...)) -> ReportResponse:
+    """Confirm a previewed draft -> fan out to the tables in one transaction.
+
+    `team_id` is a required query param (Wave 16): the report is keyed by team,
+    and the engine overwrites `report_json.champion` with the team's live
+    champion name. Unknown team -> 404; a duplicate (team_id, meeting_date) or
+    other validation failure -> 422.
+    """
     conn = get_connection()
     try:
+        if conn.execute(
+            "SELECT 1 FROM team WHERE id = ?", (team_id,)
+        ).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Team not found")
         try:
-            row = fan_out_report(conn, doc)
+            row = fan_out_report(conn, team_id, doc)
         except EngineError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _report_payload(row)
@@ -103,7 +113,11 @@ def get_one(report_id: int) -> ReportResponse:
 
 @router.patch("/{report_id}", response_model=ReportResponse)
 def edit(report_id: int, doc: ReportDocument) -> ReportResponse:
-    """Edit a saved report + replay the champion's timeline (no LLM needed)."""
+    """Edit a saved report + replay the team's timeline (no LLM needed).
+
+    Replays by the existing report's `team_id` (Wave 16); the engine derives the
+    team from the stored report, so the body stays a plain `ReportDocument`.
+    """
     conn = get_connection()
     try:
         try:
