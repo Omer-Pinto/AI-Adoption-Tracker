@@ -1115,12 +1115,12 @@ function ActionItemsCard({
         <table className="ai-table">
           <thead>
             <tr>
-              <th>Action item (type @ task or # artifact)</th>
-              <th>Status</th>
-              <th>Owner</th>
-              <th>Due</th>
-              <th>Domain</th>
-              <th />
+              <th className="ai-col-item">Action item (type @ task or # artifact)</th>
+              <th className="ai-col-status">Status</th>
+              <th className="ai-col-owner">Owner</th>
+              <th className="ai-col-due">Due</th>
+              <th className="ai-col-domain">Domain</th>
+              <th className="ai-col-del" />
             </tr>
           </thead>
           <tbody>
@@ -1362,11 +1362,15 @@ function ParticipantsRow({
 }) {
   const [draft, setDraft] = useState('');
 
-  // Seed default participants — [<champion>, "AI Lead"] — when none are present
-  // (run once on mount; the editor only renders with a loaded report).
+  // Seed default participants — [<champion>, "AI Lead"] — when none are present;
+  // otherwise guarantee the AI Lead is always a participant (the drafted report
+  // may list others but omit it). Runs once on mount (the editor only renders
+  // with a loaded report) so the AI Lead pill shows and gets saved.
   useEffect(() => {
     if (participants.length === 0) {
       onChange([champion, AI_LEAD].filter(Boolean));
+    } else if (!participants.includes(AI_LEAD)) {
+      onChange([...participants, AI_LEAD]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

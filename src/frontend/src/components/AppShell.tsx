@@ -62,10 +62,6 @@ export function AppShell() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="7" cy="22" r="2.2" fill="#ffffff" />
-              <circle cx="13" cy="15.5" r="2.2" fill="#ffffff" />
-              <circle cx="18.5" cy="18.5" r="2.2" fill="#ffffff" />
-              <circle cx="25" cy="9.5" r="2.7" fill="#ffffff" />
             </svg>
           </span>
             <span className="nav-logo-title">Adoption Tracker</span>

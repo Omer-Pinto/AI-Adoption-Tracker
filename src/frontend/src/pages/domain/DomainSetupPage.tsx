@@ -64,8 +64,11 @@ function ProposalCard({
     );
   }
 
+  // Collapsible per-proposal so the reviewer can fold a checked proposal and see
+  // the next one without scrolling. Default collapsed → the list stays compact;
+  // the summary always shows the proposal number + (editable) name.
   return (
-    <div
+    <details
       style={{
         background: '#ffffff',
         border: '1px solid #e5e7eb',
@@ -74,42 +77,54 @@ function ProposalCard({
         marginBottom: 12,
       }}
     >
-      <div
+      <summary
         style={{
-          fontSize: 11,
+          cursor: 'pointer',
+          fontSize: 13,
           fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          color: '#9ca3af',
-          marginBottom: 12,
+          color: '#374151',
         }}
       >
-        Proposal {index + 1}
-      </div>
-
-      {error && (
-        <div className="blocker-banner" style={{ marginBottom: 12 }}>
-          {error}
-        </div>
-      )}
-
-      <DomainFormFields
-        values={fields}
-        onChange={(next) => onFieldsChange(index, next)}
-        allDomains={allDomains}
-        autoFocusName={false}
-      />
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => onApprove(index)}
-          disabled={saving}
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: '#9ca3af',
+            marginRight: 8,
+          }}
         >
-          {saving ? 'Saving…' : 'Approve & save'}
-        </button>
+          Proposal {index + 1}
+        </span>
+        {fields.name || 'Untitled domain'}
+      </summary>
+
+      <div style={{ marginTop: 14 }}>
+        {error && (
+          <div className="blocker-banner" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
+
+        <DomainFormFields
+          values={fields}
+          onChange={(next) => onFieldsChange(index, next)}
+          allDomains={allDomains}
+          autoFocusName={false}
+        />
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => onApprove(index)}
+            disabled={saving}
+          >
+            {saving ? 'Saving…' : 'Approve & save'}
+          </button>
+        </div>
       </div>
-    </div>
+    </details>
   );
 }
 

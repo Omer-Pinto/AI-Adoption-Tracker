@@ -1048,7 +1048,18 @@
 .report-editor table.flat tr:last-child td, .report-editor table.ai-table tr:last-child td { border-bottom: none; }
 .report-editor table.flat tr:hover td { background: var(--surface-2); }
 .report-editor .name-td { min-width: 200px; }
-.report-editor .ai-text-td { min-width: 300px; }
+
+/* Action-items table — fixed layout so the @/# editor + owner "other" box stay
+   inside their columns and never shove neighbours sideways. Same cell chrome as
+   table.flat (shared rules above); only the column widths are pinned here. */
+.report-editor table.ai-table { table-layout: fixed; }
+.report-editor .ai-col-item   { width: auto; }   /* takes the remaining space */
+.report-editor .ai-col-status { width: 150px; }
+.report-editor .ai-col-owner  { width: 150px; }
+.report-editor .ai-col-due    { width: 138px; }
+.report-editor .ai-col-domain { width: 150px; }
+.report-editor .ai-col-del    { width: 44px; }
+.report-editor .ai-text-td { min-width: 0; }
 
 /* Inline editable cells */
 .report-editor .cell-input {
@@ -1057,7 +1068,9 @@
 }
 .report-editor .cell-input:hover { border-color: var(--border); background: var(--surface); }
 .report-editor .cell-input:focus { border-color: var(--re-indigo); background: var(--surface); outline: none; box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
-.report-editor .owner-input { min-width: 70px; }
+/* Bounded so a long owner name scrolls inside the box instead of widening the
+   cell / shoving the row (the "other" free-text input is the worst offender). */
+.report-editor .owner-input { width: 100%; min-width: 0; max-width: 130px; box-sizing: border-box; }
 .report-editor .note-input, .report-editor .summary-input { min-width: 100px; }
 .report-editor .tags-input { min-width: 80px; }
 
@@ -1163,6 +1176,8 @@
   font-size: 13.5px; line-height: 1.7; color: var(--text); background: var(--surface); outline: none;
   /* Render a raw \n in a text node as a visible line break (and still wrap). */
   white-space: pre-wrap;
+  /* Keep a long word / pasted URL from widening the fixed action-item column. */
+  overflow-wrap: anywhere;
 }
 .report-editor .rte:focus { border-color: var(--re-indigo); box-shadow: 0 0 0 2px rgba(67,97,238,.1); }
 .report-editor .rte:empty::before { content: attr(data-placeholder); color: var(--text-faint); }
