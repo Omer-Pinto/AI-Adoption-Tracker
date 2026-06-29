@@ -1,30 +1,27 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Team, Champion, Domain } from '@/types';
+import type { Team, Domain } from '@/types';
 import { api } from '@/api';
 import { DataTable } from '@/components/DataTable';
 import type { Column } from '@/components/DataTable';
 import { TeamForm } from './TeamForm';
-import { ChampionForm } from './ChampionForm';
 import { DomainForm } from './DomainForm';
 import { ErrorState } from '@/components/EmptyState';
 
-// Route: "/manage" — Teams, Champions, Domains lists with Add/Edit.
+// Route: "/manage" — Teams, Domains lists with Add/Edit.
 
-type ActiveTab = 'teams' | 'champions' | 'domains';
+type ActiveTab = 'teams' | 'domains';
 
 type ModalState =
   | { kind: 'none' }
   | { kind: 'team'; editing: Team | null }
-  | { kind: 'champion'; editing: Champion | null }
   | { kind: 'domain'; editing: Domain | null };
 
 export default function ManagePage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<ActiveTab>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
-  const [champions, setChampions] = useState<Champion[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
   const [loadError, setLoadError] = useState(false);
@@ -32,13 +29,11 @@ export default function ManagePage() {
   const loadAll = useCallback(async () => {
     setLoadError(false);
     try {
-      const [t, c, d] = await Promise.all([
+      const [t, d] = await Promise.all([
         api.teams.list(),
-        api.champions.list(),
         api.domains.list(),
       ]);
       setTeams(t);
-      setChampions(c);
       setDomains(d);
     } catch (e) {
       console.error(e);
@@ -59,16 +54,6 @@ export default function ManagePage() {
     void loadAll();
   }
 
-  async function handleDeleteChampion(c: Champion) {
-    if (!confirm(`Delete champion "${c.name}"? This cannot be undone.`)) return;
-    try {
-      await api.champions.delete(c.id);
-      await loadAll();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed.');
-    }
-  }
-
   async function handleDeleteDomain(d: Domain) {
     if (!confirm(`Delete domain "${d.name}"? Its items will be reassigned to General.`)) return;
     try {
@@ -87,9 +72,14 @@ export default function ManagePage() {
       render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
     },
     {
-      key: 'baseline_date',
-      header: 'Baseline Date',
-      render: (row) => <span className="text-muted">{row.baseline_date ?? '—'}</span>,
+      key: 'champion_name',
+      header: 'Champion',
+      render: (row) => <span className="text-muted">{row.champion_name}</span>,
+    },
+    {
+      key: 'champion_start_date',
+      header: 'Start',
+      render: (row) => <span className="text-muted">{row.champion_start_date ?? '—'}</span>,
     },
     {
       key: 'actions',
@@ -109,56 +99,8 @@ export default function ManagePage() {
     },
   ];
 
-  // --- Champions table ---
-  const teamById = (id: number) => teams.find((t) => t.id === id)?.name ?? String(id);
-
-  const championColumns: Column<Champion>[] = [
-    {
-      key: 'name',
-      header: 'Name',
-      render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
-    },
-    {
-      key: 'start_date',
-      header: 'Start',
-      render: (row) => <span className="text-muted">{row.start_date ?? '—'}</span>,
-    },
-    {
-      key: 'end_date',
-      header: 'End',
-      render: (row) => <span className="text-muted">{row.end_date ?? '—'}</span>,
-    },
-    {
-      key: 'actions',
-      header: '',
-      width: '150px',
-      render: (row) => (
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setModal({ kind: 'champion', editing: row });
-            }}
-          >
-            Edit
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleDeleteChampion(row);
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      ),
-    },
-  ];
-
   // --- Domains table ---
-  const championById = (id: number) => champions.find((c) => c.id === id)?.name ?? String(id);
+  const teamById = (id: number) => teams.find((t) => t.id === id)?.name ?? String(id);
 
   // Sort by numeric priority ascending (lower number = higher priority),
   // rows with no/blank/non-numeric priority sort to the bottom.
@@ -179,11 +121,6 @@ export default function ManagePage() {
       key: 'name',
       header: 'Name',
       render: (row) => <span style={{ fontWeight: 600 }}>{row.name}</span>,
-    },
-    {
-      key: 'champion',
-      header: 'Champion',
-      render: (row) => <span className="text-muted">{championById(row.champion_id)}</span>,
     },
     {
       key: 'priority',
@@ -292,7 +229,6 @@ export default function ManagePage() {
 
   const tabLabels: { id: ActiveTab; label: string; count: number }[] = [
     { id: 'teams', label: 'Teams', count: teams.length },
-    { id: 'champions', label: 'Champions', count: champions.length },
     { id: 'domains', label: 'Domains', count: domains.length },
   ];
 
@@ -302,7 +238,7 @@ export default function ManagePage() {
       <div className="top-bar">
         <div>
           <span className="top-bar-title">Manage</span>
-          <span className="top-bar-sub">Teams, champions, domains</span>
+          <span className="top-bar-sub">Teams, domains</span>
         </div>
         <div className="top-bar-actions">
           {tab === 'teams' && (
@@ -311,14 +247,6 @@ export default function ManagePage() {
               onClick={() => setModal({ kind: 'team', editing: null })}
             >
               + Add Team
-            </button>
-          )}
-          {tab === 'champions' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setModal({ kind: 'champion', editing: null })}
-            >
-              + Add Champion
             </button>
           )}
           {tab === 'domains' && (
@@ -375,7 +303,7 @@ export default function ManagePage() {
           <div className="panel">
             <ErrorState
               title="Couldn't load this"
-              hint="Teams, champions and domains failed to load. Try again."
+              hint="Teams and domains failed to load. Try again."
               onRetry={() => void loadAll()}
             />
           </div>
@@ -390,29 +318,6 @@ export default function ManagePage() {
             />
           </div>
         )}
-        {!loadError && tab === 'champions' &&
-          (champions.length === 0 ? (
-            <div className="panel">
-              <div className="page-body text-muted text-sm">
-                No champions yet. Click + Add Champion to create one.
-              </div>
-            </div>
-          ) : (
-            groupByTeam(champions).map((group) => (
-              <TeamGroupCard
-                key={group.teamId}
-                name={group.teamName}
-                count={group.rows.length}
-                noun="champion"
-              >
-                <DataTable
-                  columns={championColumns}
-                  rows={group.rows}
-                  rowKey={(r) => r.id}
-                />
-              </TeamGroupCard>
-            ))
-          ))}
         {!loadError && tab === 'domains' &&
           (domains.length === 0 ? (
             <div className="panel">
@@ -447,21 +352,11 @@ export default function ManagePage() {
           onSaved={handleSaved}
         />
       )}
-      {modal.kind === 'champion' && (
-        <ChampionForm
-          open
-          editing={modal.editing}
-          teams={teams}
-          onClose={closeModal}
-          onSaved={handleSaved}
-        />
-      )}
       {modal.kind === 'domain' && (
         <DomainForm
           open
           editing={modal.editing}
           teams={teams}
-          champions={champions}
           onClose={closeModal}
           onSaved={handleSaved}
         />

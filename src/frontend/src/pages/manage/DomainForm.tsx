@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Domain, Team, Champion } from '@/types';
+import type { Domain, Team } from '@/types';
 import { api } from '@/api';
 import { Modal } from '@/components/Modal';
 
@@ -185,7 +185,6 @@ interface DomainFormProps {
   open: boolean;
   editing: Domain | null;
   teams: Team[];
-  champions: Champion[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -194,15 +193,11 @@ export function DomainForm({
   open,
   editing,
   teams,
-  champions,
   onClose,
   onSaved,
 }: DomainFormProps) {
   const [teamId, setTeamId] = useState<string>(
     editing?.team_id != null ? String(editing.team_id) : '',
-  );
-  const [championId, setChampionId] = useState<string>(
-    editing?.champion_id != null ? String(editing.champion_id) : '',
   );
   const [fields, setFields] = useState<DomainFormFieldValues>({
     name: editing?.name ?? '',
@@ -221,19 +216,6 @@ export function DomainForm({
     });
   }, [open]);
 
-  // Champions filtered to the selected team (or all if no team selected)
-  const filteredChampions =
-    teamId ? champions.filter((c) => c.team_id === Number(teamId)) : champions;
-
-  // When the selected team has exactly one champion, auto-select it silently
-  // (but the dropdown is still always shown below).
-  useEffect(() => {
-    if (filteredChampions.length === 1 && filteredChampions[0]) {
-      const soleId = String(filteredChampions[0].id);
-      if (championId !== soleId) setChampionId(soleId);
-    }
-  }, [filteredChampions, championId]);
-
   const title = editing ? `Edit Domain: ${editing.name}` : 'Add Domain';
 
   async function handleSubmit() {
@@ -245,7 +227,6 @@ export function DomainForm({
     setSubmitError(null);
     const body = {
       team_id: Number(teamId),
-      champion_id: Number(championId),
       name: fields.name,
       description: fields.description || null,
       priority: fields.priority || null,
@@ -291,40 +272,20 @@ export function DomainForm({
           {submitError}
         </p>
       )}
-      <div className="form-grid-2">
-        <div className="form-row">
-          <label className="form-label form-label-required">Team</label>
-          <select
-            className="form-select"
-            value={teamId}
-            onChange={(e) => {
-              setTeamId(e.target.value);
-              setChampionId('');
-            }}
-          >
-            <option value="">Select team…</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-row">
-          <label className="form-label form-label-required">Champion</label>
-          <select
-            className="form-select"
-            value={championId}
-            onChange={(e) => setChampionId(e.target.value)}
-          >
-            <option value="">Select champion…</option>
-            {filteredChampions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="form-row">
+        <label className="form-label form-label-required">Team</label>
+        <select
+          className="form-select"
+          value={teamId}
+          onChange={(e) => setTeamId(e.target.value)}
+        >
+          <option value="">Select team…</option>
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
       <DomainFormFields
         values={fields}
