@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { Team, Champion, Domain } from '@/types';
+import type { Team, Domain } from '@/types';
 import type { DomainProposal } from '@/api';
 import { api } from '@/api';
 import { DomainFormFields } from '@/pages/manage/DomainForm';
 import type { DomainFormFieldValues } from '@/pages/manage/DomainForm';
 
 // Route: "/domains/extract"
-// Lets the user pick a team (and champion), paste raw domain text,
-// extract proposals via POST /api/domains/extract, then review/edit
-// and approve each proposal (POST /api/domains).
+// Lets the user pick a team, paste raw domain text, extract proposals via
+// POST /api/domains/extract, then review/edit and approve each proposal
+// (POST /api/domains). Domains are team-scoped — the champion is folded into
+// the team, so there is no champion picker here.
 
 // ---- Proposal card ----------------------------------------------------------
 //
@@ -129,12 +130,10 @@ function proposalToFields(p: DomainProposal): DomainFormFieldValues {
 
 export default function DomainSetupPage() {
   const [teams, setTeams] = useState<Team[]>([]);
-  const [champions, setChampions] = useState<Champion[]>([]);
   const [allDomains, setAllDomains] = useState<Domain[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-  const [selectedChampionId, setSelectedChampionId] = useState<string>('');
 
   const [text, setText] = useState('');
   const [extracting, setExtracting] = useState(false);
@@ -164,28 +163,6 @@ export default function DomainSetupPage() {
       })
       .finally(() => setLoadingTeams(false));
   }, []);
-
-  // When team changes, fetch its champions and auto-select if exactly one
-  useEffect(() => {
-    if (!selectedTeamId) {
-      setChampions([]);
-      setSelectedChampionId('');
-      return;
-    }
-    api.champions.list().then((all) => {
-      const forTeam = all.filter((c) => c.team_id === Number(selectedTeamId));
-      setChampions(forTeam);
-      if (forTeam.length === 1 && forTeam[0]) {
-        // Auto-select the sole champion
-        setSelectedChampionId(String(forTeam[0].id));
-      } else {
-        setSelectedChampionId(forTeam.length > 0 && forTeam[0] ? String(forTeam[0].id) : '');
-      }
-    }).catch(() => {
-      setChampions([]);
-      setSelectedChampionId('');
-    });
-  }, [selectedTeamId]);
 
   async function handleExtract() {
     if (!text.trim()) return;
@@ -259,7 +236,6 @@ export default function DomainSetupPage() {
     try {
       const saved = await api.domains.create({
         team_id: Number(selectedTeamId),
-        champion_id: Number(selectedChampionId),
         name: f.name,
         description: f.description || null,
         priority: f.priority || null,
@@ -300,15 +276,15 @@ export default function DomainSetupPage() {
   }
 
   const allApproved = proposals.length > 0 && savedIds.size === proposals.length;
-  const canExtract = Boolean(selectedTeamId && selectedChampionId && text.trim());
+  const canExtract = Boolean(selectedTeamId && text.trim());
 
   // Once every proposal is approved (batch or one-by-one), leave the extract page
-  // and open the champion's team page — the work is done here.
+  // and open the team page — the work is done here.
   useEffect(() => {
-    if (allApproved && selectedChampionId) {
-      navigate(`/teams/${selectedChampionId}`);
+    if (allApproved && selectedTeamId) {
+      navigate(`/teams/${selectedTeamId}`);
     }
-  }, [allApproved, selectedChampionId, navigate]);
+  }, [allApproved, selectedTeamId, navigate]);
 
   return (
     <>
@@ -334,48 +310,28 @@ export default function DomainSetupPage() {
         </div>
 
         <div style={{ maxWidth: 760 }}>
-          {/* Step 1 — Team + Champion */}
+          {/* Step 1 — Team */}
           <div className="form-section" style={{ marginBottom: 16 }}>
-            <div className="form-section-title">Step 1 — Select team and champion</div>
+            <div className="form-section-title">Step 1 — Select team</div>
 
             {loadingTeams ? (
               <div className="text-muted text-sm">Loading teams…</div>
             ) : (
-              <>
-                <div className="form-row">
-                  <label className="form-label form-label-required">Team</label>
-                  <select
-                    className="form-select"
-                    value={selectedTeamId}
-                    onChange={(e) => setSelectedTeamId(e.target.value)}
-                  >
-                    <option value="">Select team…</option>
-                    {teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedTeamId && (
-                  <div className="form-row">
-                    <label className="form-label form-label-required">Champion</label>
-                    <select
-                      className="form-select"
-                      value={selectedChampionId}
-                      onChange={(e) => setSelectedChampionId(e.target.value)}
-                    >
-                      <option value="">Select champion…</option>
-                      {champions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </>
+              <div className="form-row">
+                <label className="form-label form-label-required">Team</label>
+                <select
+                  className="form-select"
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                >
+                  <option value="">Select team…</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
 
@@ -415,9 +371,6 @@ export default function DomainSetupPage() {
               </button>
               {!selectedTeamId && (
                 <span className="text-muted text-sm">Select a team first</span>
-              )}
-              {selectedTeamId && !selectedChampionId && (
-                <span className="text-muted text-sm">Select a champion first</span>
               )}
             </div>
           </div>

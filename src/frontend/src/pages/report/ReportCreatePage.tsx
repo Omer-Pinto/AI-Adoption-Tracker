@@ -1,72 +1,78 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
-import type { Champion, ReportJson } from '@/types';
+import type { ReportJson, TeamPageIndexEntry } from '@/types';
 import { EmptyState, ErrorState } from '@/components/EmptyState';
 
 // Route: "/reports/new"
-// 1. Select champion from the full list.
+// Champion is folded into the team — report creation is entered from a TEAM,
+// not a champion.
+// 1. Enter via ?team=<teamId> (the team's champion is shown as static text), OR
+//    context-less (/reports/new) → a minimal team chooser picks the team.
 // 2. Paste raw meeting notes.
-// 3. Click "Draft with model" → api.reports.draft(notes, championId).
-// 4. On success, navigate to /reports/preview carrying the ReportJson in router state.
-//    The preview page reads it via useLocation().state.draft — no shared store needed.
+// 3. Click "Draft with model" → api.reports.draft(teamId, notes).
+// 4. On success, navigate to /reports/draft/preview carrying the ReportJson +
+//    teamId in router state. The preview page reads it via useLocation().state.
+
+// Inline look for a read-only field value (no `form-static` class in the DS).
+const STATIC_VALUE = { fontSize: 13, fontWeight: 600, color: 'var(--text)' };
 
 export default function ReportCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [champions, setChampions] = useState<Champion[]>([]);
-  const [championId, setChampionId] = useState<number | ''>('');
+  // The team is the unit of entry. When ?team= is present we lock to it and show
+  // the champion as static text; otherwise the page renders a team chooser.
+  const enteredFromTeam = Boolean(searchParams.get('team'));
+
+  const [teams, setTeams] = useState<TeamPageIndexEntry[]>([]);
+  const [teamId, setTeamId] = useState<number | ''>('');
   const [notes, setNotes] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Champion-list load state — kept apart from the draft action error so a
-  // transient fetch blip degrades to a calm message, not a red banner.
-  const [loadingChampions, setLoadingChampions] = useState(true);
+  // Team-list load state — kept apart from the draft action error so a transient
+  // fetch blip degrades to a calm message, not a red banner.
+  const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const loadChampions = useCallback(() => {
-    setLoadingChampions(true);
+  const loadTeams = useCallback(() => {
+    setLoadingTeams(true);
     setLoadError(false);
-    api.champions.list().then((list) => {
-      setChampions(list);
-      // Pre-select champion from ?champion= query param when present and valid.
-      const paramId = searchParams.get('champion');
+    api.views.teamsIndex().then((list) => {
+      setTeams(list);
+      // Pre-select the team from ?team= query param when present and valid.
+      const paramId = searchParams.get('team');
       if (paramId) {
         const parsed = Number(paramId);
-        if (!Number.isNaN(parsed) && list.some((c) => c.id === parsed)) {
-          setChampionId(parsed);
+        if (!Number.isNaN(parsed) && list.some((t) => t.team_id === parsed)) {
+          setTeamId(parsed);
         }
       }
     }).catch((e) => {
       console.error(e);
       setLoadError(true);
     }).finally(() => {
-      setLoadingChampions(false);
+      setLoadingTeams(false);
     });
     // searchParams is stable from useSearchParams and intentionally read once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => loadChampions(), [loadChampions]);
+  useEffect(() => loadTeams(), [loadTeams]);
 
-  const selectedChampion = champions.find((c) => c.id === championId) ?? null;
+  const selectedTeam = teams.find((t) => t.team_id === teamId) ?? null;
 
   async function handleDraft() {
-    if (!championId || !notes.trim()) return;
+    if (!teamId || !notes.trim()) return;
     setDrafting(true);
     setError(null);
     try {
-      const draft: ReportJson = await api.reports.draft(notes.trim(), championId);
-      // Hand the draft to the preview page via location state.
-      // The preview page is a transient route — no :reportId yet (not saved).
-      // We use the literal path "preview" (workaround: no real id).
-      // The router has /reports/:reportId/preview; we use the sentinel "new".
-      // Navigate to the preview route. Since the report isn't saved yet there
-      // is no real reportId; we use the sentinel "draft". ReportPreviewPage
-      // checks useParams().reportId === 'draft' and reads the ReportJson from
-      // location.state.draft rather than fetching from the API.
-      navigate('/reports/draft/preview', { state: { draft, championId } });
+      const draft: ReportJson = await api.reports.draft(teamId, notes.trim());
+      // Hand the draft + teamId to the preview page via location state. The
+      // preview route has no real :reportId yet (not saved), so we use the
+      // sentinel "draft"; ReportPreviewPage reads the ReportJson + teamId from
+      // location.state rather than fetching from the API.
+      navigate('/reports/draft/preview', { state: { draft, teamId } });
     } catch {
       setError('Draft failed. Check that the backend is running and try again.');
     } finally {
@@ -79,8 +85,10 @@ export default function ReportCreatePage() {
       <div className="top-bar">
         <div>
           <span className="top-bar-title">Create Report</span>
-          {selectedChampion && (
-            <span className="top-bar-sub">{selectedChampion.name}</span>
+          {selectedTeam && (
+            <span className="top-bar-sub">
+              {selectedTeam.team_name} — {selectedTeam.champion_name}
+            </span>
           )}
         </div>
         <div className="top-bar-actions">
@@ -126,45 +134,67 @@ export default function ReportCreatePage() {
         {loadError ? (
           <div className="panel">
             <ErrorState
-              title="Couldn't load champions"
-              hint="The champion list failed to load. Try again."
-              onRetry={loadChampions}
+              title="Couldn't load teams"
+              hint="The team list failed to load. Try again."
+              onRetry={loadTeams}
             />
           </div>
-        ) : !loadingChampions && champions.length === 0 ? (
+        ) : !loadingTeams && teams.length === 0 ? (
           <div className="panel">
             <EmptyState
               icon="◇"
-              title="No champions yet"
+              title="No teams yet"
               hint={
                 <>
-                  Add a team and champion in <Link to="/manage">Manage</Link> before
-                  creating a report.
+                  Add a team in <Link to="/manage">Manage</Link> before creating a report.
                 </>
               }
             />
           </div>
         ) : (
         <div className="form-shell">
-          {/* Champion selector */}
+          {/* Team / champion */}
           <div className="form-section">
             <div className="form-section-title">Meeting info</div>
 
-            <div className="form-row">
-              <label className="form-label form-label-required">Champion</label>
-              <select
-                className="form-select"
-                value={championId}
-                onChange={(e) => setChampionId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">— select champion —</option>
-                {champions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {enteredFromTeam && selectedTeam ? (
+              // Entered from a team — champion is the team's champion (static).
+              <>
+                <div className="form-row">
+                  <label className="form-label">Team</label>
+                  <span style={STATIC_VALUE}>{selectedTeam.team_name}</span>
+                </div>
+                <div className="form-row">
+                  <label className="form-label">Champion</label>
+                  <span style={STATIC_VALUE}>{selectedTeam.champion_name}</span>
+                </div>
+              </>
+            ) : (
+              // Context-less — minimal team chooser. Picking a team shows its champion.
+              <>
+                <div className="form-row">
+                  <label className="form-label form-label-required">Team</label>
+                  <select
+                    className="form-select"
+                    value={teamId}
+                    onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : '')}
+                  >
+                    <option value="">— select team —</option>
+                    {teams.map((t) => (
+                      <option key={t.team_id} value={t.team_id}>
+                        {t.team_name} — {t.champion_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedTeam && (
+                  <div className="form-row">
+                    <label className="form-label">Champion</label>
+                    <span style={STATIC_VALUE}>{selectedTeam.champion_name}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Raw notes */}
@@ -204,7 +234,7 @@ export default function ReportCreatePage() {
           <div className="form-actions">
             <button
               className="draft-btn"
-              disabled={!championId || !notes.trim() || drafting}
+              disabled={!teamId || !notes.trim() || drafting}
               onClick={() => void handleDraft()}
             >
               {drafting ? '...' : '▶'} Draft report with model

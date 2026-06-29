@@ -18,8 +18,8 @@ import {
 
 interface PreviewLocationState {
   draft?: ReportJson;
-  /** champion_id forwarded from ReportCreatePage; used to derive team + domains. */
-  championId?: number;
+  /** team_id forwarded from ReportCreatePage; used to derive entities + domains. */
+  teamId?: number;
 }
 
 const EMPTY_ENTITIES: TeamEntities = { tasks: [], artifacts: [] };
@@ -31,7 +31,7 @@ export default function ReportPreviewPage() {
 
   const locationState = location.state as PreviewLocationState | null;
   const initialDraft = locationState?.draft ?? null;
-  const championId = locationState?.championId ?? null;
+  const teamId = locationState?.teamId ?? null;
 
   const [report, setReport] = useState<ReportJson | null>(initialDraft);
   const [keys, setKeys] = useState<EditorKeys>(() =>
@@ -46,23 +46,24 @@ export default function ReportPreviewPage() {
 
   const isDraftMode = reportId === 'draft';
 
-  // Derive team_id from champion → fetch team entities (picker) + champion domains.
+  // Team-keyed: fetch team entities (picker) + team domains, and resolve the
+  // LIVE champion name (set onto report.champion before the editor renders).
   useEffect(() => {
-    if (!championId) return;
+    if (teamId == null) return;
     let cancelled = false;
-    api.champions
-      .list()
-      .then((champs) => {
-        const champ = champs.find((c) => c.id === championId);
-        if (!champ) return undefined;
-        return Promise.all([
-          api.views.teamEntities(champ.team_id),
-          api.domains.listByChampion(championId),
-        ]).then(([ents, doms]) => {
-          if (cancelled) return;
-          setEntities(ents);
-          setDomains(doms.map((d) => ({ id: d.id, name: d.name })));
-        });
+    Promise.all([
+      api.views.teamEntities(teamId),
+      api.domains.listByTeam(teamId),
+      api.teams.list(),
+    ])
+      .then(([ents, doms, teams]) => {
+        if (cancelled) return;
+        setEntities(ents);
+        setDomains(doms.map((d) => ({ id: d.id, name: d.name })));
+        const team = teams.find((t) => t.id === teamId);
+        if (team) {
+          setReport((prev) => (prev ? { ...prev, champion: team.champion_name } : prev));
+        }
       })
       .catch(() => {
         // Non-fatal: pickers degrade to empty; editing still works.
@@ -70,7 +71,7 @@ export default function ReportPreviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [championId]);
+  }, [teamId]);
 
   async function handleConfirm() {
     if (!report) return;
@@ -81,12 +82,16 @@ export default function ReportPreviewPage() {
       );
       return;
     }
+    if (teamId == null) {
+      setError('Cannot save: no team context. Go back to Create Report and draft again.');
+      return;
+    }
     setConfirming(true);
     setError(null);
     try {
       const payload = stripReportForSave(report);
-      const result = await api.reports.create(payload);
-      navigate(`/teams/${result.report.champion_id}`);
+      await api.reports.create(teamId, payload);
+      navigate(`/teams/${teamId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save report. Please try again.');
     } finally {

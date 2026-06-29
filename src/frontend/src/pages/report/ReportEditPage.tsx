@@ -32,6 +32,7 @@ export default function ReportEditPage() {
   });
   const [entities, setEntities] = useState<TeamEntities>(EMPTY_ENTITIES);
   const [domains, setDomains] = useState<DomainOption[]>([]);
+  const [teamId, setTeamId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,18 +47,18 @@ export default function ReportEditPage() {
       .then(async ({ report: saved }) => {
         const parsed = JSON.parse(saved.report_json) as ReportJson;
         if (cancelled) return;
-        setReport(parsed);
+        setTeamId(saved.team_id);
         setKeys(makeKeys(parsed));
 
-        // Derive team_id from the report's champion → team entities + domains.
-        const champs = await api.champions.list();
-        if (cancelled) return;
-        const champ = champs.find((c) => c.id === saved.champion_id);
-        const [ents, doms] = await Promise.all([
-          champ ? api.views.teamEntities(champ.team_id) : Promise.resolve(EMPTY_ENTITIES),
-          api.domains.listByChampion(saved.champion_id),
+        // Team-keyed: team entities + team domains, plus the LIVE champion name.
+        const [ents, doms, teams] = await Promise.all([
+          api.views.teamEntities(saved.team_id),
+          api.domains.listByTeam(saved.team_id),
+          api.teams.list(),
         ]);
         if (cancelled) return;
+        const team = teams.find((t) => t.id === saved.team_id);
+        setReport(team ? { ...parsed, champion: team.champion_name } : parsed);
         setEntities(ents);
         setDomains(doms.map((d) => ({ id: d.id, name: d.name })));
       })
@@ -86,7 +87,7 @@ export default function ReportEditPage() {
     try {
       const payload = stripReportForSave(report);
       const { report: saved } = await api.reports.update(Number(reportId), payload);
-      navigate(`/teams/${saved.champion_id}`);
+      navigate(`/teams/${saved.team_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save report. Please try again.');
     } finally {
@@ -143,7 +144,10 @@ export default function ReportEditPage() {
           </span>
         </div>
         <div className="top-bar-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate(teamId != null ? `/teams/${teamId}` : -1)}
+          >
             Cancel
           </button>
           <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => void handleSave()}>
@@ -184,7 +188,10 @@ export default function ReportEditPage() {
           <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave()}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate(-1)}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate(teamId != null ? `/teams/${teamId}` : -1)}
+          >
             Cancel
           </button>
         </div>
