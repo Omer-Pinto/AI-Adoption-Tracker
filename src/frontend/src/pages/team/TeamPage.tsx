@@ -2,7 +2,7 @@ import './team-page.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/api';
-import type { TeamPage, DomainPage, Artifact, ArtifactDetail, ActionItem, TaskStatus } from '@/types';
+import type { TeamPage, DomainPage, Artifact, ArtifactDetail, ActionItem, Task, TaskStatus } from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
@@ -67,6 +67,8 @@ export default function TeamPage() {
 
   // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
   const domainsRef = useRef<HTMLDetailsElement>(null);
+  const openTasksRef = useRef<HTMLDetailsElement>(null);
+  const closedTasksRef = useRef<HTMLDetailsElement>(null);
   const artifactsRef = useRef<HTMLDetailsElement>(null);
   const reportsRef = useRef<HTMLDetailsElement>(null);
   const actionsRef = useRef<HTMLDetailsElement>(null);
@@ -128,8 +130,14 @@ export default function TeamPage() {
 
   const { team, domains, all_team_artifacts, reports, action_items } = data;
 
+  // Resolve domain_id → domain name client-side (tasks & action items).
+  const domainNameById = new Map(domains.map((dp) => [dp.domain.id, dp.domain.name]));
+
   // ── Derived breakdowns for tile sub-callouts (computed client-side) ─────
   const allTasks = domains.flatMap((d) => d.tasks);
+  // Open = not in a terminal status; Closed = terminal status.
+  const openTaskList = allTasks.filter((t) => !TERMINAL.includes(t.status));
+  const closedTaskList = allTasks.filter((t) => TERMINAL.includes(t.status));
   const blockedTasks = allTasks.filter((t) => t.status === 'blocked').length;
   const activeOpenTasks = Math.max(0, data.open_tasks - blockedTasks);
   const finishedTasks = allTasks.filter(
@@ -202,7 +210,7 @@ export default function TeamPage() {
 
         {/* ── Tile dashboard ──────────────────────────────────────────── */}
         <div className="tile-grid">
-          <button type="button" className="tile acc-blue" onClick={() => jumpTo(domainsRef)}>
+          <button type="button" className="tile acc-blue" onClick={() => jumpTo(openTasksRef)}>
             <div className="tile-top">
               <span className="tile-label">Open tasks</span>
               <span className="tile-ico">▣</span>
@@ -214,7 +222,7 @@ export default function TeamPage() {
             </div>
           </button>
 
-          <button type="button" className="tile acc-green" onClick={() => jumpTo(domainsRef)}>
+          <button type="button" className="tile acc-green" onClick={() => jumpTo(closedTasksRef)}>
             <div className="tile-top">
               <span className="tile-label">Closed tasks</span>
               <span className="tile-ico">✓</span>
@@ -253,9 +261,16 @@ export default function TeamPage() {
               <span className="tile-ico">◆</span>
             </div>
             <div className="tile-value">
-              {constantDomainCount > 0 ? `${realDomainCount} + ${constantDomainCount}` : realDomainCount}
+              {constantDomainCount > 0 ? (
+                <>
+                  {realDomainCount} + {constantDomainCount}
+                  <span className="tile-unit"> constants</span>
+                </>
+              ) : (
+                realDomainCount
+              )}
             </div>
-            <div className="tile-sub">{constantDomainCount > 0 ? 'constants' : '—'}</div>
+            <div className="tile-sub">{constantDomainCount > 0 ? ' ' : '—'}</div>
           </button>
 
           <button type="button" className="tile acc-violet" onClick={() => jumpTo(artifactsRef)}>
@@ -297,6 +312,49 @@ export default function TeamPage() {
           </div>
         </details>
 
+        {/* ── Open Tasks fold (flat list across all domains) ──────────── */}
+        <details className="fold" ref={openTasksRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Open Tasks</span>
+            <span className="fold-count">{openTaskList.length}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              {blockedTasks > 0 && <span className="mini-pill">{blockedTasks} blocked</span>}
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {openTaskList.length === 0 ? (
+              <div className="empty-note">No open tasks.</div>
+            ) : (
+              <TasksTable tasks={openTaskList} domainNameById={domainNameById} />
+            )}
+          </div>
+        </details>
+
+        {/* ── Closed Tasks fold (flat list across all domains) ────────── */}
+        <details className="fold" ref={closedTasksRef}>
+          <summary>
+            <span className="chev">▶</span>
+            <span className="fold-title">Closed Tasks</span>
+            <span className="fold-count">{closedTaskList.length}</span>
+            <span className="fold-spacer" />
+            <span className="fold-pills">
+              {finishedTasks > 0 && <span className="mini-pill">{finishedTasks} finished</span>}
+              {abandonedTasks > 0 && <span className="mini-pill">{abandonedTasks} abandoned</span>}
+            </span>
+            <span className="fold-hint" />
+          </summary>
+          <div className="fold-body">
+            {closedTaskList.length === 0 ? (
+              <div className="empty-note">No closed tasks.</div>
+            ) : (
+              <TasksTable tasks={closedTaskList} domainNameById={domainNameById} />
+            )}
+          </div>
+        </details>
+
         {/* ── Artifacts fold (full catalog: domain-scoped + team-wide) ── */}
         <details className="fold" ref={artifactsRef}>
           <summary>
@@ -324,7 +382,7 @@ export default function TeamPage() {
         <details className="fold" ref={reportsRef}>
           <summary>
             <span className="chev">▶</span>
-            <span className="fold-title">Reports</span>
+            <span className="fold-title">Meetings</span>
             <span className="fold-count">{reports.length}</span>
             <span className="fold-spacer" />
             <span className="fold-pills">
@@ -368,7 +426,7 @@ export default function TeamPage() {
             {action_items.length === 0 ? (
               <div className="empty-note">No action items for {team.champion_name}.</div>
             ) : (
-              <ActionItemsList items={action_items} />
+              <ActionItemsList items={action_items} domainNameById={domainNameById} />
             )}
           </div>
         </details>
@@ -573,19 +631,80 @@ function ArtifactsTable({
   );
 }
 
+// ---- Tasks table used for the flat Open/Closed Tasks folds ----
+
+function TasksTable({
+  tasks,
+  domainNameById,
+}: {
+  tasks: Task[];
+  domainNameById: Map<number, string>;
+}) {
+  const columns: Column<Task>[] = [
+    {
+      key: 'name',
+      header: 'Task',
+      render: (t) => (
+        <Link to={`/tasks/${t.id}`} style={{ color: '#4361ee' }}>
+          {t.name}
+        </Link>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (t) => <StatusBadge status={t.status} />,
+    },
+    {
+      key: 'domain',
+      header: 'Domain',
+      render: (t) => (
+        <span className="task-domain-chip">{domainNameById.get(t.domain_id)}</span>
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (t) => <span className="text-muted text-sm">{t.owner ?? '—'}</span>,
+    },
+    {
+      key: 'due',
+      header: 'Due',
+      render: (t) => <span className="text-muted text-sm">{t.due_date ?? '—'}</span>,
+    },
+  ];
+
+  return (
+    <DataTable<Task>
+      columns={columns}
+      rows={tasks}
+      rowKey={(t) => t.id}
+      empty="No tasks."
+    />
+  );
+}
+
 // ---- Action items list ----
 
-function ActionItemsList({ items }: { items: ActionItem[] }) {
+function ActionItemsList({
+  items,
+  domainNameById,
+}: {
+  items: ActionItem[];
+  domainNameById: Map<number, string>;
+}) {
   return (
     <div>
       {items.map((item) => {
         const closed = isClosedItem(item);
         const overdue = isOverdue(item);
+        const domainName = item.domain_id !== null ? domainNameById.get(item.domain_id) : null;
         return (
           <div key={item.id} className={`ai-row${closed ? ' resolved' : ''}`}>
             <div className="ai-main">
               <div className="ai-text">{item.text}</div>
               <div className="ai-meta">
+                {domainName && <span className="task-domain-chip">{domainName}</span>}
                 {item.owner && (
                   <span className="ai-owner">
                     <span className="dot">{item.owner.trim().charAt(0).toUpperCase()}</span>

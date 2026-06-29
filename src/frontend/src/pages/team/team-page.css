@@ -294,6 +294,12 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+.team-page .tile-value .tile-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-left: 2px;
+}
 .team-page .tile-sub { font-size: 11px; color: var(--text-faint); }
 .team-page .tile-sub .pos { color: #16a34a; font-weight: 600; }
 .team-page .tile-sub .warn { color: #d97706; font-weight: 600; }
@@ -412,6 +418,19 @@
 }
 .team-page .ai-due { font-variant-numeric: tabular-nums; }
 .team-page .ai-due.overdue { color: #dc2626; font-weight: 600; }
+
+/* ---- Domain chip (tasks table + action items) ---- */
+.team-page .task-domain-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
 
 .team-page .empty-note { font-size: 13px; color: var(--text-faint); font-style: italic; padding: 6px 2px; }
 
