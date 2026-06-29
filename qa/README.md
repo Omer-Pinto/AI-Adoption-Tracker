@@ -65,55 +65,6 @@ the a11y skill exists before it's matched in a later week:
   `Tomer`, `Lior`) is kept. Action-item owner is always either the champion's name or the
   literal **`AI Lead`** (the only two allowed values).
 
-## Coverage matrix
-Columns: **P**=Payments/Maya, **W**=Web/Noa, **D**=Data/Sven. A cell
-names the report date(s) that exercise the feature.
-
-| Feature / vertical | P (Maya) | W (Noa) | D (Sven) |
-|---|---|---|---|
-| Task — NEW | 05-04 | 05-06 / 05-07 | 05-08 |
-| Task — matched/updated across weeks | 05-11/18 | 05-13 / 05-14 | 05-15/22 |
-| `status` planned | 05-04 | 05-06 / 05-07 | 05-08 |
-| `status` in-progress | 05-04 | 05-06 / 05-07 | 05-08 |
-| `status` blocked | 05-04 | — | 05-15 |
-| `status` finished_successfully | 05-11 | 05-14 | 05-22 |
-| `status` finished_with_issues | 05-18 | 05-13 | 05-22 |
-| `status` abandoned | 05-18 | 05-14 | — |
-| `status` wont_fix (task) | 05-18 | — | 05-22 |
-| due_date — none | 05-04 | 05-06 / 05-07 | 05-08 |
-| due_date — future (after 06-28) | 05-18 (07-10) | 05-13 (07-15) | 05-08 (07-05) |
-| due_date — past/overdue (before 06-28) | 05-11 (06-20) | 05-06 (06-15) / 05-07 (06-25) | 05-15 (06-10) |
-| due_date — sticky (set in later week) | 05-11 fraud | 05-13 palette | 05-15 GE |
-| Artifact type `agent` | — | 05-13 | 05-08 |
-| Artifact type `skill` | 05-04 | 05-06 | — |
-| Artifact type `hook` | 05-11 | — | 05-15 |
-| Artifact type `context` | 05-04 | 05-06 / 05-07 | 05-08 |
-| Artifact — NEW | 05-04 | 05-06 / 05-07 | 05-08 |
-| Artifact — updated (matched) | 05-11 | 05-13 / 05-14 | 05-15 |
-| Artifact grouping (md files → ONE context) | 05-04 | 05-06 / 05-07 | 05-08 |
-| Team-wide artifact (no domain) | — | 05-06 / 05-14 a11y | — |
-| `@task` mention of existing | 05-11/18 | 05-13 / 05-14 | 05-15/22 |
-| `#artifact` mention of existing | 05-11 | 05-13 / 05-14 | 05-15 |
-| "new …" forces NEW despite similar name | 05-18 gRPC mock | 05-14 EAS* | 05-22 dbt test gen |
-| Action item — owner = champion | 05-04 | 05-06 / 05-07 | 05-08 |
-| Action item — owner = **AI Lead** | 05-04/11/18 | 05-06 / 05-14 | 05-08/22 |
-| Action item — status change across weeks | 05-11 (finished/wont_fix) | 05-13 (finished) | 05-15 (in-progress) |
-| Action item — with due_date | 05-18 | 05-06 / 05-07 | 05-08 |
-| Action item — without due_date | 05-04 | 05-06 | 05-22 |
-| Discussion (default catch-all) | 05-04/18 | 05-06 / 05-07 | 05-15/22 |
-| Issues (problems/risks) | 05-04/18 | 05-07 / 05-13 | 05-08/22 |
-| Placement → **General** (unplaceable) | 05-18 commit-format | — | 05-15 hiring |
-| Placement → **Context creation** | 05-04 | 05-06 / 05-07 | 05-08 |
-| Multiple domains in one report | 05-04 | 05-06 / 05-07 | 05-08 |
-| Default owner → champion | 05-04 | 05-06 / 05-07 | 05-08 |
-| Task owner = different named person | 05-11 Tomer | — | 05-08 Lior |
-| Cross-week team-wide artifact continuity (same champion) | — | creates 05-06 / matches 05-14 | — |
-| Smart-extract + Priority-Order arrow mapping | setup | setup | setup |
-
-\* The Noa 05-14 "new EAS task" exercises the explicit "new …" convention even though no
-similar task pre-exists; the *similar-name* collision cases are P 05-18 (gRPC mock vs scaffold)
-and D 05-22 (dbt test gen vs reviewer).
-
 ## Uncertainties / assumptions (flag while eyeballing)
 1. **General placement is a judgment call.** The "commit-message format" (P 05-18) and "Q3
    hiring" (D 05-15) tasks are *meant* to land in **General** (null domain → task fallback).

@@ -32,9 +32,8 @@ export type ArtifactTag =
 
 // ---- Current-state entities (spec §5) ----
 
-// One team = one champion (1:1 fold, Wave 16). The champion is carried inline on
-// the team as `champion_name` / `champion_start_date`; the standalone Champion
-// entity is gone. `cc_baseline`/`baseline_date` removed (nuked Wave 16).
+// One team = one champion (1:1). The champion is carried inline on the team as
+// `champion_name` / `champion_start_date`; there is no standalone Champion entity.
 export interface Team {
   id: number;
   name: string;
