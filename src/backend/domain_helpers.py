@@ -54,7 +54,7 @@ def build_domain(conn: sqlite3.Connection, domain_id: int) -> Domain | None:
     """
     row = conn.execute(
         """
-        SELECT d.id, d.team_id, t.name AS team_name, d.champion_id,
+        SELECT d.id, d.team_id, t.name AS team_name,
                d.name, d.description, d.priority
         FROM domain d
         JOIN team t ON t.id = d.team_id
@@ -68,7 +68,6 @@ def build_domain(conn: sqlite3.Connection, domain_id: int) -> Domain | None:
         id=row["id"],
         team_id=row["team_id"],
         team_name=row["team_name"],
-        champion_id=row["champion_id"],
         name=row["name"],
         description=row["description"],
         priority=row["priority"],

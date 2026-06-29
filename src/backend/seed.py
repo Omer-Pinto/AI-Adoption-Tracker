@@ -65,24 +65,16 @@ def _reset_db() -> None:
 
 # ── entity creation helpers (mirror the management routes' INSERT shape) ──────
 
-def _create_team(conn, name: str) -> int:
-    cur = conn.execute(
-        "INSERT INTO team (name) VALUES (?)",
-        (name,),
-    )
-    conn.commit()
-    return cur.lastrowid
-
-
-def _create_champion(
+def _create_team(
     conn,
     name: str,
-    team_id: int,
-    start_date: str | None = None,
+    champion_name: str,
+    champion_start_date: str | None = None,
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO champion (name, team_id, start_date) VALUES (?, ?, ?)",
-        (name, team_id, start_date),
+        "INSERT INTO team (name, champion_name, champion_start_date) "
+        "VALUES (?, ?, ?)",
+        (name, champion_name, champion_start_date),
     )
     conn.commit()
     return cur.lastrowid
@@ -91,26 +83,25 @@ def _create_champion(
 def _create_domain(
     conn,
     team_id: int,
-    champion_id: int,
     name: str,
     description: str | None = None,
     priority: str | None = None,
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name, description, priority) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (team_id, champion_id, name, description, priority),
+        "INSERT INTO domain (team_id, name, description, priority) "
+        "VALUES (?, ?, ?, ?)",
+        (team_id, name, description, priority),
     )
     conn.commit()
     return cur.lastrowid
 
 
-def _task_id_by_name(conn, champion_id: int, name: str) -> int:
+def _task_id_by_name(conn, team_id: int, name: str) -> int:
     """Read back a task's PK after a fan-out so a later report can reference it."""
     row = conn.execute(
         "SELECT t.id FROM task t JOIN domain d ON d.id = t.domain_id "
-        "WHERE d.champion_id = ? AND t.name = ?",
-        (champion_id, name),
+        "WHERE d.team_id = ? AND t.name = ?",
+        (team_id, name),
     ).fetchone()
     if row is None:
         raise RuntimeError(f"[seed] expected task {name!r} to exist after fan-out")
@@ -143,17 +134,17 @@ def seed_radar(conn) -> None:
     planned, clutter-review added) is preserved exactly.
     """
     print("[seed] creating Radar team …")
-    team_id = _create_team(conn, name="Radar")
-    champion_id = _create_champion(conn, name="Dana", team_id=team_id, start_date="2026-05-01")
+    team_id = _create_team(
+        conn, name="Radar", champion_name="Dana", champion_start_date="2026-05-01"
+    )
     domain_id = _create_domain(
         conn,
         team_id=team_id,
-        champion_id=champion_id,
         name="signal-processing",
         description="DSP pipeline work including CFAR, clutter mapping, and Doppler analysis.",
         priority="1",
     )
-    print(f"[seed]   team={team_id}  champion={champion_id} (Dana)  domain={domain_id}")
+    print(f"[seed]   team={team_id} (champion Dana)  domain={domain_id}")
 
     # ── meeting 06-08 ─────────────────────────────────────────────────────────
     print("[seed] fanning out 2026-06-08 report (Radar/Dana) …")
@@ -177,12 +168,12 @@ def seed_radar(conn) -> None:
             ),
         ],
     )
-    row1 = fan_out_report(conn, doc_0608)
+    row1 = fan_out_report(conn, team_id, doc_0608)
     print(f"[seed]   saved report id={row1['id']}")
 
     # Read back the id the engine assigned to Clutter map so report 2 references
     # the SAME task by id (proving the no-duplicate id path).
-    clutter_map_id = _task_id_by_name(conn, champion_id, "Clutter map")
+    clutter_map_id = _task_id_by_name(conn, team_id, "Clutter map")
     print(f"[seed]   Clutter map task id={clutter_map_id} (referenced by report 2)")
 
     # ── meeting 06-15 ─────────────────────────────────────────────────────────
@@ -248,7 +239,7 @@ def seed_radar(conn) -> None:
         discussion=["demoed a meta-skill"],
         issues=["champion flagged repo-access problem"],
     )
-    row2 = fan_out_report(conn, doc_0615)
+    row2 = fan_out_report(conn, team_id, doc_0615)
     print(f"[seed]   saved report id={row2['id']}")
 
 
@@ -267,17 +258,17 @@ def seed_platform(conn) -> None:
       artifact = deploy-gate-hook (hook type, added)
     """
     print("[seed] creating Platform team …")
-    team_id = _create_team(conn, name="Platform")
-    champion_id = _create_champion(conn, name="Eli", team_id=team_id, start_date="2026-05-15")
+    team_id = _create_team(
+        conn, name="Platform", champion_name="Eli", champion_start_date="2026-05-15"
+    )
     domain_id = _create_domain(
         conn,
         team_id=team_id,
-        champion_id=champion_id,
         name="ci-cd",
         description="Continuous integration and deployment pipeline automation.",
         priority="1",
     )
-    print(f"[seed]   team={team_id}  champion={champion_id} (Eli)  domain={domain_id}")
+    print(f"[seed]   team={team_id} (champion Eli)  domain={domain_id}")
 
     print("[seed] fanning out 2026-06-12 report (Platform/Eli) …")
     doc = ReportDocument(
@@ -328,7 +319,7 @@ def seed_platform(conn) -> None:
             ),
         ],
     )
-    row = fan_out_report(conn, doc)
+    row = fan_out_report(conn, team_id, doc)
     print(f"[seed]   saved report id={row['id']}")
 
 

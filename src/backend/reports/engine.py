@@ -41,7 +41,7 @@ top-level lists; each entry carries its OWN domain placement (``domain_id`` +
 
 * **Domain id-match** — ``entry.domain_id`` / ``entry.domain`` name the EXISTING
   domain to place the entry in. The report NEVER mints a named domain. If a task
-  resolves to no domain it falls back to the per-champion "General" catch-all (a
+  resolves to no domain it falls back to the per-team "General" catch-all (a
   task needs a domain); an artifact with no domain stays team-wide (``domain_id``
   NULL).
 
@@ -78,7 +78,7 @@ from models import ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
 
 class EngineError(RuntimeError):
     """A report could not be saved/edited for a domain reason (e.g. an unknown
-    champion, a referenced entity id that does not belong to this team, or a new
+    team, a referenced entity id that does not belong to this team, or a new
     artifact with no type)."""
 
 
@@ -90,30 +90,30 @@ class ReportNotFoundError(EngineError):
 
 def _check_duplicate_date(
     conn: sqlite3.Connection,
-    champion_id: int,
+    team_id: int,
     meeting_date: str,
     exclude_report_id: int | None = None,
 ) -> None:
-    """Raise EngineError if (champion_id, meeting_date) already exists.
+    """Raise EngineError if (team_id, meeting_date) already exists.
 
     Pass ``exclude_report_id`` on edits so a report can keep its own date
     without triggering a false conflict.
     """
     if exclude_report_id is None:
         row = conn.execute(
-            "SELECT id FROM report WHERE champion_id = ? AND meeting_date = ?",
-            (champion_id, meeting_date),
+            "SELECT id FROM report WHERE team_id = ? AND meeting_date = ?",
+            (team_id, meeting_date),
         ).fetchone()
     else:
         row = conn.execute(
             "SELECT id FROM report "
-            "WHERE champion_id = ? AND meeting_date = ? AND id != ?",
-            (champion_id, meeting_date, exclude_report_id),
+            "WHERE team_id = ? AND meeting_date = ? AND id != ?",
+            (team_id, meeting_date, exclude_report_id),
         ).fetchone()
     if row is not None:
         raise EngineError(
-            f"A report for this champion on {meeting_date} already exists "
-            f"(report id {row['id']}). Each champion can have at most one "
+            f"A report for this team on {meeting_date} already exists "
+            f"(report id {row['id']}). Each team can have at most one "
             "report per meeting date."
         )
 
@@ -128,38 +128,15 @@ def _norm(name: str) -> str:
     return name.strip().casefold()
 
 
-def _resolve_champion_id(conn: sqlite3.Connection, champion_name: str) -> int:
-    row = conn.execute(
-        "SELECT id, team_id FROM champion WHERE name = ?",
-        (champion_name,),
-    ).fetchone()
-    if row is None:
-        # Fall back to case-insensitive match before giving up.
-        for cand in conn.execute("SELECT id, team_id, name FROM champion").fetchall():
-            if _norm(cand["name"]) == _norm(champion_name):
-                return cand["id"]
-        raise EngineError(f"Unknown champion: {champion_name!r}")
-    return row["id"]
-
-
-def _champion_team_id(conn: sqlite3.Connection, champion_id: int) -> int:
-    row = conn.execute(
-        "SELECT team_id FROM champion WHERE id = ?", (champion_id,)
-    ).fetchone()
-    if row is None:
-        raise EngineError(f"Unknown champion id: {champion_id}")
-    return row["team_id"]
-
-
 def _resolve_domain_id(
-    conn: sqlite3.Connection, champion_id: int, domain_name: str
+    conn: sqlite3.Connection, team_id: int, domain_name: str
 ) -> int | None:
-    """Match a domain NAME within THIS champion's domains; None if no match.
+    """Match a domain NAME within THIS team's domains; None if no match.
 
     Resolve-only: it NEVER creates a domain. The report does not mint domains."""
     target = _norm(domain_name)
     for row in conn.execute(
-        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+        "SELECT id, name FROM domain WHERE team_id = ?", (team_id,)
     ).fetchall():
         if _norm(row["name"]) == target:
             return row["id"]
@@ -172,96 +149,94 @@ _CONTEXT_DOMAIN_NAME = "Context creation"
 
 def _ensure_constant_domain(
     conn: sqlite3.Connection,
-    champion_id: int,
     team_id: int,
     name: str,
     description: str,
     priority: str | None,
 ) -> int:
-    """Ensure a per-champion system-provided domain exists; return its id.
+    """Ensure a per-team system-provided domain exists; return its id.
 
     Domains are tech/stack areas the user defines manually; this mints the small
     set of constant, always-present domains ('General', 'Context creation') the
-    same way for every champion (idempotent by case-insensitive name)."""
+    same way for every team (idempotent by case-insensitive name)."""
     target = _norm(name)
     for row in conn.execute(
-        "SELECT id, name FROM domain WHERE champion_id = ?", (champion_id,)
+        "SELECT id, name FROM domain WHERE team_id = ?", (team_id,)
     ).fetchall():
         if _norm(row["name"]) == target:
             return row["id"]
     cur = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name, description, priority) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (team_id, champion_id, name, description, priority),
+        "INSERT INTO domain (team_id, name, description, priority) "
+        "VALUES (?, ?, ?, ?)",
+        (team_id, name, description, priority),
     )
     return cur.lastrowid
 
 
-def _ensure_general_domain(conn: sqlite3.Connection, champion_id: int, team_id: int) -> int:
-    """Ensure a per-champion 'General' catch-all domain exists; return its id.
+def _ensure_general_domain(conn: sqlite3.Connection, team_id: int) -> int:
+    """Ensure a per-team 'General' catch-all domain exists; return its id.
 
     'General' is the system-provided FALLBACK bucket (priority NULL): the model
     parks tasks/artifacts it cannot confidently place here, and the user
     reassigns them to a real domain in the UI."""
     return _ensure_constant_domain(
-        conn, champion_id, team_id, _GENERAL_DOMAIN_NAME,
+        conn, team_id, _GENERAL_DOMAIN_NAME,
         "Catch-all for items not yet assigned to a specific domain.", None,
     )
 
 
-def _ensure_context_creation_domain(
-    conn: sqlite3.Connection, champion_id: int, team_id: int
-) -> int:
-    """Ensure a per-champion 'Context creation' domain exists; return its id.
+def _ensure_context_creation_domain(conn: sqlite3.Connection, team_id: int) -> int:
+    """Ensure a per-team 'Context creation' domain exists; return its id.
 
     A constant domain (priority '1') for context-engineering work — CLAUDE.md /
     context files, knowledge docs, conventions, and other Claude Code context the
     team builds. Unlike 'General' it PARTICIPATES in placement (the model may file
     items here) but is NOT the unplaced fallback."""
     return _ensure_constant_domain(
-        conn, champion_id, team_id, _CONTEXT_DOMAIN_NAME,
+        conn, team_id, _CONTEXT_DOMAIN_NAME,
         "Claude Code context and/or artifacts - hooks, skills, MCPs, agents, "
         "workflows and context files (CLAUDE.md and others).", "1",
     )
 
 
-def _champion_name(conn: sqlite3.Connection, champion_id: int) -> str:
+def _champion_name(conn: sqlite3.Connection, team_id: int) -> str | None:
+    """The team's current champion name — the default owner for new tasks /
+    action items. Null-tolerant (returns None if the team or name is absent)."""
     row = conn.execute(
-        "SELECT name FROM champion WHERE id = ?", (champion_id,)
+        "SELECT champion_name FROM team WHERE id = ?", (team_id,)
     ).fetchone()
-    return row["name"]
+    return row["champion_name"] if row else None
 
 
 def _resolve_entry_domain_id(
     conn: sqlite3.Connection,
-    champion_id: int,
     team_id: int,
     domain_id: int | None,
     domain_name: str | None,
     *,
     needs_domain: bool,
 ) -> int | None:
-    """Resolve a flat entry's domain to an EXISTING champion-domain id.
+    """Resolve a flat entry's domain to an EXISTING team-domain id.
 
     Resolution order (NEVER mints a named domain):
-      1. ``domain_id`` set AND it is one of this champion's domains → use it.
-      2. else ``domain`` name matches one of this champion's domains → that id.
-      3. else: for an entry that NEEDS a domain (a task) → the champion's
-         'General' catch-all; for one that does not (an artifact / action item)
-         → NULL (team-wide / unplaced)."""
+      1. ``domain_id`` set AND it is one of this team's domains → use it.
+      2. else ``domain`` name matches one of this team's domains → that id.
+      3. else: for an entry that NEEDS a domain (a task) → the team's 'General'
+         catch-all; for one that does not (an artifact / action item) → NULL
+         (team-wide / unplaced)."""
     if domain_id is not None:
         row = conn.execute(
-            "SELECT id FROM domain WHERE id = ? AND champion_id = ?",
-            (domain_id, champion_id),
+            "SELECT id FROM domain WHERE id = ? AND team_id = ?",
+            (domain_id, team_id),
         ).fetchone()
         if row is not None:
             return row["id"]
     if domain_name:
-        matched = _resolve_domain_id(conn, champion_id, domain_name)
+        matched = _resolve_domain_id(conn, team_id, domain_name)
         if matched is not None:
             return matched
     if needs_domain:
-        return _ensure_general_domain(conn, champion_id, team_id)
+        return _ensure_general_domain(conn, team_id)
     return None
 
 
@@ -274,59 +249,56 @@ def _domain_name_for_id(conn: sqlite3.Connection, domain_id: int | None) -> str 
 
 # ── draft context (POST /draft) ────────────────────────────────────────────────
 
-def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
+def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
     """Build the existing-state hints handed to the LLM so it can id-match/de-dup.
 
     Team-scoped and id-bearing (Wave 9). The model matches a note mention to an
     existing entity by ``id`` and places it via ``domain_id``.
 
     Shape:
-      * ``champion``: ``{id, name}``; ``champion_name`` mirrors the name (the
-        draft prompt copies the champion from ``context["champion_name"]``).
       * ``team``: ``{id, name}``.
-      * ``domains``: this champion's existing domains, each ``{id, name,
+      * ``champion``: ``{name}`` (the team's single champion); ``champion_name``
+        mirrors the name (the draft prompt copies the champion from
+        ``context["champion_name"]``).
+      * ``domains``: this team's existing domains, each ``{id, name,
         description}`` — for placement (the 'General' catch-all is ensured).
       * ``tasks``: this team's existing tasks, each ``{id, name, status, owner,
         domain_id, domain}``.
       * ``artifacts``: this team's existing artifacts, each ``{id, name, type,
         tags, domain_id, domain}`` (``domain``/``domain_id`` null = team-wide)."""
-    champ = conn.execute(
-        "SELECT id, name, team_id FROM champion WHERE id = ?", (champion_id,)
-    ).fetchone()
-    if champ is None:
-        raise EngineError(f"Unknown champion id: {champion_id}")
-    team_id = champ["team_id"]
     team = conn.execute(
-        "SELECT id, name FROM team WHERE id = ?", (team_id,)
+        "SELECT id, name, champion_name FROM team WHERE id = ?", (team_id,)
     ).fetchone()
+    if team is None:
+        raise EngineError(f"Unknown team id: {team_id}")
+    champion_name = team["champion_name"]
 
     # Guarantee the constant domains exist so both are offered to the model and
     # the UI domain picker: 'General' (the fallback bucket) and 'Context creation'
     # (a real placement target, priority 1).
-    _ensure_general_domain(conn, champion_id, team_id)
-    _ensure_context_creation_domain(conn, champion_id, team_id)
+    _ensure_general_domain(conn, team_id)
+    _ensure_context_creation_domain(conn, team_id)
     conn.commit()
 
-    # Map domain_id -> name for this champion's domains (used to label entities).
+    # Map domain_id -> name for this team's domains (used to label entities).
     domain_name_by_id: dict[int, str] = {}
     domains: list[dict] = []
     for dom in conn.execute(
-        "SELECT id, name, description FROM domain WHERE champion_id = ? ORDER BY id",
-        (champion_id,),
+        "SELECT id, name, description FROM domain WHERE team_id = ? ORDER BY id",
+        (team_id,),
     ).fetchall():
         domain_name_by_id[dom["id"]] = dom["name"]
         domains.append(
             {"id": dom["id"], "name": dom["name"], "description": dom["description"]}
         )
 
-    # Tasks: the team's existing tasks (a task lives in a domain, which belongs to
-    # a champion of this team). Scope by the champion's domains.
+    # Tasks: the team's existing tasks (a task lives in a domain of this team).
     tasks: list[dict] = []
     for t in conn.execute(
         "SELECT t.id, t.name, t.status, t.owner, t.domain_id "
         "FROM task t JOIN domain d ON d.id = t.domain_id "
-        "WHERE d.champion_id = ? ORDER BY t.id",
-        (champion_id,),
+        "WHERE d.team_id = ? ORDER BY t.id",
+        (team_id,),
     ).fetchall():
         tasks.append(
             {
@@ -358,9 +330,9 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
         )
 
     return {
-        "champion": {"id": champ["id"], "name": champ["name"]},
-        "champion_name": champ["name"],
-        "team": {"id": team["id"], "name": team["name"]} if team else None,
+        "team": {"id": team["id"], "name": team["name"]},
+        "champion": {"name": champion_name},
+        "champion_name": champion_name,
         "domains": domains,
         "tasks": tasks,
         "artifacts": artifacts,
@@ -371,7 +343,7 @@ def build_draft_context(conn: sqlite3.Connection, champion_id: int) -> dict:
 
 def get_report_row(conn: sqlite3.Connection, report_id: int) -> sqlite3.Row:
     row = conn.execute(
-        "SELECT id, champion_id, meeting_date, report_json, schema_version "
+        "SELECT id, team_id, meeting_date, report_json, schema_version "
         "FROM report WHERE id = ?",
         (report_id,),
     ).fetchone()
@@ -382,8 +354,15 @@ def get_report_row(conn: sqlite3.Connection, report_id: int) -> sqlite3.Row:
 
 # ── fan-out (POST /api/reports) ─────────────────────────────────────────────────
 
-def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row:
+def fan_out_report(
+    conn: sqlite3.Connection, team_id: int, doc: ReportDocument
+) -> sqlite3.Row:
     """Save a confirmed draft: insert the report row and fan out all tables.
+
+    The team is resolved STRICTLY by ``team_id`` (never from ``doc.champion``,
+    which is a non-authoritative display label). ``doc.champion`` is overwritten
+    with the team's current ``champion_name`` so the stored report_json carries
+    the right label.
 
     Flat + id-based. As each entry is resolved/created, its resolved DB ids are
     BACK-FILLED onto the in-memory ``doc`` (entry ``id``/``domain_id``/``domain``);
@@ -392,33 +371,33 @@ def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row
 
     Runs as ONE transaction."""
     with conn:  # one transaction; commits on success, rolls back on error
-        champion_id = _resolve_champion_id(conn, doc.champion)
-        team_id = _champion_team_id(conn, champion_id)
+        # The champion is a label only: stamp the team's current champion name.
+        doc.champion = _champion_name(conn, team_id)
 
-        _check_duplicate_date(conn, champion_id, doc.meeting_date)
+        _check_duplicate_date(conn, team_id, doc.meeting_date)
         try:
-            report_id = _insert_report_row(conn, champion_id, doc)
+            report_id = _insert_report_row(conn, team_id, doc)
         except sqlite3.IntegrityError as exc:
             if "UNIQUE" in str(exc).upper():
                 raise EngineError(
-                    f"A report for this champion on {doc.meeting_date} already exists. "
-                    "Each champion can have at most one report per meeting date."
+                    f"A report for this team on {doc.meeting_date} already exists. "
+                    "Each team can have at most one report per meeting date."
                 ) from exc
             raise
 
         for entry in doc.tasks:
-            _apply_task_entry(conn, report_id, doc.meeting_date, champion_id, team_id, entry)
+            _apply_task_entry(conn, report_id, doc.meeting_date, team_id, entry)
 
         for entry in doc.artifacts:
-            _apply_artifact_entry(conn, report_id, doc.meeting_date, champion_id, team_id, entry)
+            _apply_artifact_entry(conn, report_id, doc.meeting_date, team_id, entry)
 
         for item in doc.action_items:
             item_domain_id = _resolve_entry_domain_id(
-                conn, champion_id, team_id, item.domain_id, item.domain, needs_domain=False
+                conn, team_id, item.domain_id, item.domain, needs_domain=False
             )
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, champion_id, item_domain_id, item)
+            _insert_action_item(conn, report_id, team_id, item_domain_id, item)
 
         # BACK-FILL: persist the id-complete document so replay is purely id-based.
         conn.execute(
@@ -430,13 +409,13 @@ def fan_out_report(conn: sqlite3.Connection, doc: ReportDocument) -> sqlite3.Row
 
 
 def _insert_report_row(
-    conn: sqlite3.Connection, champion_id: int, doc: ReportDocument
+    conn: sqlite3.Connection, team_id: int, doc: ReportDocument
 ) -> int:
     report_json = doc.model_dump_json(by_alias=True, exclude_none=True)
     cur = conn.execute(
-        "INSERT INTO report (champion_id, meeting_date, report_json, schema_version) "
+        "INSERT INTO report (team_id, meeting_date, report_json, schema_version) "
         "VALUES (?, ?, ?, ?)",
-        (champion_id, doc.meeting_date, report_json, SCHEMA_VERSION),
+        (team_id, doc.meeting_date, report_json, SCHEMA_VERSION),
     )
     return cur.lastrowid
 
@@ -445,7 +424,6 @@ def _record_task_entry(
     conn: sqlite3.Connection,
     report_id: int,
     meeting_date: str,
-    champion_id: int,
     team_id: int,
     entry,
 ) -> tuple[int, bool]:
@@ -465,12 +443,12 @@ def _record_task_entry(
     Returns ``(task_id, created)`` where ``created`` is True when a brand-new
     task row was inserted (``entry.id`` was None)."""
     domain_id = _resolve_entry_domain_id(
-        conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=True
+        conn, team_id, entry.domain_id, entry.domain, needs_domain=True
     )
 
     created = entry.id is None
     if entry.id is not None:
-        task_id = _verify_task_in_team(conn, entry.id, champion_id)
+        task_id = _verify_task_in_team(conn, entry.id, team_id)
         conn.execute(
             "UPDATE task SET domain_id = ? WHERE id = ?", (domain_id, task_id)
         )
@@ -485,11 +463,11 @@ def _record_task_entry(
         # later silent report must not clobber a deliberately-set owner).
         owner = entry.owner
         if not owner and not _task_journal_has_owner(conn, task_id):
-            owner = _champion_name(conn, champion_id)
+            owner = _champion_name(conn, team_id)
     else:
         # A NEW task with no named owner defaults to the champion (the person
         # running the adoption), never NULL.
-        owner = entry.owner or _champion_name(conn, champion_id)
+        owner = entry.owner or _champion_name(conn, team_id)
         task_id = _create_task(conn, domain_id, entry.task, entry, owner)
 
     # Back-fill resolved ids onto the in-memory entry.
@@ -512,27 +490,26 @@ def _apply_task_entry(
     conn: sqlite3.Connection,
     report_id: int,
     meeting_date: str,
-    champion_id: int,
     team_id: int,
     entry,
 ) -> None:
     """Save-path task fan-out: record the entry, then recompute current-state."""
     task_id, _ = _record_task_entry(
-        conn, report_id, meeting_date, champion_id, team_id, entry
+        conn, report_id, meeting_date, team_id, entry
     )
     _recompute_task_current_state(conn, task_id)
 
 
-def _verify_task_in_team(conn: sqlite3.Connection, task_id: int, champion_id: int) -> int:
-    """Confirm a referenced task id exists and belongs to this champion's team."""
+def _verify_task_in_team(conn: sqlite3.Connection, task_id: int, team_id: int) -> int:
+    """Confirm a referenced task id exists and belongs to this team."""
     row = conn.execute(
         "SELECT t.id FROM task t JOIN domain d ON d.id = t.domain_id "
-        "WHERE t.id = ? AND d.champion_id = ?",
-        (task_id, champion_id),
+        "WHERE t.id = ? AND d.team_id = ?",
+        (task_id, team_id),
     ).fetchone()
     if row is None:
         raise EngineError(
-            f"Report references task id {task_id} which does not exist for this champion."
+            f"Report references task id {task_id} which does not exist for this team."
         )
     return row["id"]
 
@@ -661,7 +638,6 @@ def _apply_artifact_entry(
     conn: sqlite3.Connection,
     report_id: int,
     meeting_date: str,
-    champion_id: int,
     team_id: int,
     entry: ReportArtifactEntry,
 ) -> None:
@@ -673,7 +649,7 @@ def _apply_artifact_entry(
     ``artifact.summary`` and ``note`` → ``artifact_history.change_note`` are
     persisted SEPARATELY. Back-fills resolved ids onto the entry."""
     domain_id = _resolve_entry_domain_id(
-        conn, champion_id, team_id, entry.domain_id, entry.domain, needs_domain=False
+        conn, team_id, entry.domain_id, entry.domain, needs_domain=False
     )
     name = entry.artifact
 
@@ -788,7 +764,7 @@ def _infer_artifact_change_kind(
 def _insert_action_item(
     conn: sqlite3.Connection,
     report_id: int,
-    champion_id: int,
+    team_id: int,
     domain_id: int | None,
     item,
 ) -> None:
@@ -796,7 +772,7 @@ def _insert_action_item(
     # defaults to the champion (never an owner-less action item, which would also
     # drop it from the 'AI Lead' worklist incorrectly). An owner the model DID
     # declare — the champion name or the literal "AI Lead" — is left untouched.
-    owner = item.owner or _champion_name(conn, champion_id)
+    owner = item.owner or _champion_name(conn, team_id)
     conn.execute(
         "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
         "VALUES (?, ?, ?, ?, ?, ?)",
@@ -831,7 +807,7 @@ def replay_report_edit(
     now a targeted re-apply, not a replay."""
     with conn:
         existing = get_report_row(conn, report_id)  # raises if missing
-        old_champion_id = existing["champion_id"]
+        team_id = existing["team_id"]
 
         # Tasks touched BEFORE the edit (so a task dropped from the doc still gets
         # its current-state recomputed from whatever journal remains).
@@ -849,18 +825,17 @@ def replay_report_edit(
         conn.execute("DELETE FROM artifact_history WHERE report_id = ?", (report_id,))
         conn.execute("DELETE FROM action_item WHERE report_id = ?", (report_id,))
 
-        # 2. swap the stored document.
-        champion_id = _resolve_champion_id(conn, doc.champion)
-        team_id = _champion_team_id(conn, champion_id)
+        # 2. swap the stored document. The team is fixed by the existing report
+        #    (never re-resolved from the label); re-stamp the champion label.
+        doc.champion = _champion_name(conn, team_id)
         _check_duplicate_date(
-            conn, champion_id, doc.meeting_date, exclude_report_id=report_id
+            conn, team_id, doc.meeting_date, exclude_report_id=report_id
         )
         try:
             conn.execute(
-                "UPDATE report SET champion_id = ?, meeting_date = ?, report_json = ?, "
+                "UPDATE report SET meeting_date = ?, report_json = ?, "
                 "schema_version = ? WHERE id = ?",
                 (
-                    champion_id,
                     doc.meeting_date,
                     doc.model_dump_json(by_alias=True, exclude_none=True),
                     SCHEMA_VERSION,
@@ -870,8 +845,8 @@ def replay_report_edit(
         except sqlite3.IntegrityError as exc:
             if "UNIQUE" in str(exc).upper():
                 raise EngineError(
-                    f"A report for this champion on {doc.meeting_date} already exists. "
-                    "Each champion can have at most one report per meeting date."
+                    f"A report for this team on {doc.meeting_date} already exists. "
+                    "Each team can have at most one report per meeting date."
                 ) from exc
             raise
 
@@ -880,20 +855,20 @@ def replay_report_edit(
         #    union of old + new tasks once at the end.
         for entry in doc.tasks:
             task_id, _ = _record_task_entry(
-                conn, report_id, doc.meeting_date, champion_id, team_id, entry
+                conn, report_id, doc.meeting_date, team_id, entry
             )
             affected_tasks.add(task_id)
         for entry in doc.artifacts:
             _apply_artifact_entry(
-                conn, report_id, doc.meeting_date, champion_id, team_id, entry
+                conn, report_id, doc.meeting_date, team_id, entry
             )
         for item in doc.action_items:
             item_domain_id = _resolve_entry_domain_id(
-                conn, champion_id, team_id, item.domain_id, item.domain, needs_domain=False
+                conn, team_id, item.domain_id, item.domain, needs_domain=False
             )
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, champion_id, item_domain_id, item)
+            _insert_action_item(conn, report_id, team_id, item_domain_id, item)
 
         # Persist the id-complete document (entries created on edit now carry ids).
         conn.execute(

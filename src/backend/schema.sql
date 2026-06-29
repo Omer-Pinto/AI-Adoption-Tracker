@@ -1,9 +1,13 @@
 -- AI Adoption Tracker — SQLite schema (spec §5).
 --
--- Two kinds of tables: "what it is now" (team, champion, domain, task,
--- artifact, action_item) and "history" (report, task_history,
--- artifact_history). Both are written when a report is saved. Current-state
--- rows are kept directly (never rebuilt by replay), so reads are trivial.
+-- Two kinds of tables: "what it is now" (team, domain, task, artifact,
+-- action_item) and "history" (report, task_history, artifact_history). Both are
+-- written when a report is saved. Current-state rows are kept directly (never
+-- rebuilt by replay), so reads are trivial.
+--
+-- 1:1 champion-per-team: a team HAS exactly one champion, folded onto the team
+-- row (champion_name / champion_start_date). There is no separate champion
+-- table; everything keys by team_id.
 --
 -- Connection-level pragmas (WAL journaling + foreign-key enforcement) are set
 -- per connection in db.py, NOT here — `journal_mode = WAL` is a persistent
@@ -17,20 +21,14 @@
 -- No extra indexes (spec: "no extra indexes").
 
 -- ── team ──────────────────────────────────────────────────────────────────
--- A group.
+-- A group, plus its single champion (the point person for the team's adoption),
+-- folded onto the row. `champion_name` is required; `champion_start_date` is
+-- optional (when they took it on).
 CREATE TABLE IF NOT EXISTS team (
-    id            INTEGER PRIMARY KEY,
-    name          TEXT NOT NULL
-);
-
--- ── champion ──────────────────────────────────────────────────────────────
--- Point person for a team's adoption. May start and later leave.
-CREATE TABLE IF NOT EXISTS champion (
-    id         INTEGER PRIMARY KEY,
-    name       TEXT NOT NULL,
-    team_id    INTEGER NOT NULL REFERENCES team(id),
-    start_date TEXT,
-    end_date   TEXT               -- nullable: null = still active
+    id                   INTEGER PRIMARY KEY,
+    name                 TEXT NOT NULL,
+    champion_name        TEXT NOT NULL,
+    champion_start_date  TEXT             -- nullable: when the champion started
 );
 
 -- ── domain ──────────────────────────────────────────────────────────────────
@@ -38,7 +36,6 @@ CREATE TABLE IF NOT EXISTS champion (
 CREATE TABLE IF NOT EXISTS domain (
     id           INTEGER PRIMARY KEY,
     team_id      INTEGER NOT NULL REFERENCES team(id),
-    champion_id  INTEGER NOT NULL REFERENCES champion(id),
     name         TEXT NOT NULL,
     description  TEXT,
     priority     TEXT              -- priority vs other domains (free text)
@@ -55,16 +52,17 @@ CREATE TABLE IF NOT EXISTS domain_link (
 );
 
 -- ── report ──────────────────────────────────────────────────────────────────
--- One record per champion meeting (covers all that champion's domains). No
--- domain_id (per-champion). Full report_json (incl. raw_notes) kept as audit +
--- backfill safety net in addition to the fanned-out rows.
+-- One record per team meeting (covers all that team's domains). No domain_id
+-- (per-team). Full report_json (incl. raw_notes) kept as audit + backfill safety
+-- net in addition to the fanned-out rows. A team has at most one report per
+-- meeting date.
 CREATE TABLE IF NOT EXISTS report (
     id             INTEGER PRIMARY KEY,
-    champion_id    INTEGER NOT NULL REFERENCES champion(id),
+    team_id        INTEGER NOT NULL REFERENCES team(id),
     meeting_date   TEXT NOT NULL,
     report_json    TEXT NOT NULL,   -- the full structured report (JSON text)
     schema_version INTEGER NOT NULL,
-    UNIQUE(champion_id, meeting_date)
+    UNIQUE(team_id, meeting_date)
 );
 
 -- ── task (current state) ─────────────────────────────────────────────────────

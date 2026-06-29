@@ -69,14 +69,8 @@ class ArtifactChangeKind(str, Enum):
 class Team(BaseModel):
     id: int
     name: str
-
-
-class Champion(BaseModel):
-    id: int
-    name: str
-    team_id: int
-    start_date: str | None = None
-    end_date: str | None = None
+    champion_name: str
+    champion_start_date: str | None = None
 
 
 class DomainRef(BaseModel):
@@ -91,7 +85,6 @@ class Domain(BaseModel):
     id: int
     team_id: int
     team_name: str
-    champion_id: int
     name: str
     description: str | None = None
     priority: str | None = None
@@ -100,7 +93,7 @@ class Domain(BaseModel):
 
 class Report(BaseModel):
     id: int
-    champion_id: int
+    team_id: int
     meeting_date: str
     report_json: str
     schema_version: int
@@ -316,6 +309,9 @@ class ReportDocument(BaseModel):
     """
     model_config = _doc_config
 
+    # Non-authoritative display label only: on save it is overwritten with the
+    # team's current ``champion_name``; the team is ALWAYS resolved by team_id,
+    # never from this string.
     champion: str
     meeting_date: str
     participants: list[str] = Field(default_factory=list)

@@ -68,27 +68,24 @@ def fresh_conn(db_path: pathlib.Path) -> sqlite3.Connection:
     return conn
 
 
-def seed_team(conn: sqlite3.Connection) -> tuple[int, int, int]:
-    """One team/champion/domain. Returns (team_id, champion_id, domain_id)."""
+def seed_team(conn: sqlite3.Connection) -> tuple[int, int]:
+    """One team (champion folded in) + one domain. Returns (team_id, domain_id)."""
     team_id = conn.execute(
-        "INSERT INTO team (name) VALUES ('Radar')"
-    ).lastrowid
-    champion_id = conn.execute(
-        "INSERT INTO champion (name, team_id) VALUES ('Dana', ?)", (team_id,)
+        "INSERT INTO team (name, champion_name) VALUES ('Radar', 'Dana')"
     ).lastrowid
     domain_id = conn.execute(
-        "INSERT INTO domain (team_id, champion_id, name) VALUES (?, ?, 'signal-processing')",
-        (team_id, champion_id),
+        "INSERT INTO domain (team_id, name) VALUES (?, 'signal-processing')",
+        (team_id,),
     ).lastrowid
     conn.commit()
-    return team_id, champion_id, domain_id
+    return team_id, domain_id
 
 
-def task_id_by_name(conn, champion_id, name) -> int:
+def task_id_by_name(conn, team_id, name) -> int:
     return conn.execute(
         "SELECT t.id FROM task t JOIN domain d ON d.id = t.domain_id "
-        "WHERE d.champion_id = ? AND t.name = ?",
-        (champion_id, name),
+        "WHERE d.team_id = ? AND t.name = ?",
+        (team_id, name),
     ).fetchone()["id"]
 
 
@@ -98,13 +95,13 @@ def scenario_1(db_dir: pathlib.Path) -> None:
     print("\n[1] manual status edit -> status updates AND a source='manual' row dated today")
     conn = fresh_conn(db_dir / "s1.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-08", raw_notes="n",
             tasks=[ReportTaskEntry(task="Clutter map", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id, domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Clutter map")
+        tid = task_id_by_name(conn, team_id, "Clutter map")
 
         apply_manual_task_edit(conn, tid, {"status": "abandoned", "due_date": "2026-07-01"})
 
@@ -146,13 +143,13 @@ def scenario_2(db_dir: pathlib.Path) -> None:
     print("\n[2] manual owner edit -> owner updates AND recompute derives it from the journal")
     conn = fresh_conn(db_dir / "s2.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-08", raw_notes="n",
             tasks=[ReportTaskEntry(task="Clutter map", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id, domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Clutter map")
+        tid = task_id_by_name(conn, team_id, "Clutter map")
 
         apply_manual_task_edit(conn, tid, {"owner": "Maya"})
 
@@ -167,7 +164,7 @@ def scenario_2(db_dir: pathlib.Path) -> None:
 
         # PROOF the journal (not report_json) drives owner: drop report_json to junk,
         # then recompute — owner must still resolve to Maya from journal columns.
-        conn.execute("UPDATE report SET report_json = '{}' WHERE champion_id = ?", (champion_id,))
+        conn.execute("UPDATE report SET report_json = '{}' WHERE team_id = ?", (team_id,))
         conn.commit()
         from reports.engine import _recompute_task_current_state
         _recompute_task_current_state(conn, tid)
@@ -185,15 +182,15 @@ def scenario_3(db_dir: pathlib.Path) -> None:
     print("\n[3] manual edit, then a LATER report changes the same task -> later (report) wins")
     conn = fresh_conn(db_dir / "s3.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
+        team_id, domain_id = seed_team(conn)
         # Report dated in the PAST so a later manual edit (today) and a later
         # report (today+1) order after it.
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2020-01-01", raw_notes="n",
             tasks=[ReportTaskEntry(task="Clutter map", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id, domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Clutter map")
+        tid = task_id_by_name(conn, team_id, "Clutter map")
 
         # manual edit today -> blocked
         apply_manual_task_edit(conn, tid, {"status": "blocked"})
@@ -202,7 +199,7 @@ def scenario_3(db_dir: pathlib.Path) -> None:
 
         # later report (tomorrow) -> finished_successfully
         tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date=tomorrow, raw_notes="n",
             tasks=[ReportTaskEntry(id=tid, task="Clutter map",
                                    status=TaskStatus.finished_successfully,
@@ -235,14 +232,14 @@ def scenario_4(db_dir: pathlib.Path) -> None:
     print("\n[4] edit the current report (change status, add a new task) -> dup-safe + manual rows kept")
     conn = fresh_conn(db_dir / "s4.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        row = fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        row = fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-15", raw_notes="n",
             tasks=[ReportTaskEntry(task="Clutter map", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id, domain="signal-processing")],
         ))
         report_id = row["id"]
-        tid = task_id_by_name(conn, champion_id, "Clutter map")
+        tid = task_id_by_name(conn, team_id, "Clutter map")
 
         # A pre-existing MANUAL row on the same task (e.g. manager touched owner).
         apply_manual_task_edit(conn, tid, {"owner": "Maya"})
@@ -346,14 +343,14 @@ def scenario_6(db_dir: pathlib.Path) -> None:
     print("\n[6] owner set via report -> manual clear (owner=None) -> owner stays NULL")
     conn = fresh_conn(db_dir / "s6.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-01", raw_notes="n",
             tasks=[ReportTaskEntry(task="Alpha task", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id,
                                    domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Alpha task")
+        tid = task_id_by_name(conn, team_id, "Alpha task")
 
         # Verify the report installed Dana as owner.
         before = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
@@ -392,14 +389,14 @@ def scenario_7(db_dir: pathlib.Path) -> None:
     print("\n[7] manual owner-clear -> a later report names an owner -> report owner wins")
     conn = fresh_conn(db_dir / "s7.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2020-01-01", raw_notes="n",
             tasks=[ReportTaskEntry(task="Beta task", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id,
                                    domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Beta task")
+        tid = task_id_by_name(conn, team_id, "Beta task")
 
         # Manual clear today.
         apply_manual_task_edit(conn, tid, {"owner": None})
@@ -409,7 +406,7 @@ def scenario_7(db_dir: pathlib.Path) -> None:
 
         # Later report (tomorrow) names "Maya" as owner.
         tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date=tomorrow, raw_notes="n",
             tasks=[ReportTaskEntry(id=tid, task="Beta task",
                                    status=TaskStatus.in_progress,
@@ -430,8 +427,8 @@ def scenario_8(db_dir: pathlib.Path) -> None:
     print("\n[8] no-op PATCH (fields unchanged) -> 0 new history rows")
     conn = fresh_conn(db_dir / "s8.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
-        fan_out_report(conn, ReportDocument(
+        team_id, domain_id = seed_team(conn)
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-10", raw_notes="n",
             tasks=[ReportTaskEntry(task="Gamma task", status=TaskStatus.in_progress,
                                    owner="Dana", domain_id=domain_id,
@@ -442,7 +439,7 @@ def scenario_8(db_dir: pathlib.Path) -> None:
                 domain_id=domain_id, domain="signal-processing",
             )],
         ))
-        tid = task_id_by_name(conn, champion_id, "Gamma task")
+        tid = task_id_by_name(conn, team_id, "Gamma task")
         art_id = conn.execute(
             "SELECT id FROM artifact WHERE team_id = ?", (team_id,)
         ).fetchone()["id"]
@@ -494,29 +491,29 @@ def scenario_9(db_dir: pathlib.Path) -> None:
           "action-item status, Context-creation domain")
     conn = fresh_conn(db_dir / "s9.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
+        team_id, domain_id = seed_team(conn)
 
         # build_draft_context mints the constant domains.
-        ctx = build_draft_context(conn, champion_id)
+        ctx = build_draft_context(conn, team_id)
         names = {d["name"] for d in ctx["domains"]}
         check("draft context offers 'General' + 'Context creation'",
               {"General", "Context creation"} <= names, f"got {sorted(names)}")
         ctx_dom = conn.execute(
-            "SELECT priority FROM domain WHERE champion_id = ? AND name = 'Context creation'",
-            (champion_id,),
+            "SELECT priority FROM domain WHERE team_id = ? AND name = 'Context creation'",
+            (team_id,),
         ).fetchone()
         check("'Context creation' has priority '1'", ctx_dom["priority"] == "1",
               f"got {ctx_dom['priority'] if ctx_dom else None}")
         gen_dom = conn.execute(
-            "SELECT priority FROM domain WHERE champion_id = ? AND name = 'General'",
-            (champion_id,),
+            "SELECT priority FROM domain WHERE team_id = ? AND name = 'General'",
+            (team_id,),
         ).fetchone()
         check("'General' stays priority NULL (fallback)", gen_dom["priority"] is None,
               f"got {gen_dom['priority']!r}")
 
         # A new task with NO owner → defaults to the champion's name (Dana).
         # A new task with status wont_fix (terminal/closed) must save.
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-20", raw_notes="n",
             tasks=[
                 ReportTaskEntry(task="Unowned task", status=TaskStatus.in_progress,
@@ -536,14 +533,14 @@ def scenario_9(db_dir: pathlib.Path) -> None:
 
         unowned = conn.execute(
             "SELECT owner FROM task t JOIN domain d ON d.id = t.domain_id "
-            "WHERE d.champion_id = ? AND t.name = 'Unowned task'", (champion_id,),
+            "WHERE d.team_id = ? AND t.name = 'Unowned task'", (team_id,),
         ).fetchone()
         check("new task with no owner defaults to champion (Dana)",
               unowned["owner"] == "Dana", f"got {unowned['owner']!r}")
 
         dropped = conn.execute(
             "SELECT status FROM task t JOIN domain d ON d.id = t.domain_id "
-            "WHERE d.champion_id = ? AND t.name = 'Dropped task'", (champion_id,),
+            "WHERE d.team_id = ? AND t.name = 'Dropped task'", (team_id,),
         ).fetchone()
         check("wont_fix task saved (CHECK allows it)", dropped["status"] == "wont_fix",
               f"got {dropped['status']}")
@@ -569,21 +566,21 @@ def scenario_10(db_dir: pathlib.Path) -> None:
           "manual null clears it")
     conn = fresh_conn(db_dir / "s10.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
+        team_id, domain_id = seed_team(conn)
         # Report 1 deliberately sets a due_date.
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2020-01-01", raw_notes="n",
             tasks=[ReportTaskEntry(task="Sticky task", status=TaskStatus.in_progress,
                                    owner="Dana", due_date="2026-09-01",
                                    domain_id=domain_id, domain="signal-processing")],
         ))
-        tid = task_id_by_name(conn, champion_id, "Sticky task")
+        tid = task_id_by_name(conn, team_id, "Sticky task")
         first = conn.execute("SELECT due_date FROM task WHERE id = ?", (tid,)).fetchone()
         check("report 1 sets due_date = 2026-09-01", first["due_date"] == "2026-09-01",
               f"got {first['due_date']!r}")
 
         # Report 2 (later) touches the SAME task but OMITS due_date (null).
-        fan_out_report(conn, ReportDocument(
+        fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2020-06-01", raw_notes="n",
             tasks=[ReportTaskEntry(id=tid, task="Sticky task",
                                    status=TaskStatus.blocked, owner="Dana",
@@ -610,15 +607,15 @@ def scenario_11(db_dir: pathlib.Path) -> None:
     print("\n[11] Wave-12: a NEW task's champion-default owner SURVIVES an edit-replay")
     conn = fresh_conn(db_dir / "s11.db")
     try:
-        team_id, champion_id, domain_id = seed_team(conn)
+        team_id, domain_id = seed_team(conn)
         # A NEW task with NO owner -> defaults to the champion (Dana).
-        row = fan_out_report(conn, ReportDocument(
+        row = fan_out_report(conn, team_id, ReportDocument(
             champion="Dana", meeting_date="2026-06-20", raw_notes="n",
             tasks=[ReportTaskEntry(task="Solo task", status=TaskStatus.in_progress,
                                    domain_id=domain_id, domain="signal-processing")],
         ))
         report_id = row["id"]
-        tid = task_id_by_name(conn, champion_id, "Solo task")
+        tid = task_id_by_name(conn, team_id, "Solo task")
         before = conn.execute("SELECT owner FROM task WHERE id = ?", (tid,)).fetchone()
         check("new unowned task defaults owner to champion (Dana)",
               before["owner"] == "Dana", f"got {before['owner']!r}")
