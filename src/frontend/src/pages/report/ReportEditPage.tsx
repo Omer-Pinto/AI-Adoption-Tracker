@@ -146,7 +146,7 @@ export default function ReportEditPage() {
         <div className="top-bar-actions">
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => navigate(teamId != null ? `/teams/${teamId}` : -1)}
+            onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
           >
             Cancel
           </button>
@@ -190,7 +190,7 @@ export default function ReportEditPage() {
           </button>
           <button
             className="btn btn-secondary"
-            onClick={() => navigate(teamId != null ? `/teams/${teamId}` : -1)}
+            onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
           >
             Cancel
           </button>
