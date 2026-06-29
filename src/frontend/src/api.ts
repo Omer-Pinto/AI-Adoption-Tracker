@@ -15,7 +15,6 @@ import type {
   Artifact,
   ArtifactDetail,
   ArtifactPatchBody,
-  Champion,
   Domain,
   DomainPage,
   Report,
@@ -34,7 +33,6 @@ import type {
 /** Shape accepted by POST /api/domains and PATCH /api/domains/{id}. */
 export interface DomainWriteBody {
   team_id: number;
-  champion_id: number;
   name: string;
   description?: string | null;
   priority?: string | null;
@@ -100,20 +98,8 @@ export const api = {
     update: (id: number, body: Partial<Omit<Team, 'id'>>): Promise<Team> =>
       request(`/teams/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
-  champions: {
-    list: (): Promise<Champion[]> => request('/champions'),
-    create: (body: Omit<Champion, 'id'>): Promise<Champion> =>
-      request('/champions', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: Partial<Omit<Champion, 'id'>>): Promise<Champion> =>
-      request(`/champions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (id: number): Promise<void> =>
-      request(`/champions/${id}`, { method: 'DELETE' }),
-  },
   domains: {
     list: (): Promise<Domain[]> => request('/domains'),
-    /** Filter domains by champion — `GET /api/domains?champion_id=<id>` */
-    listByChampion: (championId: number): Promise<Domain[]> =>
-      request(`/domains?champion_id=${encodeURIComponent(String(championId))}`),
     /** Filter domains by team — `GET /api/domains?team_id=<id>` (entity edit picker). */
     listByTeam: (teamId: number): Promise<Domain[]> =>
       request(`/domains?team_id=${encodeURIComponent(String(teamId))}`),
@@ -132,8 +118,8 @@ export const api = {
   views: {
     // Landing teams index — `GET /api/team-pages` (one entry per team/champion).
     teamsIndex: (): Promise<TeamPageIndexEntry[]> => request('/team-pages'),
-    // `{id}` is the CHAMPION id (the page is keyed by champion, labeled by team).
-    teamPage: (championId: number): Promise<TeamPage> => request(`/teams/${championId}/page`),
+    // `{id}` is the TEAM id (the page is keyed by team; its champion is labeled inline).
+    teamPage: (teamId: number): Promise<TeamPage> => request(`/teams/${teamId}/page`),
     domainPage: (domainId: number): Promise<DomainPage> => request(`/domains/${domainId}/page`),
     tasks: (q?: string): Promise<Task[]> =>
       request(q ? `/tasks?q=${encodeURIComponent(q)}` : '/tasks'),
@@ -158,15 +144,16 @@ export const api = {
   // ---- Reports (backend routes/reports.py — task_breakdown 1C) ----
   reports: {
     // raw notes → drafted structured report (NOT saved). The only create path (spec §4).
-    // Backend DraftRequest shape: { champion_id, notes } (snake_case).
-    draft: (notes: string, championId: number): Promise<ReportJson> =>
+    // Backend DraftRequest shape: { team_id, notes } (snake_case).
+    draft: (teamId: number, notes: string): Promise<ReportJson> =>
       request('/reports/draft', {
         method: 'POST',
-        body: JSON.stringify({ champion_id: championId, notes }),
+        body: JSON.stringify({ team_id: teamId, notes }),
       }),
-    // confirm/save: fan out to tables in one transaction. Returns { report } wrapper.
-    create: (body: ReportJson): Promise<{ report: Report }> =>
-      request('/reports', { method: 'POST', body: JSON.stringify(body) }),
+    // confirm/save: fan out to tables in one transaction. The team is passed as a
+    // query param (`?team_id=`); the body is the report document. Returns { report }.
+    create: (teamId: number, body: ReportJson): Promise<{ report: Report }> =>
+      request(`/reports?team_id=${teamId}`, { method: 'POST', body: JSON.stringify(body) }),
     // `GET /api/reports/{id}` → { report } wrapper (binds the edit form).
     get: (reportId: number): Promise<{ report: Report }> => request(`/reports/${reportId}`),
     // edit a saved report → PATCH → replay. Returns { report } wrapper.

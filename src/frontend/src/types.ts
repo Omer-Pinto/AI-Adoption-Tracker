@@ -32,19 +32,14 @@ export type ArtifactTag =
 
 // ---- Current-state entities (spec §5) ----
 
+// One team = one champion (1:1 fold, Wave 16). The champion is carried inline on
+// the team as `champion_name` / `champion_start_date`; the standalone Champion
+// entity is gone. `cc_baseline`/`baseline_date` removed (nuked Wave 16).
 export interface Team {
   id: number;
   name: string;
-  cc_baseline: string | null;
-  baseline_date: string | null;
-}
-
-export interface Champion {
-  id: number;
-  name: string;
-  team_id: number;
-  start_date: string | null;
-  end_date: string | null;
+  champion_name: string;
+  champion_start_date: string | null;
 }
 
 export interface CrossDomainRef {
@@ -58,7 +53,6 @@ export interface Domain {
   id: number;
   team_id: number;
   team_name: string;
-  champion_id: number;
   name: string;
   description: string | null;
   priority: string | null;
@@ -216,7 +210,7 @@ export interface TeamEntities {
 
 export interface Report {
   id: number;
-  champion_id: number;
+  team_id: number;
   meeting_date: string;
   // JSON-encoded string on the wire (models.Report.report_json: str). Wave-2
   // does `JSON.parse(report.report_json) as ReportJson` to read the document.
@@ -279,10 +273,10 @@ export interface DomainPage {
   artifact_history: ArtifactHistoryEntry[];
 }
 
-/** One champion's portfolio, labeled by team — `GET /api/teams/{id}/page` (contract §2). */
+/** One team's portfolio (its champion lives on `team.champion_name`) —
+ *  `GET /api/teams/{id}/page` (contract §2). */
 export interface TeamPage {
   team: Team;
-  champion: Champion;
   domains: DomainPage[];
   /** Un-domained, team-wide artifacts (the all-team gutter, domain_id = null). */
   all_team_artifacts: Artifact[];
@@ -299,11 +293,10 @@ export interface TeamPage {
   artifact_count: number;
 }
 
-/** Teams index row — `GET /api/team-pages` (contract §2). One per (team, champion). */
+/** Teams index row — `GET /api/team-pages` (contract §2). One per team. */
 export interface TeamPageIndexEntry {
   team_id: number;
   team_name: string;
-  champion_id: number;
   champion_name: string;
   domain_count: number;
 }
