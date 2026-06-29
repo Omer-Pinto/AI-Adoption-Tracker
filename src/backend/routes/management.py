@@ -32,7 +32,7 @@ import llm.interface as llm
 from db import get_connection
 from domain_helpers import build_domain, build_domains_for_query
 from models import Domain, Team
-from reports.engine import _ensure_context_creation_domain
+from reports.engine import _ensure_context_creation_domain, _ensure_general_domain
 
 router = APIRouter(prefix="/api", tags=["management"])
 
@@ -80,30 +80,10 @@ class DomainUpdate(BaseModel):
 
 # ── constants ────────────────────────────────────────────────────────────────
 # System-provided domains the user may never delete (FROZEN CONTRACT, Wave 12).
-_GENERAL_DOMAIN_NAME = "General"
 _UNDELETABLE_DOMAIN_NAMES = {"general", "context creation"}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-
-def _ensure_general_domain(conn: sqlite3.Connection, team_id: int) -> int:
-    """Find (or create) this team's 'General' catch-all domain; return its id.
-
-    Mirrors the report engine's catch-all bucket so a domain-delete can reassign
-    orphaned tasks/artifacts. Plain-SQL to match this module's style (management
-    never reaches into the engine)."""
-    for row in conn.execute(
-        "SELECT id, name FROM domain WHERE team_id = ?", (team_id,)
-    ).fetchall():
-        if row["name"].strip().lower() == _GENERAL_DOMAIN_NAME.lower():
-            return row["id"]
-    cur = conn.execute(
-        "INSERT INTO domain (team_id, name, description) VALUES (?, ?, ?)",
-        (team_id, _GENERAL_DOMAIN_NAME,
-         "Catch-all for items not yet assigned to a specific domain."),
-    )
-    return cur.lastrowid
-
 
 def _insert(conn: sqlite3.Connection, table: str, data: dict) -> int:
     """INSERT `data` into `table`; return the new row id."""

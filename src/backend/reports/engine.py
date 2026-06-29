@@ -199,13 +199,16 @@ def _ensure_context_creation_domain(conn: sqlite3.Connection, team_id: int) -> i
     )
 
 
-def _champion_name(conn: sqlite3.Connection, team_id: int) -> str | None:
+def _champion_name(conn: sqlite3.Connection, team_id: int) -> str:
     """The team's current champion name — the default owner for new tasks /
-    action items. Null-tolerant (returns None if the team or name is absent)."""
+    action items. `team.champion_name` is NOT NULL and callers always pass a real
+    team, so this always yields a name; a missing team row is a programming error."""
     row = conn.execute(
         "SELECT champion_name FROM team WHERE id = ?", (team_id,)
     ).fetchone()
-    return row["champion_name"] if row else None
+    if row is None:
+        raise ValueError(f"team {team_id} not found")
+    return row["champion_name"]
 
 
 def _resolve_entry_domain_id(
