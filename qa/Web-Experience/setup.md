@@ -9,29 +9,23 @@
 - (Optional) `team.cc_baseline` / "Current Claude Code status" — free text, not exercised here.
 
 ## What is created via the LLM "Smart domain extract" flow
-Paste BOTH blocks below into **Smart domain extract** for champion **Noa** (one after the
-other), then accept the proposals. Do NOT type these by hand — the point is to exercise the
-extractor + the `Priority Order:` arrow-mapping logic. All four domains accumulate under Noa.
+Paste the single block below into **Smart domain extract** for champion **Noa**, then accept
+the proposals. Do NOT type these by hand — the point is to exercise the extractor + the
+`Priority Order:` arrow-mapping logic. All four domains land under Noa in one paste.
 
-**First block:**
 ```
 1. Web Frontend - react, typescript, nextjs, tailwind, storybook
 2. Design System - component library, figma, design tokens, accessibility
-Priority Order: 1 -> 2
+3. Mobile - react native, expo, ios, android
+4. API Gateway - graphql, apollo, bff, node
+Priority Order: 1 -> 2 -> 3 -> 4
 ```
-Expected: Web Frontend = priority 1, Design System = priority 2.
-
-**Second block:**
-```
-1. Mobile - react native, expo, ios, android
-2. API Gateway - graphql, apollo, bff, node
-Priority Order: 1 -> 2
-```
-Expected: Mobile = priority 1, API Gateway = priority 2.
+Expected: Web Frontend = priority 1, Design System = priority 2, Mobile = priority 3,
+API Gateway = priority 4.
 
 ## Auto-created domains (do NOT add these)
-Two constant domains are minted automatically per champion the first time you draft a
-report — do not create or list them. Noa gets exactly ONE of each:
+Two constant domains are minted automatically the first time you draft a report for Noa —
+do not create or list them. Noa gets exactly ONE of each:
 - **General** — the unplaced/fallback bucket (priority null).
 - **Context creation** — a REAL placement target (priority "1") for CLAUDE.md / context
   files / conventions.

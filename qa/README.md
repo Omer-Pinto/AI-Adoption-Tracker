@@ -20,8 +20,8 @@ Nothing here touches the DB directly — you create teams/champions by hand, ins
 | **Web Experience** | `Noa` | React / React Native FE | 4 | Web Frontend, Design System, Mobile, API Gateway |
 | **Data Platform** | `Sven` | Spark/dbt data eng | 3 | Ingestion, Transformation, Data Quality |
 
-**Total reports: 10** (within the 8–12 target; max 4 per champion).
-Every champion also auto-gets **General** + **Context creation** (per-champion) — never add those.
+**Total reports: 10** (within the 8–12 target; max 4 reports for each champion).
+Every champion also auto-gets **General** + **Context creation** (one set each) — never add those.
 
 ## Setup steps (per team, once)
 1. **Manually** create the team and its champion(s) in **Manage**.
