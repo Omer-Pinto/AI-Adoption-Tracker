@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-29 | **Branch:** `mvp-improvements` (+ `bug-fixes-mvp-closure` for QA fixes) | **Waves 11–13 + 15 DONE; Wave 16 (1:1 refactor) PLANNED — next to execute**
+> **Last updated:** 2026-06-29 | **Branch:** `mvp-refactor-champs` | **Waves 11–13 + 15 + 16 DONE** — Wave 16 (1:1 champion-per-team) built by 6 parallel agents, reviewed/simplified, DB recreated clean, qa dataset folded to champion **Noa**, live-verified (19/19). Next: 17 (go-live walk) + 18 (search)**
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 83% (144/173)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (168/173)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 144 / 173 | 83% |
+| 🟢 Done | 168 / 173 | 97% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 29 (Wave 16: 24 · 17: 2 · 18: 3) | 17% |
+| ⬜ Pending | 5 (Wave 17: 2 · 18: 3) | 3% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -38,7 +38,7 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 12 | **Done** | 3/3 | 3/3 | 0/21 | **Built + verified.** 12A/12B/12C cherry-picked (`8d55d8e`..`70104d3`). Uncertainty gate → 3 FIX-NOW (sticky due_date, owner-survives-replay, 204 body); review → 2 fixes (domain-delete FK, FE contract types); simplified (shared TERMINAL_STATUSES). Backend import OK (36 routes), schema verified, 45/45 journal tests, FE build green. Live round-trip = Omer |
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
 | 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
-| 16 | Not Started | 0/6 | 0/6 | 24/24 | **One champion per team (1:1 refactor).** Fold champion into team (`team.champion_name NOT NULL` + `champion_start_date`; drop `champion` table); key by `team_id`; team page `/teams/:teamId`; drop the report champion-picker; nuke dead `cc_baseline`/`baseline_date`; team+champion created together. ONE wave, **6 agents on disjoint files build to the approved target shape in parallel** (no gate); After-wave = DB recreate + QA-dataset fix + integration verify. See `task_breakdown.md` Wave 16 |
+| 16 | **Done** | 6/6 | 6/6 | 0/24 | **One champion per team (1:1 refactor) — built + verified.** 6 disjoint agents (16A–16F) cherry-picked clean (`1122bf9`..`df569bb`, 0 conflicts); champion folded into team (`team.champion_name NOT NULL` + `champion_start_date`; `champion` table dropped), all keyed by `team_id`, report champion-picker gone, `cc_baseline`/`baseline_date` nuked. code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge nav fix + simplification (`5dc699d`,`03f489f`). DB expunged+recreated clean (backed up first); qa dataset folded to one champion **Noa** (`415d698`); live API verify 19/19. **Live UI walk + LLM draft = Omer (.env).** |
 | 17 | Not Started | — | — | 0/2 | Go-live walkthrough — README_HUMAN install/run + `backup_db.sh`. See `task_breakdown.md` Wave 17 |
 | 18 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on entity pages — 18A explore+design, then implement (18B+). See `task_breakdown.md` Wave 18 |
 
@@ -466,53 +466,53 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 ### Agent 16A: Backend core (`python-pro` — schema/models/engine/seed)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | New schema | ⬜ Pending | |
-| 2 | Models (drop Champion; report/domain re-key; Team += champion) | ⬜ Pending | |
-| 3 | Re-key engine to team; delete `_resolve_champion_id`/`_champion_team_id` | ⬜ Pending | |
-| 4 | ONE team-keyed `_ensure_*_domain` (kills triple def) | ⬜ Pending | |
-| 5 | Owner-default reads `team.champion_name` | ⬜ Pending | |
-| 6 | Seed sets champion_name; domains drop champion_id | ⬜ Pending | |
+| 1 | New schema | 🟢 Done | |
+| 2 | Models (drop Champion; report/domain re-key; Team += champion) | 🟢 Done | |
+| 3 | Re-key engine to team; delete `_resolve_champion_id`/`_champion_team_id` | 🟢 Done | |
+| 4 | ONE team-keyed `_ensure_*_domain` (kills triple def) | 🟢 Done | |
+| 5 | Owner-default reads `team.champion_name` | 🟢 Done | |
+| 6 | Seed sets champion_name; domains drop champion_id | 🟢 Done | |
 ### Agent 16B: Backend routes (`backend-developer`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Remove champion CRUD + `_assert_champion_belongs_to_team` + `?champion_id=` | ⬜ Pending | |
-| 2 | Team create REQUIRES champion (team+champion together); update edits in place; NO standalone champion-create | ⬜ Pending | |
-| 3 | team_page `{id}`=team_id; team-pages one row/team | ⬜ Pending | |
-| 4 | Domains create/patch drop champion_id | ⬜ Pending | |
-| 5 | Reports draft/save by team_id | ⬜ Pending | |
-| 6 | AI-Lead worklist JOIN report→team | ⬜ Pending | |
+| 1 | Remove champion CRUD + `_assert_champion_belongs_to_team` + `?champion_id=` | 🟢 Done | |
+| 2 | Team create REQUIRES champion (team+champion together); update edits in place; NO standalone champion-create | 🟢 Done | |
+| 3 | team_page `{id}`=team_id; team-pages one row/team | 🟢 Done | |
+| 4 | Domains create/patch drop champion_id | 🟢 Done | |
+| 5 | Reports draft/save by team_id | 🟢 Done | |
+| 6 | AI-Lead worklist JOIN report→team | 🟢 Done | |
 ### Agent 16C: FE foundation (`frontend-developer` — types/api)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Types (Team += champion, DELETE cc_baseline/baseline_date; one-per-team index; drop Champion/champion_id) | ⬜ Pending | |
-| 2 | api.ts (remove champions.*/listByChampion; team-keyed page/draft/create) | ⬜ Pending | |
+| 1 | Types (Team += champion, DELETE cc_baseline/baseline_date; one-per-team index; drop Champion/champion_id) | 🟢 Done | |
+| 2 | api.ts (remove champions.*/listByChampion; team-keyed page/draft/create) | 🟢 Done | |
 ### Agent 16D: FE nav + hub (`router.tsx`, `TeamPage`, `TeamsIndexPage`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Route `:championId` → `:teamId` | ⬜ Pending | |
-| 2 | TeamPage team-keyed; champion from team fields | ⬜ Pending | |
-| 3 | TeamsIndexPage one card per team | ⬜ Pending | |
+| 1 | Route `:championId` → `:teamId` | 🟢 Done | |
+| 2 | TeamPage team-keyed; champion from team fields | 🟢 Done | |
+| 3 | TeamsIndexPage one card per team | 🟢 Done | |
 ### Agent 16E: FE manage (`ManagePage`, `TeamForm`, `DomainForm`; del `ChampionForm`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Drop Champions tab/grouping/add/delete; tabs Teams·Domains | ⬜ Pending | |
-| 2 | TeamForm (create+edit) collects team+champion TOGETHER; NO separate Add-Champion | ⬜ Pending | |
-| 3 | DomainForm drop champion select | ⬜ Pending | |
-| 4 | Delete `ChampionForm.tsx` | ⬜ Pending | |
+| 1 | Drop Champions tab/grouping/add/delete; tabs Teams·Domains | 🟢 Done | |
+| 2 | TeamForm (create+edit) collects team+champion TOGETHER; NO separate Add-Champion | 🟢 Done | |
+| 3 | DomainForm drop champion select | 🟢 Done | |
+| 4 | Delete `ChampionForm.tsx` | 🟢 Done | |
 ### Agent 16F: FE report + domain-setup (`pages/report/*`, `DomainSetupPage`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | ReportCreate: remove champion picker; enter by team; team-chooser fallback | ⬜ Pending | |
-| 2 | Preview/Edit: drop champion→team hop; team-keyed; live champion name | ⬜ Pending | |
-| 3 | DomainSetup: drop champion select/auto-select; team-keyed | ⬜ Pending | |
+| 1 | ReportCreate: remove champion picker; enter by team; team-chooser fallback | 🟢 Done | |
+| 2 | Preview/Edit: drop champion→team hop; team-keyed; live champion name | 🟢 Done | |
+| 3 | DomainSetup: drop champion select/auto-select; team-keyed | 🟢 Done | |
 
 ### After Wave 16 (orchestrator)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| V1 | Cherry-pick 16A–16F; `import app` clean; `npm run build` green; ai-engineer reviews engine/prompt diff | ⬜ Pending | |
-| V2 | Expunge + recreate DB clean (new schema; Omer re-enters QA) | ⬜ Pending | authorized, this DB only |
-| V3 | Fix `qa/` dataset → Web-Experience 1 champion; README/setups to 1:1 | ⬜ Pending | merge `*-Daniel`/`*-Rivka` reports |
-| V4 | Integration verify (team-keyed pages/links; create-from-team; champion rename → history shows new name; AI-Lead) | ⬜ Pending | live |
+| V1 | Cherry-pick 16A–16F; `import app` clean; `npm run build` green; ai-engineer reviews engine/prompt diff | 🟢 Done | 6/6 cherry-picked clean (disjoint, 0 conflicts); `import app` OK (38 routes, was 43), `npm run build` green (68 mods, tsc clean), 45/45 journal; code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge fix (Cancel-nav type) + simplification (dedup `_ensure_general_domain`, narrow `_champion_name`→str) |
+| V2 | Expunge + recreate DB clean (new schema; Omer re-enters QA) | 🟢 Done | old champion-schema DB backed up → `tracker.db.bak-wave16-20260629`, expunged; new schema regenerated EMPTY (no `champion` table; `team` has `champion_name`/`champion_start_date`, no cc_baseline). Left empty for Omer's QA re-entry |
+| V3 | Fix `qa/` dataset → Web-Experience 1 champion; README/setups to 1:1 | 🟢 Done | via **qa-expert**: Web-Experience folded to one champion **Noa** (Daniel+Rivka merged); 4 reports renamed suffix-less; README matrix collapsed WD/WR→W; setup.md to 1:1; 0 residual two-champion terms (`415d698`) |
+| V4 | Integration verify (team-keyed pages/links; create-from-team; champion rename → history shows new name; AI-Lead) | 🟢 Done | live API walk on running server: 19/19 PASS — team+champion created together (champion-only create→404), report saved by team_id (label overwritten to live name), owner defaulted to champion, team page + index team-keyed one-per-team, **champion rename in place → pages show NEW name**, domains team-keyed, AI-Lead worklist. **Live UI walk + LLM draft = Omer (.env).** |
 
 ---
 
