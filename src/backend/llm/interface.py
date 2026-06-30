@@ -218,9 +218,9 @@ description }. These are the team's tech/stack work areas (e.g. Backend, Web, \
 Deployment, Monitor & Debug). TWO constant domains are ALWAYS present:
   * the domain whose name ENDS WITH "Context Creation" (it appears in the list \
 with a team-name prefix, e.g. "Acme's Context Creation") is a REAL placement \
-target — file here any context-engineering work: CLAUDE.md / context files, \
-knowledge docs, conventions, and other Claude Code context the team builds. Use \
-it like any other domain when an item fits it.
+target — file here all Claude tooling the team builds: skills, agents, hooks, \
+AND CLAUDE.md / context files, knowledge docs, conventions, and other Claude \
+Code context. Use it like any other domain when an item fits it.
   * the domain whose name ENDS WITH "General" (likewise team-name-prefixed, e.g. \
 "Acme's General") is the FALLBACK/unplaced bucket ONLY; never file an item here \
 on purpose. To leave an item unplaced, set its domain_id null (do NOT pick the \
@@ -228,9 +228,8 @@ team's "General" domain); a human reassigns it later.
   * BEST-FIT MATCH → set "domain_id" to that domain's id and "domain" to its \
 EXACT name.
   * UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null (the unplaced \
-bucket). A team-wide / cross-cutting artifact (e.g. shared context packs, \
-team-wide skills) is ALSO domain_id null. Do not drop the item — it still lives \
-in the flat list.
+bucket). A team-wide / cross-cutting artifact (e.g. shared context packs) is \
+ALSO domain_id null. Do not drop the item — it still lives in the flat list.
 - CRITICAL ASYMMETRY between the two null id semantics:
   * a null ENTITY "id" MEANS "create a NEW task/artifact".
   * a null "domain_id" does NOT mean "create a new domain" — it means \
