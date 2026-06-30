@@ -1184,10 +1184,17 @@
    row. Enter is swallowed in JS; long content scrolls horizontally, clipped to
    one line so the column boundaries stay aligned with the other inputs. */
 .report-editor .rte-inline {
-  min-height: 0; padding: 5px 10px; line-height: 1.5;
-  white-space: nowrap; overflow-x: auto; overflow-y: hidden;
-  /* Fill the fixed cell and never exceed it — long text scrolls inside. */
+  /* Match the task/artifact name <input> (.cell-input): transparent box that
+     only shows its border on hover/focus, single line, content clipped and
+     caret-scrolled like a native input (NO visible scrollbar). */
+  min-height: 0; padding: 3px 7px; line-height: 1.5; font-size: 13px;
+  white-space: nowrap; overflow-x: hidden; overflow-y: hidden;
   width: 100%; max-width: 100%; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 5px; background: transparent;
+}
+.report-editor .rte-inline:hover { border-color: var(--border); background: var(--surface); }
+.report-editor .rte-inline:focus {
+  border-color: var(--re-indigo); background: var(--surface); box-shadow: 0 0 0 2px rgba(67,97,238,.1);
 }
 .report-editor .rte-inline br { display: none; }
 
