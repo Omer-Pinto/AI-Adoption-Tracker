@@ -16,12 +16,13 @@ import { ErrorState } from '@/components/EmptyState';
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
 const TODAY = new Date().toISOString().slice(0, 10);
 
-// System "constant" domains every champion has, matched by name (case-insensitive).
+// System "constant" domains every champion has, matched by name suffix
+// (case-insensitive) — stored per-team as "{Team}'s General" / "{Team}'s Context Creation".
 // They're real rows in data.domains and SHOULD render in the fold; only the
 // Domains tile's big number excludes them so it reflects real domains.
-const CONSTANT_DOMAINS = ['general', 'context creation'];
 function isConstantDomain(name: string): boolean {
-  return CONSTANT_DOMAINS.includes(name.trim().toLowerCase());
+  const n = name.trim().toLowerCase();
+  return n.endsWith('general') || n.endsWith('context creation');
 }
 
 // One stable color per domain (left accent). General catch-all renders muted.
@@ -244,7 +245,7 @@ export default function TeamPage() {
 
           <button type="button" className="tile acc-amber" onClick={() => jumpTo(actionsRef)}>
             <div className="tile-top">
-              <span className="tile-label">Open actions</span>
+              <span className="tile-label">Open action items</span>
               <span className="tile-ico">☑</span>
             </div>
             <div className="tile-value">{data.open_action_items}</div>
