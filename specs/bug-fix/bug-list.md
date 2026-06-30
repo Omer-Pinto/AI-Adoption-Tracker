@@ -51,9 +51,8 @@
   in-place CRUD (status/text/due/note/delete) for ALL action items; show note + domain. Reports
   list/detail: remove the Edit button on non-latest reports (#3). `types.ts`/`api.ts`: `ActionItem`
   drop `owner`, add `note`; patch/delete for any item.
-- **Migration (existing QA DB):** dropping `owner` makes existing champion-owned action items
-  owner-less (all become AI-Lead items). **OPEN:** leave them (re-test fresh) vs convert
-  champion-owned ones into General tasks. *(lean: just drop — you're re-entering QA.)*
+- **Migration (existing QA DB):** DECIDED (Omer 06-30) — **just drop `owner`**; existing action
+  items all become AI-Lead items (no conversion to tasks). Omer re-enters/cleans QA fresh.
 - **A3 — Kill manual single-domain add** *(global #2)* — **done ✅** manual "+ Add Domain" modal
   trigger removed; single **"+ Add Domains"** entry → the smart-extract page (single domain = one
   line). `DomainForm` kept for *editing*; `POST /api/domains` kept for the extract approve step.
@@ -97,7 +96,8 @@
 - **D1** `[llm]` Dropped a whole task: "Rewrite the ledger in Rust" vanished entirely *(May 18 #1)* —
   no-drop safety-net failed. **High.**
 - **D2** `[llm]` Action items mis-routed to `discussion` with no owner (100% miss that week)
-  *(May 11 #7)*. **High.**
+  *(May 11 #7)*. **High. → FOLDED INTO A1+A2** (the action-item prompt redefinition fixes this —
+  don't handle separately).
 - **D3** `[llm]` `change_kind` not set on artifacts: new gRPC skill missing "added"; skill update
   missing its change type *(May 4 #5, May 11 #5)*. **Med.**
 - **D4** `[llm]` Notes overused — model dumps redundant restatements into `note` *(May 4 #4 "root
