@@ -867,11 +867,16 @@ function RichMentionEditor({
   onChange,
   entities,
   placeholder,
+  singleLine = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   entities: TeamEntities;
   placeholder?: string;
+  // When true the editor is a single-line box (action-item rows): Enter never
+  // inserts a newline and long content scrolls horizontally — the row height
+  // stays fixed and aligned with the other columns' inputs.
+  singleLine?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ac, setAc] = useState<AcState | null>(null);
@@ -1013,8 +1018,10 @@ function RichMentionEditor({
         if (c) pick(c);
         return;
       }
-      // popup closed → insert a flat <br> ourselves, then serialize.
+      // popup closed → single-line editors swallow Enter (no newline); multi-line
+      // editors insert a flat <br> ourselves, then serialize.
       e.preventDefault();
+      if (singleLine) return;
       insertLineBreak();
       emit();
       return;
@@ -1040,7 +1047,7 @@ function RichMentionEditor({
     <div className="rte-wrap">
       <div
         ref={ref}
-        className="rte"
+        className={singleLine ? 'rte rte-inline' : 'rte'}
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder ?? ''}
@@ -1115,12 +1122,12 @@ function ActionItemsCard({
         <table className="ai-table">
           <thead>
             <tr>
-              <th className="ai-col-item">Action item (type @ task or # artifact)</th>
-              <th className="ai-col-status">Status</th>
-              <th className="ai-col-owner">Owner</th>
-              <th className="ai-col-due">Due</th>
-              <th className="ai-col-domain">Domain</th>
-              <th className="ai-col-del" />
+              <th>Action item (type @ task or # artifact)</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Due</th>
+              <th>Domain</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -1132,6 +1139,7 @@ function ActionItemsCard({
                     onChange={(v) => patch(i, { text: v })}
                     entities={entities}
                     placeholder="Action item…"
+                    singleLine
                   />
                 </td>
                 <td>
