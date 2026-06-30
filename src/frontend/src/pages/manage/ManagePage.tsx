@@ -250,20 +250,12 @@ export default function ManagePage() {
             </button>
           )}
           {tab === 'domains' && (
-            <>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => navigate('/domains/extract')}
-              >
-                Smart domain extract
-              </button>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setModal({ kind: 'domain', editing: null })}
-              >
-                + Add Domain
-              </button>
-            </>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => navigate('/domains/extract')}
+            >
+              + Add Domains
+            </button>
           )}
         </div>
       </div>
@@ -322,7 +314,7 @@ export default function ManagePage() {
           (domains.length === 0 ? (
             <div className="panel">
               <div className="page-body text-muted text-sm">
-                No domains yet. Click + Add Domain to create one.
+                No domains yet. Click + Add Domains to create one.
               </div>
             </div>
           ) : (

@@ -305,7 +305,7 @@ export default function DomainSetupPage() {
     <>
       <div className="top-bar">
         <div>
-          <span className="top-bar-title">Smart domain extract</span>
+          <span className="top-bar-title">Add Domains</span>
           <span className="top-bar-sub">Extract and approve domain proposals from text</span>
         </div>
         <div className="top-bar-actions">
@@ -321,7 +321,7 @@ export default function DomainSetupPage() {
           <span className="breadcrumb-sep">/</span>
           <Link to="/manage">Manage</Link>
           <span className="breadcrumb-sep">/</span>
-          <span>Smart domain extract</span>
+          <span>Add Domains</span>
         </div>
 
         <div style={{ maxWidth: 760 }}>
