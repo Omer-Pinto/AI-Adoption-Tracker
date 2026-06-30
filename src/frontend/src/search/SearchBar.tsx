@@ -596,7 +596,7 @@ function EnumDropdown({
           ) : (
             filtered.map((v, idx) => (
               <li
-                key={v}
+                key={`${v}__${idx}`}
                 className={`sb-dd-item${selected.has(v) ? ' is-selected' : ''}${idx === focusIdx ? ' is-focused' : ''}`}
                 role="option"
                 aria-selected={selected.has(v)}
