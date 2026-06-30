@@ -75,7 +75,7 @@
   the editor shows "— owner —". Fix in the prompt (emit champion) or default at draft time.
   Related to D5. **Med.**
 
-## E. Confirmed NOT a bug / expected — *under review (Omer not fully agreed)*
+## E. Confirmed NOT a bug / expected — done ✅
 
 - **E1** `[ok]` how-to doc for gRPC skill → Context Creation: correct *(May 4 #6)*.
 - **E2** `[ok]` "overdue" only renders after save *(May 11 #3)* — computed on saved data.
