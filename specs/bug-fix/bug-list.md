@@ -14,14 +14,46 @@
 
 ## A. Decisions to make FIRST (architectural — deferred per Omer, do not code until agreed)
 
-- **A1 — Action-item duplication & locked editing** *(May 11 #8 — "biggest bug")* `[product][bug]`
-  Per-report rows, never matched → re-mention makes a 2nd row → 2-closed-2-open double-count shows
-  stale items as "open." (a) report-derived items can't be edited/closed/deleted without editing
-  the origin report (Wave 15 freed only *standalone* items); (b) no cross-report matching → dupes.
-  Decision: match across reports? OR keep per-report + allow in-place status edit on any item +
-  fix open/closed counting? *(lean: b + in-place edit)*
-- **A2 — Edit-report + replay UX** *(closing note)* `[product]` — cumbersome; editing non-latest
-  reports is confusing. Rethink the model before touching code.
+### A1 + A2 — RESOLVED (Omer + analysis, 06-30). Build plan below.
+
+**Agreed model:**
+- **"Action item" = the AI Lead's own to-do, EXCLUSIVELY.** No owner (always the AI Lead). Created
+  from the "AI Lead to…" lines in a report's notes, OR added standalone on the AI-Lead board. After
+  creation: **full in-place CRUD** (status incl. abandon/wont_fix, text, due, **note**, delete) for
+  ALL items — not just standalone. NOT journaled, NOT re-matched, NOT touched by replay.
+- **Champions/team members have NO action items.** A "light" champion follow-up is a **task in the
+  team's General** domain (use the gutter). If the notes describe a champion follow-up, it becomes a
+  task (General if unplaced) — never an action item, never discussion.
+- **Why the split (not LLM reliability):** tasks/artifacts change *at* meetings (reported → LLM
+  extract/match is the core feature, kept). Action items change *between* meetings, by the AI Lead
+  who doesn't file reports → no meeting event to carry the update → in-place CRUD.
+- **#2:** tasks & artifacts stay event-sourced + replay — unchanged.
+- **#3:** only the **latest** report per team is editable; the Edit affordance is **removed** from
+  older reports (eliminated, not greyed).
+- A report **creates** its action items once on save; replay/edit of the latest report re-folds
+  tasks/artifacts but **does not touch** action items (in-place edits never clobbered).
+
+**Build plan (under A1+A2):**
+- **DB (`schema.sql` `action_item`):** DROP `owner`; ADD `note TEXT` (nullable). Keep `report_id`
+  (nullable), `domain_id` (nullable), `text`, `due_date`, `status`.
+- **Backend:** `models.ActionItem`/`ReportActionItem` drop `owner`, add `note`. `engine`:
+  `_insert_action_item` stops writing owner (delete the action-item owner-default logic), writes
+  `note`; **replay must skip action items** (create-once, independent). `routes/views.py`: AI-Lead
+  worklist drops the `owner='AI Lead'` filter (every action item is the AI Lead's now); action-item
+  **PATCH** allows text/status/due/note/domain on ANY item; **DELETE** allowed for ANY item (remove
+  the report-derived 409). `PATCH /reports/{id}`: reject editing a non-latest report (#3).
+- **Prompt (`llm/interface.py`):** redefine ACTION ITEMS = exclusively the AI-enablement-lead's own
+  to-dos (no owner); a champion/team follow-up is a TASK (its tech domain, else General) — never an
+  action item, never discussion. Remove all action-item owner rules. (Also fixes **D2**.) Task owner
+  default = champion stays.
+- **UI:** report editor action-items section — remove the Owner column/dropdown, add a **Note**
+  field, keep status/due/domain (relabel → "My action items (AI Lead)"). Team page + AI-Lead board:
+  in-place CRUD (status/text/due/note/delete) for ALL action items; show note + domain. Reports
+  list/detail: remove the Edit button on non-latest reports (#3). `types.ts`/`api.ts`: `ActionItem`
+  drop `owner`, add `note`; patch/delete for any item.
+- **Migration (existing QA DB):** dropping `owner` makes existing champion-owned action items
+  owner-less (all become AI-Lead items). **OPEN:** leave them (re-test fresh) vs convert
+  champion-owned ones into General tasks. *(lean: just drop — you're re-entering QA.)*
 - **A3 — Kill manual single-domain add** *(global #2)* — **done ✅** manual "+ Add Domain" modal
   trigger removed; single **"+ Add Domains"** entry → the smart-extract page (single domain = one
   line). `DomainForm` kept for *editing*; `POST /api/domains` kept for the extract approve step.
