@@ -22,14 +22,17 @@
   fix open/closed counting? *(lean: b + in-place edit)*
 - **A2 — Edit-report + replay UX** *(closing note)* `[product]` — cumbersome; editing non-latest
   reports is confusing. Rethink the model before touching code.
-- **A3 — Kill manual single-domain add** *(global #2)* `[product]` — drop "+ Add Domain" (manual
-  modal) + its API; rename "Smart Domain Extract" → "+ Add Domains" as the only path (single domain
-  = one line).
+- **A3 — Kill manual single-domain add** *(global #2)* — **done ✅** manual "+ Add Domain" modal
+  trigger removed; single **"+ Add Domains"** entry → the smart-extract page (single domain = one
+  line). `DomainForm` kept for *editing*; `POST /api/domains` kept for the extract approve step.
 - **A4 — Skill→domain placement** *(May 18 #3)* — **RESOLVED by design (Omer 06-30):** Context
   Creation is the home for ALL Claude tooling (skills/agents/hooks/context) **and** any
   task/action-item about *building* that tooling — it's domain-agnostic (e.g. an "FE-dev agent" →
   Context Creation, NOT the FE domain). Tech domains hold actual product/feature work (FE = "add
-  reports page + API + tests"). So skills→Context Creation is correct, not a bug. **No fix.**
+  reports page + API + tests"). So skills→Context Creation is correct, not a bug. **Prompt
+  tightened ✅** to enforce it (Context Creation = all Claude tooling; "team-wide skills" removed
+  from the null bucket). NOTE: this means team-wide skills now land in Context Creation instead of
+  the team-wide/null gutter — the qa Web-Experience a11y-skill expectation shifts accordingly.
 
 ## B. Deterministic code bugs (no LLM involved) — done ✅
 
