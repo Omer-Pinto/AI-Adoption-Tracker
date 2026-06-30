@@ -143,32 +143,55 @@ def _resolve_domain_id(
     return None
 
 
-_GENERAL_DOMAIN_NAME = "General"
-_CONTEXT_DOMAIN_NAME = "Context creation"
+# Constant-domain detection is a SUFFIX match (FROZEN CONTRACT, F1): a domain is
+# constant iff its normalized name ENDS WITH one of these. This catches the new
+# team-name-prefixed names ("Radar's General" / "Radar's Context Creation") as
+# well as any legacy unprefixed rows.
+_GENERAL_SUFFIX = "general"
+_CONTEXT_SUFFIX = "context creation"
+
+
+def _team_name(conn: sqlite3.Connection, team_id: int) -> str:
+    """The team's display name — used to build the prefixed constant-domain names.
+    A missing team row is a programming error (callers always pass a real team)."""
+    row = conn.execute("SELECT name FROM team WHERE id = ?", (team_id,)).fetchone()
+    if row is None:
+        raise EngineError(f"Unknown team id: {team_id}")
+    return row["name"]
 
 
 def _ensure_constant_domain(
     conn: sqlite3.Connection,
     team_id: int,
-    name: str,
+    suffix: str,
+    canonical_name: str,
     description: str,
     priority: str | None,
 ) -> int:
-    """Ensure a per-team system-provided domain exists; return its id.
+    """Ensure a per-team system-provided constant domain exists; return its id.
 
     Domains are tech/stack areas the user defines manually; this mints the small
-    set of constant, always-present domains ('General', 'Context creation') the
-    same way for every team (idempotent by case-insensitive name)."""
-    target = _norm(name)
+    set of constant, always-present domains (a team's 'General' / 'Context
+    Creation') the same way for every team. Constant domains carry a team-name
+    PREFIX, and detection is a SUFFIX match (``_norm`` ends with *suffix*), so an
+    existing prefixed OR legacy-unprefixed row is matched (never duplicated); a
+    matched row is renamed IN-PLACE to *canonical_name* so old rows migrate to the
+    prefixed form on the next ensure. Otherwise it is created with
+    *canonical_name*."""
     for row in conn.execute(
         "SELECT id, name FROM domain WHERE team_id = ?", (team_id,)
     ).fetchall():
-        if _norm(row["name"]) == target:
+        if _norm(row["name"]).endswith(suffix):
+            if row["name"] != canonical_name:
+                conn.execute(
+                    "UPDATE domain SET name = ? WHERE id = ?",
+                    (canonical_name, row["id"]),
+                )
             return row["id"]
     cur = conn.execute(
         "INSERT INTO domain (team_id, name, description, priority) "
         "VALUES (?, ?, ?, ?)",
-        (team_id, name, description, priority),
+        (team_id, canonical_name, description, priority),
     )
     return cur.lastrowid
 
@@ -176,24 +199,29 @@ def _ensure_constant_domain(
 def _ensure_general_domain(conn: sqlite3.Connection, team_id: int) -> int:
     """Ensure a per-team 'General' catch-all domain exists; return its id.
 
-    'General' is the system-provided FALLBACK bucket (priority NULL): the model
-    parks tasks/artifacts it cannot confidently place here, and the user
-    reassigns them to a real domain in the UI."""
+    Stored as ``f"{team_name}'s General"`` (e.g. "Radar's General"). 'General' is
+    the system-provided FALLBACK bucket (priority NULL): the model parks
+    tasks/artifacts it cannot confidently place here, and the user reassigns them
+    to a real domain in the UI. Found by the SUFFIX rule (name ends with
+    'general')."""
     return _ensure_constant_domain(
-        conn, team_id, _GENERAL_DOMAIN_NAME,
+        conn, team_id, _GENERAL_SUFFIX, f"{_team_name(conn, team_id)}'s General",
         "Catch-all for items not yet assigned to a specific domain.", None,
     )
 
 
 def _ensure_context_creation_domain(conn: sqlite3.Connection, team_id: int) -> int:
-    """Ensure a per-team 'Context creation' domain exists; return its id.
+    """Ensure a per-team 'Context Creation' domain exists; return its id.
 
-    A constant domain (priority '1') for context-engineering work — CLAUDE.md /
-    context files, knowledge docs, conventions, and other Claude Code context the
-    team builds. Unlike 'General' it PARTICIPATES in placement (the model may file
-    items here) but is NOT the unplaced fallback."""
+    Stored as ``f"{team_name}'s Context Creation"`` (e.g. "Radar's Context
+    Creation"). A constant domain (priority '1') for context-engineering work —
+    CLAUDE.md / context files, knowledge docs, conventions, and other Claude Code
+    context the team builds. Unlike 'General' it PARTICIPATES in placement (the
+    model may file items here) but is NOT the unplaced fallback. Found by the
+    SUFFIX rule (name ends with 'context creation')."""
     return _ensure_constant_domain(
-        conn, team_id, _CONTEXT_DOMAIN_NAME,
+        conn, team_id, _CONTEXT_SUFFIX,
+        f"{_team_name(conn, team_id)}'s Context Creation",
         "Claude Code context and/or artifacts - hooks, skills, MCPs, agents, "
         "workflows and context files (CLAUDE.md and others).", "1",
     )

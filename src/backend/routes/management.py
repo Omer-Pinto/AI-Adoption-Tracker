@@ -79,8 +79,11 @@ class DomainUpdate(BaseModel):
 
 
 # ── constants ────────────────────────────────────────────────────────────────
-# System-provided domains the user may never delete (FROZEN CONTRACT, Wave 12).
-_UNDELETABLE_DOMAIN_NAMES = {"general", "context creation"}
+# System-provided constant domains the user may never delete (FROZEN CONTRACT,
+# F1). Detection is a SUFFIX match on the normalized name so the team-name-
+# prefixed constants ("Radar's General" / "Radar's Context Creation") and any
+# legacy unprefixed rows all stay undeletable. (str.endswith accepts a tuple.)
+_UNDELETABLE_DOMAIN_SUFFIXES = ("general", "context creation")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -338,8 +341,9 @@ def delete_domain(domain_id: int) -> None:
     """Delete a domain, reassigning its tasks & artifacts to the team's
     'General' catch-all first.
 
-    Blocks (409) deleting the system-provided constant domains 'General' and
-    'Context creation'. Tasks (NOT NULL domain_id) and artifacts in the deleted
+    Blocks (409) deleting the system-provided constant domains — the team's
+    prefixed 'General' / 'Context Creation' (matched by the undeletable SUFFIX
+    rule). Tasks (NOT NULL domain_id) and artifacts in the deleted
     domain are re-parented to 'General' (ensured) so nothing is orphaned; the
     domain's cross-links cascade. 404 if the domain is unknown."""
     conn = get_connection()
@@ -347,7 +351,7 @@ def delete_domain(domain_id: int) -> None:
         row = _fetch(conn, "domain", domain_id)
         if row is None:
             raise HTTPException(status_code=404, detail="Domain not found")
-        if row["name"].strip().lower() in _UNDELETABLE_DOMAIN_NAMES:
+        if row["name"].strip().lower().endswith(_UNDELETABLE_DOMAIN_SUFFIXES):
             raise HTTPException(
                 status_code=409,
                 detail=(

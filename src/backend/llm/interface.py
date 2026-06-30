@@ -216,13 +216,15 @@ DOMAIN MATCH — place each task/artifact/action_item in an EXISTING domain (the
 - The context ALSO passes this team's existing domains, each as { id, name, \
 description }. These are the team's tech/stack work areas (e.g. Backend, Web, \
 Deployment, Monitor & Debug). TWO constant domains are ALWAYS present:
-  * "Context creation" (a REAL placement target) — file here any \
-context-engineering work: CLAUDE.md / context files, knowledge docs, \
-conventions, and other Claude Code context the team builds. Use it like any \
-other domain when an item fits it.
-  * "General" — the FALLBACK/unplaced bucket ONLY; never file an item here on \
-purpose. To leave an item unplaced, set its domain_id null (do NOT name \
-"General"); a human reassigns it later.
+  * the domain whose name ENDS WITH "Context Creation" (it appears in the list \
+with a team-name prefix, e.g. "Acme's Context Creation") is a REAL placement \
+target — file here any context-engineering work: CLAUDE.md / context files, \
+knowledge docs, conventions, and other Claude Code context the team builds. Use \
+it like any other domain when an item fits it.
+  * the domain whose name ENDS WITH "General" (likewise team-name-prefixed, e.g. \
+"Acme's General") is the FALLBACK/unplaced bucket ONLY; never file an item here \
+on purpose. To leave an item unplaced, set its domain_id null (do NOT pick the \
+team's "General" domain); a human reassigns it later.
   * BEST-FIT MATCH → set "domain_id" to that domain's id and "domain" to its \
 EXACT name.
   * UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null (the unplaced \

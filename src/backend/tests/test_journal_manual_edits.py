@@ -496,20 +496,22 @@ def scenario_9(db_dir: pathlib.Path) -> None:
         # build_draft_context mints the constant domains.
         ctx = build_draft_context(conn, team_id)
         names = {d["name"] for d in ctx["domains"]}
-        check("draft context offers 'General' + 'Context creation'",
-              {"General", "Context creation"} <= names, f"got {sorted(names)}")
+        # F1: constants are now stored with a team-name prefix ("Radar's …").
+        check("draft context offers \"Radar's General\" + \"Radar's Context Creation\"",
+              {"Radar's General", "Radar's Context Creation"} <= names,
+              f"got {sorted(names)}")
         ctx_dom = conn.execute(
-            "SELECT priority FROM domain WHERE team_id = ? AND name = 'Context creation'",
-            (team_id,),
+            "SELECT priority FROM domain WHERE team_id = ? AND name = ?",
+            (team_id, "Radar's Context Creation"),
         ).fetchone()
-        check("'Context creation' has priority '1'", ctx_dom["priority"] == "1",
+        check("\"Radar's Context Creation\" has priority '1'", ctx_dom["priority"] == "1",
               f"got {ctx_dom['priority'] if ctx_dom else None}")
         gen_dom = conn.execute(
-            "SELECT priority FROM domain WHERE team_id = ? AND name = 'General'",
-            (team_id,),
+            "SELECT priority FROM domain WHERE team_id = ? AND name = ?",
+            (team_id, "Radar's General"),
         ).fetchone()
-        check("'General' stays priority NULL (fallback)", gen_dom["priority"] is None,
-              f"got {gen_dom['priority']!r}")
+        check("\"Radar's General\" stays priority NULL (fallback)",
+              gen_dom["priority"] is None, f"got {gen_dom['priority']!r}")
 
         # A new task with NO owner → defaults to the champion's name (Dana).
         # A new task with status wont_fix (terminal/closed) must save.
