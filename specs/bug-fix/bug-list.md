@@ -84,10 +84,13 @@
 - **E5** `[ok]` Action-item text carrying "AI enablement lead to present…" vs owner=AI Lead
   *(May 18 #5)* — flagged too-minor.
 
-## F. Trivial copy/data
+## F. Trivial copy/data — done ✅
 
 - **F1** `[bug]` "Context creation" → "Context Creation" *(global #1)* — seeded constant-domain name,
-  so a small code+data change, not just CSS.
+  so a small code+data change, not just CSS. **Extended:** the constants were also identical across
+  every team (N bare "General"/"Context creation" rows polluting the search list), so they are now
+  **per-team prefixed** — `"{Team}'s General"` / `"{Team}'s Context Creation"` — with all
+  constant-detection switched to suffix matching and existing DB rows renamed in place.
 
 ---
 
