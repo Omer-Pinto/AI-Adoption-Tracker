@@ -1120,6 +1120,14 @@ function ActionItemsCard({
       </div>
       <div className="card-body flush">
         <table className="ai-table">
+          <colgroup>
+            <col className="ai-c-text" />
+            <col className="ai-c-status" />
+            <col className="ai-c-owner" />
+            <col className="ai-c-due" />
+            <col className="ai-c-domain" />
+            <col className="ai-c-del" />
+          </colgroup>
           <thead>
             <tr>
               <th>Action item (type @ task or # artifact)</th>

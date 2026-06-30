@@ -1038,6 +1038,16 @@
 
 /* Flat tables */
 .report-editor table.flat, .report-editor table.ai-table { width: 100%; border-collapse: collapse; }
+/* Action-items table uses FIXED layout so the @/#-mention rich editor (a
+   contenteditable, which in auto-layout grows its column to fit the text and
+   shoves the other columns) is pinned to a fixed-width cell and scrolls inside
+   instead. Column widths via the colgroup below; the text col takes the rest. */
+.report-editor table.ai-table { table-layout: fixed; }
+.report-editor .ai-c-status { width: 116px; }
+.report-editor .ai-c-owner  { width: 160px; }
+.report-editor .ai-c-due    { width: 120px; }
+.report-editor .ai-c-domain { width: 160px; }
+.report-editor .ai-c-del    { width: 34px; }
 .report-editor table.flat th, .report-editor table.ai-table th {
   font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint);
   text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;
@@ -1048,7 +1058,7 @@
 .report-editor table.flat tr:last-child td, .report-editor table.ai-table tr:last-child td { border-bottom: none; }
 .report-editor table.flat tr:hover td { background: var(--surface-2); }
 .report-editor .name-td { min-width: 200px; }
-.report-editor .ai-text-td { min-width: 300px; }
+.report-editor .ai-text-td { min-width: 0; }
 
 /* Inline editable cells */
 .report-editor .cell-input {
@@ -1176,6 +1186,8 @@
 .report-editor .rte-inline {
   min-height: 0; padding: 5px 10px; line-height: 1.5;
   white-space: nowrap; overflow-x: auto; overflow-y: hidden;
+  /* Fill the fixed cell and never exceed it — long text scrolls inside. */
+  width: 100%; max-width: 100%; box-sizing: border-box;
 }
 .report-editor .rte-inline br { display: none; }
 
