@@ -28,7 +28,7 @@
 - **A4 — Skill→domain placement rule** *(May 18 #3)* `[product][llm]` — skills keep landing in
   "Context Creation" not the tech domain. Proposal: skills may match non-context domains only.
 
-## B. Deterministic code bugs (no LLM involved)
+## B. Deterministic code bugs (no LLM involved) — done ✅
 
 - **B1** `[bug]` Team-page Open/Closed-tasks tiles open a "weird empty domain"; should open dedicated
   Open/Closed Tasks sections (tasks standalone + under domain, like artifacts) *(May 4 #12e)*. **High.**
@@ -41,7 +41,7 @@
 - **B6** `[ui]` Inputs not aligned to column headers *(May 4 #3)*; action-item textbox bigger/unaligned
   vs task/artifact — match their design *(May 4 #7)*. **Low-med.**
 
-## C. UI polish
+## C. UI polish — done ✅
 
 - **C1** `[ui]` AI-Lead board tiles too narrow → "planned · in progress · blocked" wraps to 2 lines;
   widen *(global #6)*.
