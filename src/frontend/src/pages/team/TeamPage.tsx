@@ -28,7 +28,7 @@ function isConstantDomain(name: string): boolean {
 // One stable color per domain (left accent). General catch-all renders muted.
 const DOMAIN_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#ef4444'];
 function domainColor(name: string, idx: number): string {
-  return name.trim().toLowerCase() === 'general' ? '#9ca3af' : DOMAIN_COLORS[idx % DOMAIN_COLORS.length]!;
+  return name.trim().toLowerCase().endsWith('general') ? '#9ca3af' : DOMAIN_COLORS[idx % DOMAIN_COLORS.length]!;
 }
 
 // Tint the .task-domain-chip with the domain's stable color. General's gray
