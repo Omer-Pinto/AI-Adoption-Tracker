@@ -25,8 +25,11 @@
 - **A3 — Kill manual single-domain add** *(global #2)* `[product]` — drop "+ Add Domain" (manual
   modal) + its API; rename "Smart Domain Extract" → "+ Add Domains" as the only path (single domain
   = one line).
-- **A4 — Skill→domain placement rule** *(May 18 #3)* `[product][llm]` — skills keep landing in
-  "Context Creation" not the tech domain. Proposal: skills may match non-context domains only.
+- **A4 — Skill→domain placement** *(May 18 #3)* — **RESOLVED by design (Omer 06-30):** Context
+  Creation is the home for ALL Claude tooling (skills/agents/hooks/context) **and** any
+  task/action-item about *building* that tooling — it's domain-agnostic (e.g. an "FE-dev agent" →
+  Context Creation, NOT the FE domain). Tech domains hold actual product/feature work (FE = "add
+  reports page + API + tests"). So skills→Context Creation is correct, not a bug. **No fix.**
 
 ## B. Deterministic code bugs (no LLM involved) — done ✅
 
