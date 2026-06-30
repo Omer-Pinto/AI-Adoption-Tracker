@@ -30,6 +30,12 @@ function domainColor(name: string, idx: number): string {
   return name.trim().toLowerCase() === 'general' ? '#9ca3af' : DOMAIN_COLORS[idx % DOMAIN_COLORS.length]!;
 }
 
+// Tint the .task-domain-chip with the domain's stable color. General's gray
+// keeps the chip reading as muted, exactly like its accent elsewhere.
+function domainChipStyle(color: string): React.CSSProperties {
+  return { color, borderColor: color, background: `${color}14` };
+}
+
 function isClosedItem(item: ActionItem): boolean {
   return item.status ? TERMINAL.includes(item.status) : !!item.resolved;
 }
@@ -132,6 +138,8 @@ export default function TeamPage() {
 
   // Resolve domain_id → domain name client-side (tasks & action items).
   const domainNameById = new Map(domains.map((dp) => [dp.domain.id, dp.domain.name]));
+  // Same stable per-domain color the domain cards use (indexed by fold order).
+  const domainColorById = new Map(domains.map((dp, i) => [dp.domain.id, domainColor(dp.domain.name, i)]));
 
   // ── Derived breakdowns for tile sub-callouts (computed client-side) ─────
   const allTasks = domains.flatMap((d) => d.tasks);
@@ -328,7 +336,7 @@ export default function TeamPage() {
             {openTaskList.length === 0 ? (
               <div className="empty-note">No open tasks.</div>
             ) : (
-              <TasksTable tasks={openTaskList} domainNameById={domainNameById} />
+              <TasksTable tasks={openTaskList} domainNameById={domainNameById} domainColorById={domainColorById} />
             )}
           </div>
         </details>
@@ -350,7 +358,7 @@ export default function TeamPage() {
             {closedTaskList.length === 0 ? (
               <div className="empty-note">No closed tasks.</div>
             ) : (
-              <TasksTable tasks={closedTaskList} domainNameById={domainNameById} />
+              <TasksTable tasks={closedTaskList} domainNameById={domainNameById} domainColorById={domainColorById} />
             )}
           </div>
         </details>
@@ -426,7 +434,7 @@ export default function TeamPage() {
             {action_items.length === 0 ? (
               <div className="empty-note">No action items for {team.champion_name}.</div>
             ) : (
-              <ActionItemsList items={action_items} domainNameById={domainNameById} />
+              <ActionItemsList items={action_items} domainNameById={domainNameById} domainColorById={domainColorById} />
             )}
           </div>
         </details>
@@ -636,9 +644,11 @@ function ArtifactsTable({
 function TasksTable({
   tasks,
   domainNameById,
+  domainColorById,
 }: {
   tasks: Task[];
   domainNameById: Map<number, string>;
+  domainColorById: Map<number, string>;
 }) {
   const columns: Column<Task>[] = [
     {
@@ -659,7 +669,9 @@ function TasksTable({
       key: 'domain',
       header: 'Domain',
       render: (t) => (
-        <span className="task-domain-chip">{domainNameById.get(t.domain_id)}</span>
+        <span className="task-domain-chip" style={domainChipStyle(domainColorById.get(t.domain_id) ?? '#9ca3af')}>
+          {domainNameById.get(t.domain_id)}
+        </span>
       ),
     },
     {
@@ -689,9 +701,11 @@ function TasksTable({
 function ActionItemsList({
   items,
   domainNameById,
+  domainColorById,
 }: {
   items: ActionItem[];
   domainNameById: Map<number, string>;
+  domainColorById: Map<number, string>;
 }) {
   return (
     <div>
@@ -699,12 +713,15 @@ function ActionItemsList({
         const closed = isClosedItem(item);
         const overdue = isOverdue(item);
         const domainName = item.domain_id !== null ? domainNameById.get(item.domain_id) : null;
+        const domainChipColor = item.domain_id !== null ? (domainColorById.get(item.domain_id) ?? '#9ca3af') : '#9ca3af';
         return (
           <div key={item.id} className={`ai-row${closed ? ' resolved' : ''}`}>
             <div className="ai-main">
               <div className="ai-text">{item.text}</div>
               <div className="ai-meta">
-                {domainName && <span className="task-domain-chip">{domainName}</span>}
+                {domainName && (
+                  <span className="task-domain-chip" style={domainChipStyle(domainChipColor)}>{domainName}</span>
+                )}
                 {item.owner && (
                   <span className="ai-owner">
                     <span className="dot">{item.owner.trim().charAt(0).toUpperCase()}</span>
