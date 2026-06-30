@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '@/api';
 import { ThemeToggle } from './ThemeToggle';
@@ -9,6 +9,30 @@ import { ThemeToggle } from './ThemeToggle';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return isActive ? 'nav-item active' : 'nav-item';
+}
+
+// Cohesive line-icon set (Lucide/Feather language): 24x24 viewBox, currentColor,
+// 1.75px stroke, rounded caps/joins. Color is inherited from .nav-item so the
+// existing active/hover theming keeps working.
+function NavIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="nav-icon" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        role="presentation"
+        focusable="false"
+      >
+        {children}
+      </svg>
+    </span>
+  );
 }
 
 export function AppShell() {
@@ -57,25 +81,52 @@ export function AppShell() {
         <div className="nav-section">
           <div className="nav-section-label">Main</div>
           <NavLink to="/reports/new" className={navClass}>
-            <span className="nav-icon">&#43;</span> New Report
+            <NavIcon>
+              <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
+              <path d="M12 11v6" />
+              <path d="M9 14h6" />
+            </NavIcon> New Report
           </NavLink>
           <NavLink to="/" end className={navClass}>
-            <span className="nav-icon">&#9632;</span> Teams
+            <NavIcon>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </NavIcon> Teams
           </NavLink>
           <NavLink to="/artifacts" className={navClass}>
-            <span className="nav-icon">&#9679;</span> Artifacts
+            <NavIcon>
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+              <path d="m3.3 7 8.7 5 8.7-5" />
+              <path d="M12 22V12" />
+            </NavIcon> Artifacts
           </NavLink>
           <NavLink to="/tasks" className={navClass}>
-            <span className="nav-icon">&#10003;</span> Tasks
+            <NavIcon>
+              <path d="m3 17 2 2 4-4" />
+              <path d="m3 7 2 2 4-4" />
+              <path d="M13 6h8" />
+              <path d="M13 12h8" />
+              <path d="M13 18h8" />
+            </NavIcon> Tasks
           </NavLink>
           <NavLink to="/ai-lead" className={navClass}>
-            <span className="nav-icon">&#9733;</span> AI Lead
+            <NavIcon>
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="6" />
+              <circle cx="12" cy="12" r="2" />
+            </NavIcon> AI Lead
           </NavLink>
         </div>
         <hr className="nav-divider" />
         <div className="nav-section">
           <NavLink to="/manage" className={navClass}>
-            <span className="nav-icon">&#9881;</span> Manage
+            <NavIcon>
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
+              <circle cx="12" cy="12" r="3" />
+            </NavIcon> Manage
           </NavLink>
         </div>
         <div className="nav-foot">

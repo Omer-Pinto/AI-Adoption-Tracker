@@ -201,10 +201,16 @@ a:hover { text-decoration: underline; }
 }
 
 .nav-item .nav-icon {
-  width: 16px;
-  text-align: center;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
+}
+
+.nav-item .nav-icon svg {
+  display: block;
 }
 
 .nav-item .nav-badge {
