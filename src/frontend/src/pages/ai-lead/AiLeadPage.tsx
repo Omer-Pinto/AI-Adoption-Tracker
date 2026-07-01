@@ -289,9 +289,9 @@ export default function AiLeadPage() {
   // "By team": one section per team, open first. Items with no team (team_name
   // null = the "General" gutter) group under "General", floated to the top.
   const byTeam = useMemo(() => {
-    const teams = [...new Set(items.map((it) => it.team_name))];
-    teams.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
-    return teams.map((team) => {
+    const teamNames = [...new Set(items.map((it) => it.team_name))];
+    teamNames.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
+    return teamNames.map((team) => {
       const group = items
         .filter((it) => it.team_name === team)
         .sort((a, b) => RANK[a.status] - RANK[b.status]);
