@@ -80,11 +80,8 @@ class TeamPage(BaseModel):
     domains: list[DomainBlock]
     all_team_artifacts: list[models.Artifact]
     reports: list[models.Report]
-    action_items: list[models.ActionItem]
     open_tasks: int
     closed_tasks: int
-    open_action_items: int
-    closed_action_items: int
     meeting_count: int
     domain_count: int
     artifact_count: int
@@ -404,9 +401,10 @@ def team_page(id: int) -> TeamPage:
     """The hub for one team's portfolio. `{id}` is the TEAM id (Wave 16).
 
     Returns each domain with current tasks/artifacts plus full history, the
-    all-team gutter (team artifacts with domain_id NULL), the team's reports
-    (newest first), and the action items from those reports. The champion is
-    surfaced via `team.champion_name`.
+    all-team gutter (team artifacts with domain_id NULL), and the team's reports
+    (newest first). The champion is surfaced via `team.champion_name`. Action
+    items are NOT surfaced here — they live only on the AI-Lead board
+    (`GET /api/ai-lead/action-items`).
     """
     conn = get_connection()
     try:
@@ -447,17 +445,6 @@ def team_page(id: int) -> TeamPage:
         ).fetchall()
         reports = [_report(r) for r in report_rows]
 
-        action_rows = conn.execute(
-            """
-            SELECT ai.* FROM action_item ai
-            JOIN report r ON r.id = ai.report_id
-            WHERE r.team_id = ?
-            ORDER BY ai.id
-            """,
-            (id,),
-        ).fetchall()
-        action_items = [_action_item(r) for r in action_rows]
-
         # ── summary tallies over the data already loaded above (Wave 12) ──────
         # Closed = status in the terminal set; open = everything else.
         open_tasks = closed_tasks = 0
@@ -470,23 +457,13 @@ def team_page(id: int) -> TeamPage:
                 else:
                     open_tasks += 1
 
-        open_action_items = closed_action_items = 0
-        for r in action_rows:
-            if r["status"] in TERMINAL_STATUSES:
-                closed_action_items += 1
-            else:
-                open_action_items += 1
-
         return TeamPage(
             team=team,
             domains=domains,
             all_team_artifacts=all_team_artifacts,
             reports=reports,
-            action_items=action_items,
             open_tasks=open_tasks,
             closed_tasks=closed_tasks,
-            open_action_items=open_action_items,
-            closed_action_items=closed_action_items,
             meeting_count=len(reports),
             domain_count=len(domains),
             artifact_count=artifact_count,
