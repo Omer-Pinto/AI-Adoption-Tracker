@@ -15,8 +15,10 @@ import type {
   Artifact,
   ArtifactDetail,
   ArtifactPatchBody,
+  AuthUser,
   Domain,
   DomainPage,
+  LoginResponse,
   Report,
   ReportJson,
   SearchKey,
@@ -28,6 +30,9 @@ import type {
   TeamEntities,
   TeamPage,
   TeamPageIndexEntry,
+  User,
+  UserCreateBody,
+  UserUpdateBody,
 } from '@/types';
 
 /** Shape accepted by POST /api/domains and PATCH /api/domains/{id}. */
@@ -48,6 +53,25 @@ export interface DomainProposal {
 
 export const API_BASE = '/api';
 
+// ---- Auth token (Wave 17) ----
+// The bearer token lives in localStorage and is mirrored in a module-level var so
+// `request` can inject it synchronously without a localStorage read per call. The
+// AuthContext owns the lifecycle and calls `setAuthToken` on login/logout/rehydrate.
+const TOKEN_KEY = 'aat_token';
+let authToken: string | null = localStorage.getItem(TOKEN_KEY);
+
+/** Set (or clear, with `null`) the bearer token; keeps localStorage in sync. */
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+/** Current bearer token, or `null` when signed out. */
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -58,11 +82,22 @@ class ApiError extends Error {
   }
 }
 
+/** A 403 from the backend — the caller is authenticated but not permitted. Thrown
+ *  distinctly so the router/pages can render the Forbidden page instead of login. */
+class ForbiddenError extends ApiError {
+  constructor(message: string) {
+    super(403, message);
+    this.name = 'ForbiddenError';
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     // Try to read FastAPI's `{"detail": "..."}` body for a user-facing message.
     let detail: string | undefined;
@@ -72,6 +107,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       else if (body.detail !== undefined) detail = JSON.stringify(body.detail);
     } catch {
       // ignore JSON parse failures
+    }
+    // Global 401: an expired/invalid session — drop the token and bounce to login.
+    // The login call itself 401s on bad creds; skip the redirect there so the form
+    // can show its own error.
+    if (res.status === 401 && path !== '/auth/login') {
+      setAuthToken(null);
+      if (window.location.pathname !== '/login') window.location.assign('/login');
+    }
+    if (res.status === 403) {
+      throw new ForbiddenError(
+        detail ?? `${init?.method ?? 'GET'} ${path} → 403`,
+      );
     }
     throw new ApiError(
       res.status,
@@ -90,6 +137,53 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   // ---- Meta ----
   health: (): Promise<{ status: string; version: string }> => request('/health'),
+
+  // ---- Auth (backend routes/auth.py — Wave 17) ----
+  auth: {
+    // `POST /api/auth/login` → { token, user }. 401 on bad credentials (the form
+    // catches it; the global 401 redirect is suppressed for this path).
+    login: (username: string, password: string): Promise<LoginResponse> =>
+      request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }),
+    // `POST /api/auth/logout` (Bearer) → 204.
+    logout: (): Promise<void> => request('/auth/logout', { method: 'POST' }),
+    // `GET /api/auth/me` (Bearer) → the caller's identity (rehydrate on load).
+    me: (): Promise<AuthUser> => request('/auth/me'),
+    // `POST /api/auth/change-password` (Bearer) → 204.
+    changePassword: (oldPassword: string, newPassword: string): Promise<void> =>
+      request('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+      }),
+  },
+
+  // ---- Users (admin-only; backend routes/users.py — Wave 17) ----
+  // Consumed by a later agent's admin user-portal page.
+  users: {
+    // `GET /api/users` → every user.
+    list: (): Promise<User[]> => request('/users'),
+    // `POST /api/users` → 201 with the created user.
+    create: (body: UserCreateBody): Promise<User> =>
+      request('/users', { method: 'POST', body: JSON.stringify(body) }),
+    // `PATCH /api/users/{id}` → the updated user.
+    update: (id: number, body: UserUpdateBody): Promise<User> =>
+      request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    // `DELETE /api/users/{id}` → 204.
+    delete: (id: number): Promise<void> =>
+      request(`/users/${id}`, { method: 'DELETE' }),
+    // `POST /api/users/{id}/reset-password` → 200 with the updated User. When
+    // `newPassword` is omitted, send an empty body so the backend resets to the
+    // provisioning default password.
+    resetPassword: (id: number, newPassword?: string): Promise<User> =>
+      request(`/users/${id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify(
+          newPassword !== undefined ? { new_password: newPassword } : {},
+        ),
+      }),
+  },
   // ---- Management (backend routes/management.py — task_breakdown 1A) ----
   teams: {
     list: (): Promise<Team[]> => request('/teams'),
@@ -204,4 +298,4 @@ export const api = {
   },
 };
 
-export { ApiError, request };
+export { ApiError, ForbiddenError, request };

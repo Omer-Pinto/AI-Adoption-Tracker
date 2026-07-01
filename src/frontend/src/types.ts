@@ -388,6 +388,76 @@ export interface AILeadItemBody {
   category: AILeadItemCategory;
 }
 
+// ---- Auth & RBAC (Wave 17) ----
+//
+// Login for ALL users. One `is_admin` reads+edits everything. Everyone else is
+// read-only, scoped to either all teams (`read_all`) or an explicit `teams` list.
+// `AuthUser` is the identity returned by login / `GET /api/auth/me`; `User` is the
+// fuller admin-managed record (adds `id` + `is_active`) listed under `/api/users`.
+
+/** The signed-in identity — `POST /api/auth/login`.user and `GET /api/auth/me`. */
+export interface AuthUser {
+  username: string;
+  is_admin: boolean;
+  /** Read-only visibility over every team (ignored for admins, who see all). */
+  read_all: boolean;
+  /** Explicitly-visible team ids (empty when `read_all`/admin grants all). */
+  teams: number[];
+}
+
+/** An admin-managed user record — `GET /api/users` rows. */
+export interface User {
+  id: number;
+  username: string;
+  is_admin: boolean;
+  read_all: boolean;
+  is_active: boolean;
+  teams: number[];
+}
+
+/** Body for `POST /api/auth/login`. */
+export interface LoginBody {
+  username: string;
+  password: string;
+}
+
+/** Response for `POST /api/auth/login` — bearer token + the caller's identity. */
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+/** Body for `POST /api/auth/change-password` (Bearer). */
+export interface ChangePasswordBody {
+  old_password: string;
+  new_password: string;
+}
+
+/** Body for `POST /api/users` — admin creates a user. */
+export interface UserCreateBody {
+  username: string;
+  password: string;
+  read_all?: boolean;
+  teams?: number[];
+  is_active?: boolean;
+}
+
+/** Body for `PATCH /api/users/{id}` — admin edits a user (partial).
+ *  No `password` field: the backend `UserUpdate` model is `extra="forbid"` and
+ *  rejects it (422). Password changes go only through reset-password. */
+export interface UserUpdateBody {
+  username?: string;
+  read_all?: boolean;
+  teams?: number[];
+  is_active?: boolean;
+}
+
+/** Body for `POST /api/users/{id}/reset-password` — admin sets a new password;
+ *  omit `new_password` to reset to the provisioning default. */
+export interface ResetPasswordBody {
+  new_password?: string;
+}
+
 // ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----
 
 export type SearchKey = 'team' | 'domain' | 'type' | 'tag' | 'status' | 'date';
