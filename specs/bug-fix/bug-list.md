@@ -135,7 +135,31 @@
 - **C6** `[ui]` Rename "meetings" tile/section text so the tile label matches the section it opens
   *(May 4 #12b)*. *(#12 a/c/d already work correctly.)*
 
-## D. LLM extraction-quality (prompt fixes — probabilistic; one pass covers several)
+## D. LLM extraction-quality (prompt fixes — probabilistic; one pass covers several) — **BUILT ✅ (07-01, `mvp-bug-fixes-prod`). ⚠️ NOT YET LIVE-VERIFIED (probabilistic — needs the live LLM QA that Claude runs next).**
+
+> **One coherent pass by an ai-engineer agent** (Omer's call — the LLM contract must be owned by an
+> LLM specialist, since python-agent/hand edits to the structured-output pydantic objects were the
+> risk). Full gate: ai-engineer → code-reviewer (2 FIX-NOW: draft-preview vs save divergences — a
+> matched-artifact domain silently stripped on save, and a cleared-vs-never-owned owner mismatch —
+> both fixed by reusing the exact save-path functions) → re-review (clean) → simplifier → cherry-pick.
+> - **Contract CURATED:** audited `ReportDocument` + sub-models; confirmed `ReportActionItem` is
+>   `{text, note, status, due_date}` only (no owner/domain/team). Added tests proving BOTH provider
+>   derivations clear — OpenAI-strict (`to_strict_json_schema`: all-required + nullable + additional
+>   Properties:false) AND Anthropic (`model_json_schema()`), from the same code paths interface.py uses.
+> - **D1** no-drop safety net (rejected ideas → `wont_fix` tasks + final line-by-line check).
+> - **D3** `change_kind` always set (draft-time default mirroring save's inference + prompt).
+> - **D4** DECISION: KEEP `note`, tightened to a per-meeting CHANGE DELTA only (never restate name/
+>   status/owner/summary; null when nothing changed) — it backs `task_history`/`artifact_history.change_note`.
+> - **D5** task owner emitted when the notes name a person.
+> - **D6** strong artifact names + always a real `summary`.
+> - **D7** problems/risks/slippage → `issues`, not discussion.
+> - **D8** APPROACH: deterministic **draft-time defaulting** in `routes/reports.py` (`apply_draft_defaults`,
+>   reusing `_task_journal_has_owner` / change-kind inference) so the preview owner/change_kind == what
+>   SAVE persists — the LLM can't forget, and a matched task's real owner isn't clobbered. No owner on
+>   action items. Tests: 31 pytest + 46 harness + 14 contract/draft-default green.
+> - **Live QA still owed (Claude, after this):** the probabilistic behaviors above against all 3 teams'
+>   reports (real OpenAI + Anthropic drafts) — confirm no-drop, change_kind, note-discipline, owners,
+>   names/summaries, issues-routing, and preview==saved.
 
 - **D1** `[llm]` Dropped a whole task: "Rewrite the ledger in Rust" vanished entirely *(May 18 #1)* —
   no-drop safety-net failed. **High.**
