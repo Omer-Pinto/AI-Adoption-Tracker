@@ -43,6 +43,19 @@ function NavIcon({ children }: { children: ReactNode }) {
   );
 }
 
+// The people/team glyph, reused by every team-scoped nav link (Teams, Users,
+// and each scoped viewer's own-team link).
+function PeopleIconPaths() {
+  return (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  );
+}
+
 export function AppShell() {
   const { isAdmin, readAll } = useAuth();
   const [version, setVersion] = useState('');
@@ -111,22 +124,12 @@ export function AppShell() {
             <div className="nav-section-label">My teams</div>
             {scopedTeams.length === 0 ? (
               <NavLink to="/" end className={navClass}>
-                <NavIcon>
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </NavIcon> My team
+                <NavIcon><PeopleIconPaths /></NavIcon> My team
               </NavLink>
             ) : (
               scopedTeams.map((t) => (
                 <NavLink key={t.team_id} to={`/teams/${t.team_id}`} className={navClass}>
-                  <NavIcon>
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </NavIcon> {t.team_name}
+                  <NavIcon><PeopleIconPaths /></NavIcon> {t.team_name}
                 </NavLink>
               ))
             )}
@@ -147,12 +150,7 @@ export function AppShell() {
                 </NavLink>
               )}
               <NavLink to="/" end className={navClass}>
-                <NavIcon>
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </NavIcon> Teams
+                <NavIcon><PeopleIconPaths /></NavIcon> Teams
               </NavLink>
               <NavLink to="/artifacts" className={navClass}>
                 <NavIcon>
@@ -190,12 +188,7 @@ export function AppShell() {
                     </NavIcon> Manage
                   </NavLink>
                   <NavLink to="/users" className={navClass}>
-                    <NavIcon>
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </NavIcon> Users
+                    <NavIcon><PeopleIconPaths /></NavIcon> Users
                   </NavLink>
                 </div>
               </>
