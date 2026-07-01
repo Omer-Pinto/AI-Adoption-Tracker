@@ -1043,12 +1043,15 @@
    shoves the other columns) is pinned to a fixed-width cell and scrolls inside
    instead. Column widths via the colgroup below; the text col takes the rest. */
 .report-editor table.ai-table { table-layout: fixed; }
-.report-editor .ai-c-status { width: 116px; }
-.report-editor .ai-c-due    { width: 120px; }
-.report-editor .ai-c-domain { width: 160px; }
-.report-editor .ai-c-note   { width: 180px; }
-.report-editor .ai-c-del    { width: 34px; }
-.report-editor .ai-static-text { font-size: 13px; color: var(--text); }
+/* Column widths sized to each control's natural render so the row's inputs line
+   up under their headers and NOTHING clips. Status must fit the longest label
+   ("Finished successfully") plus dot + arrow; due fits a native date input; the
+   text col (no width) takes the remainder for the @/#-mention editor. */
+.report-editor .ai-c-status { width: 198px; }
+.report-editor .ai-c-due    { width: 138px; }
+.report-editor .ai-c-domain { width: 156px; }
+.report-editor .ai-c-note   { width: 172px; }
+.report-editor .ai-c-del    { width: 36px; }
 
 /* Read-only report (non-latest): a disabled <fieldset> natively disables all
    inputs/selects/buttons; the only gap is the contenteditable mention editors,

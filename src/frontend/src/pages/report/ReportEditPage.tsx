@@ -211,7 +211,7 @@ export default function ReportEditPage() {
             keys={keys}
             entities={entities}
             domains={domains}
-            actionItemsReadOnly
+            showActionItems={false}
             onReportChange={setReport}
             onKeysChange={setKeys}
           />

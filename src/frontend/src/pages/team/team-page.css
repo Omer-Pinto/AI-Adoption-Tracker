@@ -248,7 +248,7 @@
 /* ---- Tile dashboard ---- */
 .team-page .tile-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-bottom: 26px;
 }
@@ -368,116 +368,7 @@
 }
 .team-page .fold-body { padding: 16px 20px 20px; background: var(--surface-2); }
 
-/* ---- Action items list (mock .ai-row) ---- */
-.team-page .ai-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  margin-bottom: 8px;
-}
-.team-page .ai-row:last-child { margin-bottom: 0; }
-.team-page .ai-row.resolved { opacity: 0.68; }
-.team-page .ai-main { flex: 1; min-width: 0; }
-.team-page .ai-text { font-size: 13px; color: var(--text); font-weight: 500; }
-.team-page .ai-row.resolved .ai-text { text-decoration: line-through; color: var(--text-muted); }
-.team-page .ai-meta {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  margin-top: 5px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.team-page .ai-owner {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--surface-3);
-  border-radius: 20px;
-  padding: 2px 9px 2px 3px;
-  font-size: 11px;
-}
-.team-page .ai-owner .dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #64748b;
-  color: var(--on-accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
-}
-.team-page .ai-due { font-variant-numeric: tabular-nums; }
-.team-page .ai-due.overdue { color: #dc2626; font-weight: 600; }
-
-/* Note line (the AI Lead's annotation on the item) */
-.team-page .ai-note {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 3px;
-  white-space: pre-wrap;
-}
-
-/* In-place edit buffers (text + note) */
-.team-page .ai-edit-fields { display: flex; flex-direction: column; gap: 6px; }
-.team-page .ai-edit-input {
-  width: 100%;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text);
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  box-sizing: border-box;
-}
-.team-page .ai-edit-input:focus {
-  outline: none;
-  border-color: var(--re-indigo, #4361ee);
-  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.12);
-}
-
-/* Always-live inline status / due controls in the meta row */
-.team-page .ai-inline-field { display: inline-flex; align-items: center; gap: 5px; }
-.team-page .ai-inline-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-faint, #9ca3af);
-}
-.team-page .ai-inline-select,
-.team-page .ai-inline-date {
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--text);
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-}
-.team-page .ai-inline-date.overdue { color: #dc2626; border-color: #fca5a5; }
-
-/* Row action buttons stack (Edit / Delete / Save / Cancel / Edit report) */
-.team-page .ai-row-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-  align-items: stretch;
-}
-.team-page .row-error { color: #dc2626; font-size: 11px; font-weight: 600; }
-
-/* ---- Domain chip (tasks table + action items) ---- */
+/* ---- Domain chip (tasks table) ---- */
 .team-page .task-domain-chip {
   display: inline-flex;
   align-items: center;

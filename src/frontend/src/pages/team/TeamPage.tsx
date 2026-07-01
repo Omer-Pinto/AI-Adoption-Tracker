@@ -7,8 +7,6 @@ import type {
   DomainPage,
   Artifact,
   ArtifactDetail,
-  ActionItem,
-  ActionItemPatchBody,
   Task,
   TaskStatus,
 } from '@/types';
@@ -21,21 +19,8 @@ import { ErrorState } from '@/components/EmptyState';
 
 // Route: "/teams/:teamId" — one team's portfolio (champion folded in). Wave-13 redesign (13B).
 
-// Terminal statuses = "closed". An action item / task in one of these is done.
+// Terminal statuses = "closed". A task in one of these is done.
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
-const TODAY = new Date().toISOString().slice(0, 10);
-
-// Action-item status options (in-place editable on the team page). Every action
-// item is the AI Lead's own to-do — no owner.
-const AI_STATUS_OPTIONS: ReadonlyArray<readonly [TaskStatus, string]> = [
-  ['planned', 'Planned'],
-  ['in-progress', 'In progress'],
-  ['blocked', 'Blocked'],
-  ['finished_with_issues', 'Finished (issues)'],
-  ['finished_successfully', 'Finished'],
-  ['abandoned', 'Abandoned'],
-  ['wont_fix', "Won't fix"],
-];
 
 // System "constant" domains every champion has, matched by name suffix
 // (case-insensitive) — stored per-team as "{Team}'s General" / "{Team}'s Context Creation".
@@ -58,13 +43,6 @@ function domainChipStyle(color: string): React.CSSProperties {
   return { color, borderColor: color, background: `${color}14` };
 }
 
-function isClosedItem(item: ActionItem): boolean {
-  return item.status ? TERMINAL.includes(item.status) : !!item.resolved;
-}
-function isOverdue(item: ActionItem): boolean {
-  return !!item.due_date && item.due_date < TODAY && !isClosedItem(item);
-}
-
 export default function TeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
@@ -72,11 +50,6 @@ export default function TeamPage() {
   const [data, setData] = useState<TeamPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
-  // Action items are in-place editable — hold them locally, seeded from the
-  // loaded page, so edits/deletes reflect immediately without a full reload.
-  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
-  const [aiRowErrors, setAiRowErrors] = useState<Record<number, string>>({});
 
   // Artifact detail modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -90,7 +63,7 @@ export default function TeamPage() {
     setError(false);
     api.views
       .teamPage(Number(teamId))
-      .then((d) => { if (!cancelled) { setData(d); setActionItems(d.action_items); setAiRowErrors({}); } })
+      .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => { console.error(e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -98,45 +71,12 @@ export default function TeamPage() {
 
   useEffect(() => load(), [load]);
 
-  // In-place PATCH (status / text / due / note): optimistic apply → reconcile
-  // from the returned bare ActionItem → roll back + inline error on failure.
-  const patchActionItem = useCallback((id: number, patch: ActionItemPatchBody) => {
-    setAiRowErrors((e) => { const n = { ...e }; delete n[id]; return n; });
-    setActionItems((prev) => {
-      const before = prev.find((a) => a.id === id);
-      if (!before) return prev;
-      api.aiLead
-        .patch(id, patch)
-        .then((updated) => {
-          setActionItems((list) => list.map((a) => (a.id === id ? updated : a)));
-        })
-        .catch(() => {
-          setActionItems((list) => list.map((a) => (a.id === id ? before : a)));
-          setAiRowErrors((e) => ({ ...e, [id]: "Couldn't save — try again." }));
-        });
-      return prev.map((a) => (a.id === id ? { ...a, ...patch } : a));
-    });
-  }, []);
-
-  const deleteActionItem = useCallback((item: ActionItem) => {
-    if (!confirm(`Delete this action item?\n\n"${item.text}"`)) return;
-    setActionItems((prev) => {
-      const before = prev;
-      api.aiLead.delete(item.id).catch(() => {
-        setActionItems(before); // roll back
-        setAiRowErrors((e) => ({ ...e, [item.id]: "Couldn't delete — try again." }));
-      });
-      return prev.filter((a) => a.id !== item.id);
-    });
-  }, []);
-
   // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
   const domainsRef = useRef<HTMLDetailsElement>(null);
   const openTasksRef = useRef<HTMLDetailsElement>(null);
   const closedTasksRef = useRef<HTMLDetailsElement>(null);
   const artifactsRef = useRef<HTMLDetailsElement>(null);
   const reportsRef = useRef<HTMLDetailsElement>(null);
-  const actionsRef = useRef<HTMLDetailsElement>(null);
 
   function openArtifactModal(artifactId: number) {
     setModalError(false);
@@ -194,12 +134,8 @@ export default function TeamPage() {
   }
 
   const { team, domains, all_team_artifacts, reports } = data;
-  // Action items render from local state (in-place editable); recompute counts
-  // locally so tiles/folds stay in sync after an edit or delete.
-  const openActionCount = actionItems.filter((a) => !isClosedItem(a)).length;
-  const closedActionCount = actionItems.filter(isClosedItem).length;
 
-  // Resolve domain_id → domain name client-side (tasks & action items).
+  // Resolve domain_id → domain name client-side (tasks).
   const domainNameById = new Map(domains.map((dp) => [dp.domain.id, dp.domain.name]));
   // Same stable per-domain color the domain cards use (indexed by fold order).
   const domainColorById = new Map(domains.map((dp, i) => [dp.domain.id, domainColor(dp.domain.name, i)]));
@@ -217,8 +153,6 @@ export default function TeamPage() {
   const abandonedTasks = allTasks.filter(
     (t) => t.status === 'abandoned' || t.status === 'wont_fix',
   ).length;
-
-  const overdueActions = actionItems.filter(isOverdue).length;
 
   // Domains tile: big number = real domains only; sub-line = how many of the
   // system constants ("General", "Context creation") are actually present.
@@ -312,18 +246,6 @@ export default function TeamPage() {
             <div className="tile-sub">
               <span className="pos">{finishedTasks} finished</span>
               {abandonedTasks > 0 && <> &bull; {abandonedTasks} abandoned</>}
-            </div>
-          </button>
-
-          <button type="button" className="tile acc-amber" onClick={() => jumpTo(actionsRef)}>
-            <div className="tile-top">
-              <span className="tile-label">Open action items</span>
-              <span className="tile-ico">☑</span>
-            </div>
-            <div className="tile-value">{openActionCount}</div>
-            <div className="tile-sub">
-              {overdueActions > 0 && <><span className="warn">{overdueActions} overdue</span> &bull; </>}
-              {closedActionCount} closed
             </div>
           </button>
 
@@ -486,36 +408,6 @@ export default function TeamPage() {
                   </Link>
                 </div>
               ))
-            )}
-          </div>
-        </details>
-
-        {/* ── Action items fold ───────────────────────────────────────── */}
-        <details className="fold" ref={actionsRef}>
-          <summary>
-            <span className="chev">▶</span>
-            <span className="fold-title">Action items</span>
-            <span className="fold-count">{actionItems.length}</span>
-            <span className="fold-spacer" />
-            <span className="fold-pills">
-              <span className="mini-pill">{openActionCount} open</span>
-              {overdueActions > 0 && <span className="mini-pill">{overdueActions} overdue</span>}
-            </span>
-            <span className="fold-hint" />
-          </summary>
-          <div className="fold-body">
-            {actionItems.length === 0 ? (
-              <div className="empty-note">No action items for {team.champion_name}.</div>
-            ) : (
-              <ActionItemsList
-                items={actionItems}
-                domainNameById={domainNameById}
-                domainColorById={domainColorById}
-                latestReportId={latestReportId}
-                rowErrors={aiRowErrors}
-                onPatch={patchActionItem}
-                onDelete={deleteActionItem}
-              />
             )}
           </div>
         </details>
@@ -774,180 +666,6 @@ function TasksTable({
       rowKey={(t) => t.id}
       empty="No tasks."
     />
-  );
-}
-
-// ---- Action items list ----
-
-function ActionItemsList({
-  items,
-  domainNameById,
-  domainColorById,
-  latestReportId,
-  rowErrors,
-  onPatch,
-  onDelete,
-}: {
-  items: ActionItem[];
-  domainNameById: Map<number, string>;
-  domainColorById: Map<number, string>;
-  latestReportId: number | null;
-  rowErrors: Record<number, string>;
-  onPatch: (id: number, patch: ActionItemPatchBody) => void;
-  onDelete: (item: ActionItem) => void;
-}) {
-  return (
-    <div>
-      {items.map((item) => (
-        <ActionItemRow
-          key={item.id}
-          item={item}
-          domainNameById={domainNameById}
-          domainColorById={domainColorById}
-          latestReportId={latestReportId}
-          error={rowErrors[item.id]}
-          onPatch={onPatch}
-          onDelete={onDelete}
-        />
-      ))}
-    </div>
-  );
-}
-
-// One in-place editable action item (the AI Lead's own to-do — no owner).
-// Status + due are always-live controls; text + note edit via an Edit toggle.
-function ActionItemRow({
-  item,
-  domainNameById,
-  domainColorById,
-  latestReportId,
-  error,
-  onPatch,
-  onDelete,
-}: {
-  item: ActionItem;
-  domainNameById: Map<number, string>;
-  domainColorById: Map<number, string>;
-  latestReportId: number | null;
-  error?: string | undefined;
-  onPatch: (id: number, patch: ActionItemPatchBody) => void;
-  onDelete: (item: ActionItem) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(item.text);
-  const [note, setNote] = useState(item.note ?? '');
-
-  // Re-seed the edit buffers whenever the underlying item changes (e.g. after a
-  // reconcile from the server) and we are not mid-edit.
-  useEffect(() => {
-    if (!editing) {
-      setText(item.text);
-      setNote(item.note ?? '');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.text, item.note]);
-
-  const closed = isClosedItem(item);
-  const overdue = isOverdue(item);
-  const domainName = item.domain_id !== null ? domainNameById.get(item.domain_id) : null;
-  const domainChipColor = item.domain_id !== null ? (domainColorById.get(item.domain_id) ?? '#9ca3af') : '#9ca3af';
-  const canEditReport = item.report_id != null && item.report_id === latestReportId;
-
-  function saveEdit() {
-    const patch: ActionItemPatchBody = {};
-    const t = text.trim();
-    if (t && t !== item.text) patch.text = t;
-    const n = note.trim();
-    if (n !== (item.note ?? '')) patch.note = n || null;
-    if (Object.keys(patch).length > 0) onPatch(item.id, patch);
-    setEditing(false);
-  }
-  function cancelEdit() {
-    setText(item.text);
-    setNote(item.note ?? '');
-    setEditing(false);
-  }
-
-  return (
-    <div className={`ai-row${closed ? ' resolved' : ''}`}>
-      <div className="ai-main">
-        {editing ? (
-          <div className="ai-edit-fields">
-            <input
-              className="ai-edit-input"
-              value={text}
-              placeholder="Action item…"
-              autoFocus
-              onChange={(e) => setText(e.target.value)}
-            />
-            <input
-              className="ai-edit-input"
-              value={note}
-              placeholder="Note (optional)"
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="ai-text">{item.text}</div>
-            {item.note && <div className="ai-note">{item.note}</div>}
-          </>
-        )}
-        <div className="ai-meta">
-          {domainName && (
-            <span className="task-domain-chip" style={domainChipStyle(domainChipColor)}>{domainName}</span>
-          )}
-          <span className="ai-inline-field">
-            <span className="ai-inline-label">Status</span>
-            <select
-              className="ai-inline-select"
-              value={item.status ?? 'planned'}
-              aria-label="Status"
-              onChange={(e) => onPatch(item.id, { status: e.target.value as TaskStatus })}
-            >
-              {AI_STATUS_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </span>
-          <span className="ai-inline-field">
-            <span className="ai-inline-label">Due</span>
-            <input
-              type="date"
-              className={`ai-inline-date${overdue ? ' overdue' : ''}`}
-              value={item.due_date ?? ''}
-              aria-label="Due date"
-              onChange={(e) => onPatch(item.id, { due_date: e.target.value || null })}
-            />
-          </span>
-          {overdue && <span className="ai-due overdue">overdue</span>}
-          {item.status && <StatusBadge status={item.status} />}
-          {error && <span className="row-error">{error}</span>}
-        </div>
-      </div>
-      <div className="ai-row-actions">
-        {editing ? (
-          <>
-            <button className="btn btn-primary btn-sm" onClick={saveEdit}>Save</button>
-            <button className="btn btn-secondary btn-sm" onClick={cancelEdit}>Cancel</button>
-          </>
-        ) : (
-          <>
-            <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>Edit</button>
-            <button className="btn btn-danger-outline btn-sm" onClick={() => onDelete(item)}>Delete</button>
-            {canEditReport && (
-              <Link
-                to={`/reports/${item.report_id}/edit`}
-                className="btn btn-secondary btn-sm"
-                title="Edit the report this action item came from"
-              >
-                Edit report
-              </Link>
-            )}
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 
