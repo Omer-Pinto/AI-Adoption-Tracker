@@ -372,24 +372,39 @@ def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
 
 # ── draft defaulting (POST /draft, before preview) ─────────────────────────────
 
-def apply_draft_defaults(doc: ReportDocument, context: dict) -> ReportDocument:
+def apply_draft_defaults(
+    conn: sqlite3.Connection, doc: ReportDocument, context: dict
+) -> ReportDocument:
     """Fill the draft's derived defaults so the PREVIEW equals the saved result.
 
-    Pure (no DB): mirrors the fan-out engine's own defaulting so a drafted report
-    shown in the editor already carries what save would compute — closing the
-    "blank field in preview" gap (D8 task owner, D3 artifact change_kind). Mutates
-    and returns ``doc``.
+    Mirrors the fan-out engine's own defaulting so a drafted report shown in the
+    editor already carries EXACTLY what save (``fan_out_report``) will persist —
+    closing the "blank field in preview" gap (D8 task owner, D3 artifact
+    change_kind) WITHOUT introducing a preview-vs-save divergence. Reads the DB
+    (``conn``) only for the task-owner journal signal (below); mutates and returns
+    ``doc``.
 
     * TASK owner (D8/D5) — a task is never unowned. If the model left ``owner``
-      null: a MATCHED task (``id`` set) inherits its established owner from the
-      context (falling back to the champion when none is on record); a NEW task
-      (``id`` null) defaults to the champion. A named owner the model DID emit is
-      kept as-is. This is exactly what ``_record_task_entry`` does on save.
+      null: a NEW task (``id`` null) defaults to the champion. A MATCHED task
+      (``id`` set) mirrors ``_record_task_entry`` EXACTLY via
+      ``_task_journal_has_owner``: the champion default applies ONLY when the
+      journal carries no owner decision yet (a genuinely never-owned task);
+      otherwise the task keeps its ESTABLISHED owner, which is the current-state
+      owner exposed in the context. That established owner is ``None`` when the
+      owner was DELIBERATELY CLEARED (a ``source='manual'`` journal row with owner
+      NULL is authoritative — ``_latest_owner_from_journal``), so the preview
+      stays blank exactly as save will, instead of wrongly showing the champion.
+      A named owner the model DID emit is kept as-is.
     * ARTIFACT change_kind (D3) — every artifact must be classified. If the model
-      left ``change_kind`` null: a NEW artifact (``id`` null) becomes ``added``;
-      a MATCHED artifact becomes ``moved`` when its drafted domain differs from
-      the context row's domain, else ``updated`` — mirroring
-      ``_infer_artifact_change_kind``.
+      left ``change_kind`` null: a NEW artifact (``id`` null) becomes ``added``.
+      A MATCHED artifact becomes ``moved`` ONLY when the model named a NEW,
+      non-null target ``domain_id`` that differs from the artifact's current
+      domain; otherwise ``updated``. This matters because the value we write here
+      becomes an EXPLICIT ``change_kind`` on the doc that save then sees: only an
+      explicit ``moved`` makes ``_update_artifact`` re-place the domain. Defaulting
+      a null-domain match to ``updated`` (not ``moved``) keeps the artifact IN
+      PLACE on save — its domain preserved — instead of silently stripping it to
+      team-wide.
     """
     champion = context.get("champion_name")
     task_owner_by_id: dict[int, str | None] = {
@@ -402,9 +417,17 @@ def apply_draft_defaults(doc: ReportDocument, context: dict) -> ReportDocument:
     for entry in doc.tasks:
         if entry.owner:
             continue
-        if entry.id is not None:
-            entry.owner = task_owner_by_id.get(entry.id) or champion
+        if entry.id is not None and entry.id in task_owner_by_id:
+            # MATCHED task: mirror _record_task_entry EXACTLY. Fall back to the
+            # champion ONLY when the journal has no owner decision yet; otherwise
+            # keep the established (possibly deliberately-cleared → None) owner.
+            if _task_journal_has_owner(conn, entry.id):
+                entry.owner = task_owner_by_id[entry.id]
+            else:
+                entry.owner = champion
         else:
+            # A NEW task (id null) — or a model-hallucinated id not in context
+            # (save will 422 before persisting anything) — defaults to champion.
             entry.owner = champion
 
     for entry in doc.artifacts:
@@ -414,7 +437,7 @@ def apply_draft_defaults(doc: ReportDocument, context: dict) -> ReportDocument:
             entry.change_kind = ArtifactChangeKind.added
         else:
             prior_domain = artifact_domain_by_id.get(entry.id)
-            if prior_domain != entry.domain_id:
+            if entry.domain_id is not None and entry.domain_id != prior_domain:
                 entry.change_kind = ArtifactChangeKind.moved
             else:
                 entry.change_kind = ArtifactChangeKind.updated

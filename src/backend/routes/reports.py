@@ -73,9 +73,15 @@ def draft(req: DraftRequest) -> ReportDocument:
     # Validate the model output against the report contract, then fill the
     # derived defaults (task owner, artifact change_kind) so the PREVIEW the
     # editor shows already matches what save will compute — no blank owner
-    # dropdown (D8) and no missing change_kind (D3).
+    # dropdown (D8) and no missing change_kind (D3). A fresh connection is opened
+    # AFTER the slow LLM call (never held across it): apply_draft_defaults reads
+    # the task-owner journal signal so the preview mirrors save EXACTLY.
     doc = ReportDocument.model_validate(drafted)
-    return apply_draft_defaults(doc, context)
+    conn = get_connection()
+    try:
+        return apply_draft_defaults(conn, doc, context)
+    finally:
+        conn.close()
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ReportResponse)
