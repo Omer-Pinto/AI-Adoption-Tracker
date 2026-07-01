@@ -91,8 +91,6 @@ export interface ActionItem {
   note: string | null;
   due_date: string | null;
   status?: TaskStatus;
-  /** Legacy current-state flag — still read by TeamPage; superseded by `status`. */
-  resolved?: boolean;
 }
 
 // ---- History rows (spec §5) ----
@@ -305,9 +303,9 @@ export interface TeamPageIndexEntry {
   domain_count: number;
 }
 
-/** One AI-Lead-owned action item, flattened across ALL teams —
+/** One AI-Lead action item, flattened across ALL teams —
  *  `GET /api/ai-lead/action-items` (backend routes/views.py `AILeadActionItem`).
- *  Every action item whose owner is the literal 'AI Lead', resolved against its
+ *  Every action item is the AI Lead's (there is no owner), resolved against its
  *  report/champion/team and (optional) domain. `domain` is null when the item is
  *  unplaced/team-wide.
  *

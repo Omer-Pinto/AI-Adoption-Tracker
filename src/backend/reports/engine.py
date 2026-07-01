@@ -428,7 +428,7 @@ def fan_out_report(
             )
             item.domain_id = item_domain_id
             item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, team_id, item_domain_id, item)
+            _insert_action_item(conn, report_id, item_domain_id, item)
 
         # BACK-FILL: persist the id-complete document so replay is purely id-based.
         conn.execute(
@@ -795,7 +795,6 @@ def _infer_artifact_change_kind(
 def _insert_action_item(
     conn: sqlite3.Connection,
     report_id: int,
-    team_id: int,
     domain_id: int | None,
     item,
 ) -> None:

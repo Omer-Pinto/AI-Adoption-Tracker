@@ -169,17 +169,8 @@
 .ai-lead-page .team-personal { color: var(--text-muted); font-style: italic; font-size: 12px; }
 .ai-lead-page .date-dash { font-size: 13px; color: var(--text-faint); }
 
-/* ---- Row actions (standalone Edit/Delete vs report-managed link + hint) ---- */
+/* ---- Row actions (Edit / Delete, plus an "Open report" link when derived) ---- */
 .ai-lead-page .row-acts { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
-.ai-lead-page .managed-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-.ai-lead-page .managed-hint {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-faint);
-  white-space: nowrap; cursor: help;
-}
-.ai-lead-page .managed-hint .qi {
-  width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--border); color: var(--text-faint);
-  font-size: 8.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
-}
 
 /* ---- Inline action-item form (add + edit) — reuses .tk-form container ---- */
 .ai-lead-page .af-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--text-secondary); }

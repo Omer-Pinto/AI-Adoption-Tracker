@@ -170,8 +170,8 @@ export const api = {
 
   // ---- AI-Lead dashboard (backend routes/views.py — Wave 12/13) ----
   aiLead: {
-    // `GET /api/ai-lead/action-items` — every AI-Lead-owned action item (owner =
-    // 'AI Lead') across ALL teams, of any status, newest first.
+    // `GET /api/ai-lead/action-items` — every action item across ALL teams (all
+    // are the AI Lead's; there is no owner filter), of any status, newest first.
     actionItems: (): Promise<AILeadActionItem[]> => request('/ai-lead/action-items'),
     // `PATCH /api/action-items/{id}` — partial edit (status, due_date, text, note
     // and/or domain_id). A1+A2: works on EVERY item (report-derived AND
