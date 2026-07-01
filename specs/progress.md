@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-06-29 | **Branch:** `mvp-refactor-champs` | **Waves 11–13 + 15 + 16 DONE** — Wave 16 (1:1 champion-per-team) built by 6 parallel agents, reviewed/simplified, DB recreated clean, qa dataset folded to champion **Noa**, live-verified (19/19). Next: 17 (go-live walk) + 18 (search)**
+> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **▶ NEXT: Waves 17–19 — user credentials & RBAC** (login for all; admin edits everything & is untouchable; everyone else read-only, scoped by team). Then 20 (go-live) + 21 (search).
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 97% (168/173)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (168/200)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 168 / 173 | 97% |
+| 🟢 Done | 168 / 200 | 84% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 5 (Wave 17: 2 · 18: 3) | 3% |
+| ⬜ Pending | 32 (RBAC 17: 13 · 18: 11 · 19: 3 · go-live 20: 2 · search 21: 3) | 16% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -39,8 +39,11 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
 | 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
 | 16 | **Done** | 6/6 | 6/6 | 0/24 | **One champion per team (1:1 refactor) — built + verified.** 6 disjoint agents (16A–16F) cherry-picked clean (`1122bf9`..`df569bb`, 0 conflicts); champion folded into team (`team.champion_name NOT NULL` + `champion_start_date`; `champion` table dropped), all keyed by `team_id`, report champion-picker gone, `cc_baseline`/`baseline_date` nuked. code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge nav fix + simplification (`5dc699d`,`03f489f`). DB expunged+recreated clean (backed up first); qa dataset folded to one champion **Noa** (`415d698`); live API verify 19/19. **Live UI walk + LLM draft = Omer (.env).** |
-| 17 | Not Started | — | — | 0/2 | Go-live walkthrough — README_HUMAN install/run + `backup_db.sh`. See `task_breakdown.md` Wave 17 |
-| 18 | Not Started | 0/1 | 0/1 | 3/3 | Search bar + DSL on entity pages — 18A explore+design, then implement (18B+). See `task_breakdown.md` Wave 18 |
+| **17** | **Not Started ▶ NEXT** | 0/2 | 0/2 | 0/13 | **Auth core + admin user-portal API (17A) + FE auth foundation (17B)** — parallel, disjoint |
+| **18** | Not Started | 0/3 | 0/3 | 0/11 | Read-scope guards + admin-only writes (18A) + FE surfaces (18B) + hide edits (18C) — depend on W17 |
+| **19** | Not Started | — | — | 0/3 | RBAC verify + adversarial security audit (gate) |
+| 20 | Not Started | — | — | 0/2 | Go-live walkthrough (was 17) — README_HUMAN + `backup_db.sh` |
+| 21 | Not Started | 0/1 | 0/1 | 0/3 | Search bar + DSL (was 18) — 21A design, then 21B+ |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
 
@@ -417,17 +420,6 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 17 — Go-live walkthrough (gate, before first air-gap insert)
-
-> A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters. NOT a code wave — orchestrator + Omer. Deep UPGRADING review is deferred to the first real upgrade. **Deferred behind Wave 16 (1:1 refactor)** — no point walking install/backup before the schema refactor lands.
-
-| # | Task | Status | Notes |
-|---|------|--------|-------|
-| 1 | Walk `deployment/README_HUMAN.md` install/run together (Rocky prereqs → install → LLM env → start → verify) | ⬜ Pending | the only must-read for go-live |
-| 2 | Walk `deployment/bundle/scripts/backup_db.sh` (run it, confirm a snapshot lands; set a cadence) | ⬜ Pending | data-safety essential |
-
----
-
 ## Wave 15 — AI-Lead board redesign + self-managed action items (Variant B)
 
 > Rebuild the AI-Lead page per the chosen prototype (`prototype/ai-lead-board-redesign.html?variant=B`) + let the AI Lead add/edit/delete their own action items directly. Schema change (nullable `action_item.report_id`) frozen pre-1.0. api-designer gate → 15A backend + 15B FE in parallel. **Locked:** tabbed board, both date columns, no page subtitle, toolkit desc = 2-line textarea, standalone = full CRUD / meeting-derived = status+due only + "Open report" link, no delete. See `task_breakdown.md` Wave 15.
@@ -516,11 +508,84 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 18 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 17 — Auth core + admin user-portal API + FE auth foundation  ▶ RUN NEXT
 
-> Opens with a design/exploration task (18A → `specs/search_integration.md`); implementation (18B+) is scoped from the approved spec. See `task_breakdown.md` Wave 18.
+> Login for all; **admin (Omer) edits everything & is untouchable; everyone else READ-ONLY**, scoped by a read-matrix (all teams / specific teams). Session token + pbkdf2. See `task_breakdown.md` Wave 17.
 
-### Agent 18A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
+### Agent 17A: Backend auth core + user-portal API (`security-engineer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Schema: user + user_team + session (additive) | ⬜ Pending | read-scope = read_all OR user_team rows |
+| 2 | pbkdf2 hash + session-token primitives | ⬜ Pending | stdlib |
+| 3 | Deps: get_current_user / require_admin / can_read_team | ⬜ Pending | seam 18A consumes |
+| 4 | Auth routes: login / logout / me / change-password | ⬜ Pending | login public |
+| 5 | Admin Users portal API (CRUD, reset-pw, activate, read-scope); admin untouchable | ⬜ Pending | decision 2d |
+| 6 | provision_team_user + seed admin/manager | ⬜ Pending | forward-only |
+| 7 | Wire routers + additive models | ⬜ Pending | |
+
+### Agent 17B: FE auth foundation (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | AuthContext + AuthProvider in main.tsx | ⬜ Pending | first Context |
+| 2 | api.ts token + 401→login / 403→Forbidden + auth/users methods | ⬜ Pending | |
+| 3 | LoginPage (outside AppShell) | ⬜ Pending | |
+| 4 | ProtectedRoute + landing (admin/read-all→/, scoped→own team) | ⬜ Pending | |
+| 5 | router: /login + wrap AppShell | ⬜ Pending | sole W17 router editor |
+| 6 | Auth/user types | ⬜ Pending | |
+
+---
+
+## Wave 18 — Read-scope guards + admin-only writes + FE surfaces
+
+### Agent 18A: Enforce read-access matrix on all routes (`security-engineer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Own-team by-id reads → can_read_team else 403 | ⬜ Pending | 404 missing / 403 out-of-scope |
+| 2 | Cross-team lists → filter to user's teams | ⬜ Pending | no leak |
+| 3 | All writes → require_admin | ⬜ Pending | non-admin 403 |
+| 4 | LLM draft + create report → require_admin | ⬜ Pending | |
+| 5 | POST /teams → provision_team_user | ⬜ Pending | forward-only |
+
+### Agent 18B: FE auth/admin surfaces (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Settings gear (logout + change-pw) on all pages | ⬜ Pending | requirement |
+| 2 | Admin Users portal page (CRUD, reset-pw, read-scope matrix) | ⬜ Pending | decision 2d |
+| 3 | Curated Forbidden + Not Found pages | ⬜ Pending | agents design them |
+| 4 | Scoped nav + /users route; hide edit/create for non-admin | ⬜ Pending | |
+
+### Agent 18C: Hide edit affordances for non-admin (`frontend-developer`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | No edit/add/delete controls for non-admin anywhere | ⬜ Pending | hidden |
+| 2 | Report create/edit pages guard → Forbidden for non-admin | ⬜ Pending | |
+
+---
+
+## Wave 19 — RBAC verify + security audit (gate)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Three-account live walk (admin / read-all / team-scoped) | ⬜ Pending | matrix behavior |
+| 2 | Adversarial bypass (IDOR, forged token, non-admin write/draft) → 401/403 | ⬜ Pending | validate gate |
+| 3 | Password-change + admin reset loop | ⬜ Pending | |
+
+---
+
+## Wave 20 — Go-live walkthrough (gate)
+
+> Was Wave 17 — deferred behind RBAC.
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Walk `deployment/README_HUMAN.md` install/run | ⬜ Pending | must-read for go-live |
+| 2 | Walk `deployment/bundle/scripts/backup_db.sh` (snapshot + cadence) | ⬜ Pending | data-safety |
+
+---
+
+## Wave 21 — Search bar + DSL on entity pages (design first, then implement)
+
+> Opens with a design/exploration task (21A → `specs/search_integration.md`); implementation (21B+) is scoped from the approved spec. See `task_breakdown.md` Wave 21.
+
+### Agent 21A: Explore + design SearchBar/DSL integration (spec only — `specs/search_integration.md`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs (domain/team/champion pages + grouped Manage lists; in/out per page) | ⬜ Pending | ground in the Wave-3 search module |

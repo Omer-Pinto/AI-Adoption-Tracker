@@ -515,21 +515,6 @@ Consumes Wave 9's id-returning draft. Matched mentions render as JIRA-style link
 
 ---
 
-## Wave 17 — Go-live walkthrough (gate, before first air-gap insert)
-
-A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters — **not a code wave** (orchestrator + Omer). Keeps the go-live essentials front-and-centre and defers the deep upgrade material until it's actually needed. **Deferred behind Wave 16** — no point walking install/backup before the schema refactor lands.
-
-### Gate: go-live readiness (orchestrator + Omer)
-| # | Task | Target | Notes |
-|---|------|--------|-------|
-| 1 | Walk install/run | step through `deployment/README_HUMAN.md` together — Rocky 9.4 prereqs → install → LLM env (provider/endpoint/key/model) → start → verify | the only must-read for go-live |
-| 2 | Walk backup | run `deployment/bundle/scripts/backup_db.sh`, confirm a snapshot lands, agree a cadence | data-safety essential before real data exists |
-
-### After Wave 17
-- Omer is confident to install on the air-gap box. **Deep `UPGRADING.md` review is deferred to the first real upgrade** (when the actual backend/API/schema change is known) — the backup → staging-port → verify → switch/rollback safety net holds meanwhile.
-
----
-
 ## Wave 15 — AI-Lead board redesign + self-managed action items (pre-last)
 
 Rebuild the AI-Lead page per the chosen prototype (**Variant B — tabbed board**, `prototype/ai-lead-board-redesign.html`) and let the AI Lead create/manage their own action items directly — not only through reports. **Carries a schema change (nullable `action_item.report_id`) — done NOW, pre-1.0, while the DB is empty.** Opens with an **api-designer gate** (the action-item CRUD contract); then a backend agent + a frontend agent build it **in parallel** against that frozen contract (disjoint trees, the proven Wave-12 pattern).
@@ -649,18 +634,128 @@ Rebuild the AI-Lead page per the chosen prototype (**Variant B — tabbed board*
 
 ---
 
-## Wave 18 — Search bar + DSL on entity pages (design first, then implement)
+## Wave 17 — Auth core + admin user-portal API + FE auth foundation (2 agents, parallel — disjoint trees)  ▶ RUN NEXT
 
-Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (16A); implementation (16B+) is scoped from that spec once Omer approves it.
+> **Model (locked):** login for ALL users; **admin (Omer only) reads + edits everything and is untouchable**; **every other user is READ-ONLY**, scoped by a **read-matrix** — *All teams* (auto-includes future teams) **or** specific teams (multi-select, list grows as teams are added). **Only admin edits/creates/deletes anything, incl. LLM report drafting.** Champions = auto-provisioned read-only users scoped to their own team (username = **lowercase** champion name, `Noa`→`noa`, spaces stripped; default password `noa_noa_123`; **forward-only** — created at team-create, never auto-updated; a rename/replacement is handled only via the portal). "Manager" = a preset (read-all). **No migration/backfill code** — fresh dev DB, pre-1.0. **Enforcement is server-side**; the UI only hides what the backend already 403s.
+> **Auth mechanism (locked):** opaque **session token** (`secrets.token_urlsafe`, stored in a `session` table, sent `Authorization: Bearer …`, held in `localStorage`, logout deletes the row) + **pbkdf2 password hashing** (stdlib `hashlib`, no new dep). Fine over LAN.
+> **Errors (agents design the pages):** **401** (no/expired token) → redirect to Login; **403** (logged-in but not allowed) → curated **Forbidden** page; **404** → curated **Not Found** page. API returns JSON+status; React renders the styled pages.
 
-### Agent 18A: Explore + design SearchBar/DSL integration
+### READ-ACCESS MATRIX (frozen contract — every guarded endpoint obeys it)
+| Surface | admin | read-all user (mgr preset) | team-scoped user (champion preset) |
+|---|---|---|---|
+| Login · logout · me · change-own-password | ✅ | ✅ | ✅ |
+| READ a team's data (`/teams/{id}/page`, `/domains/{id}/page`, `/tasks/{id}`, `/artifacts/{id}`, `/teams/{id}/entities`, `GET /reports/{id}`) | ✅ | ✅ | ✅ **only if the resource's `team_id` ∈ the user's teams**, else 403 |
+| Cross-team lists (`/team-pages`, `/tasks`, `/artifacts`, `/domains`, `/teams`, `/ai-lead/*`, `/search/values`) | ✅ | ✅ | ✅ but **filtered to the user's teams** |
+| Admin **Users portal** (`/api/users*`, reset-password) | ✅ | ❌ 403 | ❌ 403 |
+| **Any write** (POST/PATCH/DELETE) + **LLM draft** (`/reports/draft`, `/reports`) | ✅ | ❌ 403 | ❌ 403 |
+
+### Agent 17A: Backend auth core + user-portal API
+**Type:** `security-engineer` · **Scope:** `src/backend/{schema.sql, models.py, db.py, seed.py, app.py, auth.py (new), routes/auth.py (new), routes/users.py (new)}` — NOT the existing feature routes (guarded in 18A)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Schema: `user`(id, username UNIQUE, password_hash, is_admin, read_all, is_active) + `user_team`(user_id, team_id) + `session`(token, username, created_at) | read-scope = `read_all` OR rows in `user_team` |
+| 2 | pbkdf2 hash+verify; session-token create/resolve/delete (`auth.py`) | stdlib only |
+| 3 | Deps: `get_current_user` (401), `require_admin` (403), `can_read_team(user, team_id)` + list-filter helper | the seam 18A consumes |
+| 4 | Routes: `login / logout / me / change-password` (`routes/auth.py`) | login public; change-password = own only |
+| 5 | Admin Users portal (`routes/users.py`, all `require_admin`): list (exclude admin), create/edit/delete, reset-password, activate/deactivate, set read-scope (all / specific teams). Never return `password_hash`; **admin never listed/editable/deletable** | decision 2d |
+| 6 | `provision_team_user(team)` (username=lowercase name, pw `<name>_<name>_123`, read-scope=that team) + seed `admin`/`admin` and `manager`/`manager_manager_123` (read_all) | forward-only; called by 18A on team-create |
+| 7 | Wire auth+users routers in `app.py`; additive models (`User`, `UserCreate/Update`, `Login…`, `ChangePassword`, `ResetPassword`) | |
+**Commit:** `Wave 17 Agent 17A: auth core (session/pbkdf2), auth routes, admin user-portal API, read-scope model`
+**Gate after 17A:** `security-auditor` sanity-checks hashing/session/deps (no plaintext, constant-time compare, no hash leak, 401-vs-403) before 18A relies on it.
+
+### Agent 17B: FE auth foundation
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{auth/* (new), pages/login/* (new), api.ts, types.ts, router.tsx, main.tsx}` — sole owner; compiles standalone vs the contract
+| # | Task | Notes |
+|---|------|-------|
+| 1 | `AuthContext` (user, token, isAdmin, readable teams; login/logout/changePassword) + `<AuthProvider>` in `main.tsx`; token in `localStorage` | first Context in the app |
+| 2 | `api.ts`: inject `Bearer` token; **401→clear+redirect /login**, **403→ForbiddenError** the router renders; add `api.auth.*` + `api.users.*` | |
+| 3 | `LoginPage` (outside AppShell) | all users |
+| 4 | `ProtectedRoute` + landing (admin/read-all → `/`; team-scoped → their team) | |
+| 5 | `router.tsx`: public `/login`, wrap AppShell subtree; leave `/users` + `/403` slots for 18B | sole W17 router editor |
+| 6 | Additive types (`AuthUser`, `User`, read-scope) | |
+**Commit:** `Wave 17 Agent 17B: FE auth foundation (context, api token/401/403, login, protected routes)`
+
+### After Wave 17
+- Cherry-pick 17A+17B. Verify: `import app` clean (auth+users in `/docs`); login returns a token; admin/manager/champion seed exists; `npm run build` green; unauthenticated app → `/login`. Feature endpoints still open (guarded in 18). code-review + simplify gates first.
+
+---
+
+## Wave 18 — Read-scope guards + admin-only writes + FE surfaces (3 agents, parallel — depend only on W17)
+
+### Agent 18A: Enforce the read-access matrix on every existing route
+**Type:** `security-engineer` · **Scope:** `src/backend/routes/{management.py, views.py, reports.py, search.py}` (consumes 17A deps)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Own-team by-id reads → `can_read_team`; else 403 (resolve team: task→domain→team, artifact→team, domain→team, report→team) | 404 if id missing, 403 if out of scope |
+| 2 | Cross-team lists → **filter to the user's teams** (admin/read-all see all) | no leak |
+| 3 | **All** POST/PATCH/DELETE → `require_admin` | non-admin 403 |
+| 4 | LLM draft + create report (`/reports/draft`, `/reports`) → `require_admin` | |
+| 5 | On `POST /teams` call `provision_team_user` (17A helper) | forward-only champion login |
+**Commit:** `Wave 18 Agent 18A: enforce read-scope + admin-only writes on all feature routes`
+**Gate after 18A:** `penetration-tester` attempts bypass (out-of-scope team id, non-admin write, non-admin draft) — all must 401/403.
+
+### Agent 18B: FE auth & admin surfaces (settings, Users portal, error pages, scoped nav)
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/{components/AppShell.tsx, router.tsx, components/SettingsMenu.tsx (new), components/ChangePasswordModal.tsx (new), pages/users/* (new), pages/error/* (new)}`
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Settings **gear** on every page → Logout + Change password (modal); show user + role | requirement |
+| 2 | Admin **Users portal** (`pages/users/*`): table (no admin), create/edit/delete, reset-password, activate/deactivate, **read-scope matrix** (All-teams toggle + per-team checkboxes that grow with teams) | decision 2d |
+| 3 | Curated **Forbidden** + **Not Found** pages (`pages/error/*`); wire `/403` | agents design them |
+| 4 | Role-aware nav + `/users` route (admin only); **scoped users** see only their team(s) + settings; hide every edit/create entry (incl. New Report) for non-admin | |
+**Commit:** `Wave 18 Agent 18B: settings menu, admin Users portal, error pages, scoped nav`
+
+### Agent 18C: Hide all edit affordances for non-admin on existing pages
+**Type:** `frontend-developer` · **Scope:** `src/frontend/src/pages/{manage/*, team/*, tasks/*, artifacts/*, ai-lead/*, report/*}` (reads AuthContext; not AppShell/router/api/types)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Non-admin → **no** edit/add/delete controls anywhere (only admin edits) | hidden, not greyed |
+| 2 | Report create + edit pages guard: non-admin opening the URL → Forbidden | backend already 403s |
+**Commit:** `Wave 18 Agent 18C: role-gate — hide all edit affordances for non-admin`
+
+### After Wave 18
+- Cherry-pick 18A–18C. Uncertainty → code-review → simplify → verify: `import app` clean, `npm run build` green, quick smoke (admin edits; read-only user has no edit controls + 403 on a hand-POST; scoped user sees only their team + Forbidden elsewhere).
+
+---
+
+## Wave 19 — RBAC verify + security audit (gate — orchestrator + Omer + security agent)
+| # | Task | Notes |
+|---|------|-------|
+| 1 | Three-account live walk: **admin** (edits all, Users portal CRUD + reset-pw, LLM draft) · **read-all user** (sees all, zero edit controls, write/draft → 403) · **team-scoped user** (own team only, cross-team → Forbidden) | matrix behavior |
+| 2 | Adversarial: out-of-scope team id (IDOR), forged/expired token, non-admin write, non-admin LLM draft → all **401/403**; no `password_hash` leak; logout revokes | the "validate" gate |
+| 3 | Password-change + admin reset loop (old fails, new works) | |
+
+### After Wave 19
+- Matrix holds server-side; RBAC ships. Then run Wave 20 (go-live) + Wave 21 (search).
+
+---
+
+## Wave 20 — Go-live walkthrough (gate, before first air-gap insert)
+
+A focused ~20-min joint pass so Omer's reading is minimal and timed to when it matters — **not a code wave** (orchestrator + Omer). Keeps the go-live essentials front-and-centre and defers the deep upgrade material until it's actually needed.
+
+### Gate: go-live readiness (orchestrator + Omer)
+| # | Task | Target | Notes |
+|---|------|--------|-------|
+| 1 | Walk install/run | step through `deployment/README_HUMAN.md` together — Rocky 9.4 prereqs → install → LLM env (provider/endpoint/key/model) → start → verify | the only must-read for go-live |
+| 2 | Walk backup | run `deployment/bundle/scripts/backup_db.sh`, confirm a snapshot lands, agree a cadence | data-safety essential before real data exists |
+
+### After Wave 20
+- Omer is confident to install on the air-gap box. **Deep `UPGRADING.md` review is deferred to the first real upgrade** — the backup → staging-port → verify → switch/rollback safety net holds meanwhile.
+
+---
+
+## Wave 21 — Search bar + DSL on entity pages (design first, then implement)
+
+Integrate the existing chip **SearchBar + DSL** (built for Artifacts/Tasks in Wave 3, `src/frontend/src/search/`) into the **domain, team, and champion** pages — and possibly the team-grouped Manage lists. It needs a design/decisions pass before code, so the wave opens with an exploration+design task (21A); implementation (21B+) is scoped from that spec once Omer approves it.
+
+### Agent 21A: Explore + design SearchBar/DSL integration
 **Type:** `ux-researcher` · **Scope:** `specs/search_integration.md` (design spec only — no app code)
 | # | Task | Target | Notes |
 |---|------|--------|-------|
 | 1 | Map where SearchBar + DSL belongs | which of the domain / team / champion pages (and the team-grouped Manage lists) get it; recommend in/out per page with reasons | ground in the Wave-3 search module |
 | 2 | Define the DSL keys per surface | which keys apply on each page (reuse team/domain/type/tag/status/date; flag any new key + whether the backend already supports it) | no invented backend |
 | 3 | Decide grouped-view filtering | whether/how search interacts with the team-grouped Manage lists (filter within groups? collapse empties?) | resolve with Omer |
-**Commit:** `Wave 18 Agent 18A: SearchBar/DSL integration design spec`
+**Commit:** `Wave 21 Agent 21A: SearchBar/DSL integration design spec`
 
-### After Wave 18 (18A)
+### After Wave 21 (21A)
 - Omer approves `specs/search_integration.md`; implementation is scoped as a follow-on (18B+) from the approved spec.
