@@ -17,8 +17,8 @@
 ### A1 + A2 — RESOLVED (Omer + analysis, 06-30). Build plan below. — **BUILT ✅ (07-01, `mvp-bug-fixes-prod`)**
 
 > **Built + live-verified.** Parallel backend/frontend agents in worktrees, cherry-picked disjoint.
-> Backend: `action_item` dropped `owner` + added `note` (in-place idempotent migration in `db.py`
-> preserved the live QA DB — teams/domains/reports/6 action-items intact); AI-Lead worklist returns
+> Backend: `action_item` dropped `owner` + added `note` (pre-MVP — no migration; DB deleted and
+> recreated clean from `schema.sql`, which is authoritative); AI-Lead worklist returns
 > ALL items (no owner filter); PATCH/DELETE allowed on ANY item (report-derived 409s removed);
 > replay skips action items (create-once); `PATCH /reports/{id}` → 409 on a non-latest report; prompt
 > redefined (action items = AI-Lead-only, champion follow-ups → tasks — closes **D2**). Tests: 12
