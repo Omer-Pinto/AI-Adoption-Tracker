@@ -2,11 +2,16 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
+import { SearchBar } from '@/search/SearchBar';
+import { useSearchQuery } from '@/search/useSearchQuery';
+import { parseDslToChips, type Chip } from '@/search/filter-builder';
+import { EmptyState } from '@/components/EmptyState';
 import type {
   ActionItemPatchBody,
   AILeadActionItem,
   AILeadItem,
   AILeadItemCategory,
+  SearchKey,
   TaskStatus,
   TeamPageIndexEntry,
 } from '@/types';
@@ -80,6 +85,38 @@ function isStandalone(it: AILeadActionItem): boolean {
   return it.report_id === null;
 }
 
+// Chip-SearchBar keys that make sense for action items (there is no owner — every
+// item is the AI Lead's). Reuses the shared SearchBar/DSL; filtering is entirely
+// client-side against the already-loaded rows (no new backend endpoint).
+const ACTION_SEARCH_KEYS: SearchKey[] = ['status', 'team', 'date'];
+
+// Loose team-name compare — the DSL round-trip turns spaces/hyphens into a single
+// separator, so normalize both sides before matching.
+function normTeam(s: string): string {
+  return s.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+}
+
+// Does a loaded action item satisfy one search chip? Unknown enum keys are
+// permissive (never hide a row we don't know how to filter).
+//   status → item.status is one of the selected status codes
+//   team   → item's team matches one of the selected team names (normalized)
+//   date   → item is due on or before the picked date ("due by X")
+function matchChip(it: AILeadActionItem, chip: Chip): boolean {
+  if (chip.kind === 'enum') {
+    if (chip.value.length === 0) return true;
+    if (chip.key === 'status') return chip.value.includes(it.status);
+    if (chip.key === 'team') {
+      if (it.team_name == null) return false; // "General" gutter has no team name
+      const target = normTeam(it.team_name);
+      return chip.value.some((v) => normTeam(v) === target);
+    }
+    return true;
+  }
+  // date chip
+  if (!chip.value) return true;
+  return !!it.due_date && it.due_date <= chip.value;
+}
+
 // Stable per-team dot color (real team names are arbitrary; the mock hard-codes a
 // palette). Hash the name into a fixed palette so each team keeps one color.
 const TEAM_PALETTE = [
@@ -94,6 +131,9 @@ function teamColor(name: string): string {
 
 export default function AiLeadPage() {
   const { isAdmin } = useAuth();
+  // Chip-SearchBar DSL, round-tripped through the URL `?q=` like the other list
+  // pages. Filtering is applied in memory to the already-loaded action items.
+  const [query, setQuery] = useSearchQuery();
   const [items, setItems] = useState<AILeadActionItem[]>([]);
   // Teams for the add/edit team dropdown (options: "General" + every team).
   const [teams, setTeams] = useState<TeamPageIndexEntry[]>([]);
@@ -269,6 +309,8 @@ export default function AiLeadPage() {
       });
   }
 
+  // Tiles + tab badge stay a stable overview of EVERY item; only the table below
+  // reacts to the SearchBar.
   const counts = useMemo(() => {
     const open = items.filter((it) => !isClosed(it.status)).length;
     const overdue = items.filter(isOverdue).length;
@@ -277,30 +319,38 @@ export default function AiLeadPage() {
     return { open, overdue, blocked, done };
   }, [items]);
 
+  // Client-side chip filter: parse the DSL and AND the chips over the loaded rows.
+  const filteredItems = useMemo(() => {
+    const chips = parseDslToChips(query);
+    if (chips.length === 0) return items;
+    return items.filter((it) => chips.every((chip) => matchChip(it, chip)));
+  }, [items, query]);
+  const isFiltered = filteredItems.length !== items.length;
+
   // "By priority": overdue floats up, then by status rank, then newer meeting first.
   const byPriority = useMemo(() => {
-    return [...items].sort((a, b) => {
+    return [...filteredItems].sort((a, b) => {
       const oa = isOverdue(a) ? 0 : 1;
       const ob = isOverdue(b) ? 0 : 1;
       if (oa !== ob) return oa - ob;
       if (RANK[a.status] !== RANK[b.status]) return RANK[a.status] - RANK[b.status];
       return (b.meeting_date || '').localeCompare(a.meeting_date || '');
     });
-  }, [items]);
+  }, [filteredItems]);
 
   // "By team": one section per team, open first. Items with no team (team_name
   // null = the "General" gutter) group under "General", floated to the top.
   const byTeam = useMemo(() => {
-    const teamNames = [...new Set(items.map((it) => it.team_name))];
+    const teamNames = [...new Set(filteredItems.map((it) => it.team_name))];
     teamNames.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
     return teamNames.map((team) => {
-      const group = items
+      const group = filteredItems
         .filter((it) => it.team_name === team)
         .sort((a, b) => RANK[a.status] - RANK[b.status]);
       const open = group.filter((it) => !isClosed(it.status)).length;
       return { team, group, open };
     });
-  }, [items]);
+  }, [filteredItems]);
 
   return (
     <>
@@ -374,12 +424,15 @@ export default function AiLeadPage() {
                 </div>
               </div>
 
+              <SearchBar query={query} onChange={setQuery} keys={ACTION_SEARCH_KEYS} />
+
               <div className="list-card">
                 <div className="list-head">
                   <span className="list-title">
                     Action items
                     <span className="count">
-                      {items.length} item{items.length === 1 ? '' : 's'}
+                      {filteredItems.length} item{filteredItems.length === 1 ? '' : 's'}
+                      {isFiltered ? ` of ${items.length}` : ''}
                     </span>
                   </span>
                   <span className="list-spacer" />
@@ -513,10 +566,23 @@ export default function AiLeadPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.length === 0 ? (
+                    {filteredItems.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-muted text-sm" style={{ textAlign: 'center', padding: 28 }}>
-                          No action items yet — add one with “+ Add action item”.
+                        <td colSpan={6} style={{ padding: 0 }}>
+                          {isFiltered || query ? (
+                            <EmptyState
+                              compact
+                              icon="⌕"
+                              title="No matching action items"
+                              hint="Nothing matches these filters. Try clearing them."
+                            />
+                          ) : (
+                            <EmptyState
+                              compact
+                              title="No action items yet"
+                              hint="Add one with “+ Add action item”."
+                            />
+                          )}
                         </td>
                       </tr>
                     ) : view === 'priority' ? (

@@ -59,9 +59,16 @@ type DropdownPhase =
 interface SearchBarProps {
   query: string;
   onChange: (dsl: string) => void;
+  /**
+   * Restrict the category picker to a subset of keys (e.g. a page whose data
+   * only supports status/team/date). Defaults to the full ENABLED_KEYS set, so
+   * existing callers (Tasks, Artifacts) are unaffected.
+   */
+  keys?: SearchKey[];
 }
 
-export function SearchBar({ query, onChange }: SearchBarProps) {
+export function SearchBar({ query, onChange, keys }: SearchBarProps) {
+  const enabledKeys = keys ?? ENABLED_KEYS;
   const [chips, setChips] = useState<Chip[]>(() => parseDslToChips(query));
   const [dropdown, setDropdown] = useState<DropdownPhase>({ phase: 'closed' });
   const [catSearch, setCatSearch] = useState('');
@@ -304,6 +311,7 @@ export function SearchBar({ query, onChange }: SearchBarProps) {
           searchValue={catSearch}
           onSearchChange={setCatSearch}
           chips={chips}
+          enabledKeys={enabledKeys}
           onSelect={selectCategory}
           onClose={() => setDropdown({ phase: 'closed' })}
           addBtnRef={addBtnRef}
@@ -428,6 +436,7 @@ interface CategoryDropdownProps {
   searchValue: string;
   onSearchChange: (v: string) => void;
   chips: Chip[];
+  enabledKeys: SearchKey[];
   onSelect: (key: SearchKey) => void;
   onClose: () => void;
   addBtnRef: RefObject<HTMLButtonElement>;
@@ -438,6 +447,7 @@ function CategoryDropdown({
   searchValue,
   onSearchChange,
   chips,
+  enabledKeys,
   onSelect,
   onClose,
   addBtnRef,
@@ -446,7 +456,7 @@ function CategoryDropdown({
   const [focusIdx, setFocusIdx] = useState(-1);
 
   const lf = searchValue.toLowerCase();
-  const items = ENABLED_KEYS.filter((key) => {
+  const items = enabledKeys.filter((key) => {
     const meta = KEY_META[key];
     return !lf || meta.label.toLowerCase().includes(lf) || key.includes(lf);
   });

@@ -25,6 +25,7 @@
 .ai-lead-page .tile {
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
   display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
 }
 .ai-lead-page .tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, #cbd5e1); }
 .ai-lead-page .tile-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
@@ -36,19 +37,36 @@
 .ai-lead-page .tile.acc-green { --accent: #16a34a; }
 
 /* ---- List card ---- */
-.ai-lead-page .list-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+/* overflow: clip (not hidden) so it still clips the rounded corners WITHOUT
+   becoming a scroll container — that lets the table's sticky header pin against
+   the page/top-bar during scroll. */
+.ai-lead-page .list-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: clip;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px rgba(16, 24, 40, 0.06);
+}
 .ai-lead-page .list-head { padding: 13px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 12px; }
 .ai-lead-page .list-title { font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--text-secondary); }
 .ai-lead-page .list-title .count { color: var(--text-faint); font-weight: 600; margin-left: 5px; }
 .ai-lead-page .list-spacer { flex: 1; }
 
 /* ---- Table ---- */
-.ai-lead-page table.ai-table { width: 100%; border-collapse: collapse; }
+.ai-lead-page table.ai-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+/* Sticky header: pins just under the 56px global top-bar on long lists. The th
+   background is opaque (surface-2) so rows never bleed through. */
 .ai-lead-page table.ai-table th {
-  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint);
-  text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;
+  position: sticky; top: 56px; z-index: 2;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted);
+  text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;
+  box-shadow: inset 0 -1px 0 var(--border);
 }
-.ai-lead-page table.ai-table td { font-size: 13px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.ai-lead-page table.ai-table th:first-child { padding-left: 18px; }
+.ai-lead-page table.ai-table th:last-child { padding-right: 18px; }
+.ai-lead-page table.ai-table td {
+  font-size: 13px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); vertical-align: top;
+  transition: background 0.12s ease;
+}
+.ai-lead-page table.ai-table td:first-child { padding-left: 18px; }
+.ai-lead-page table.ai-table td:last-child { padding-right: 18px; }
 .ai-lead-page table.ai-table tr:last-child td { border-bottom: none; }
 .ai-lead-page table.ai-table tbody tr:hover td { background: var(--surface-2); }
 .ai-lead-page table.ai-table tr.is-closed td { background: var(--surface-2); }
@@ -230,3 +248,6 @@ html[data-theme="dark"] .ai-lead-page .due-input.overdue { color: #fca5a5; borde
 html[data-theme="dark"] .ai-lead-page .ail-toggle button.on { background: var(--accent); color: #fff; }
 html[data-theme="dark"] .ai-lead-page .kind-personal { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
 html[data-theme="dark"] .ai-lead-page .kind-meeting  { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+/* Elevation reads as a hairline lift on dark, not a heavy drop shadow. */
+html[data-theme="dark"] .ai-lead-page .tile { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28); }
+html[data-theme="dark"] .ai-lead-page .list-card { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32); }
