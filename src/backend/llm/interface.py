@@ -211,23 +211,6 @@ best-fit "type" (required for a new artifact), and any of "tags" / "summary" / \
 a …", "started a new …") ALWAYS means NEW — omit "id" even if a similarly named \
 entity exists in the context.
 
-ONLY WHAT CHANGED THIS WEEK — do NOT re-emit unchanged prior entities:
-- Emit a task or artifact ONLY when the CURRENT notes actually discuss it as NEW \
-or as CHANGED this meeting (a status / owner / due-date change, a new capability, \
-a fix, a move, a retirement, or genuine progress). A "tasks"/"artifacts" entry \
-writes a history row for THIS meeting, so it must represent a real event this \
-week — not a standing restatement.
-- A prior task/artifact from the context that is merely NAMED as a reference, a \
-contrast, or background — and is NOT itself changed this week — MUST NOT be \
-emitted. Do NOT re-list last week's still-open tasks just because they remain \
-open, and do NOT re-emit an existing artifact as "updated" only because the notes \
-mention it. Example: "the new agent is separate from the existing reviewer agent" \
-changes the reviewer NOT AT ALL — emit ONLY the new agent and leave the reviewer \
-untouched (no history row for it).
-- This does NOT weaken entity-matching: when a prior entity IS genuinely updated \
-this week, MATCH it by id and emit it with its change. The test is "did THIS \
-meeting change it?", never "is it named in the notes?".
-
 DOMAIN MATCH — place each task/artifact in an EXISTING domain (the `domain_id` \
 field is the link signal). Action items are NEVER placed in a domain — they \
 belong to the report's team implicitly and carry no domain_id/domain:
@@ -360,21 +343,6 @@ about the AI Lead's to-do); set it when the notes support it, else leave null.
 "in-progress" if work has started; "blocked" if the notes say it's blocked; \
 "finished_successfully"/"finished_with_issues" if done; "abandoned"/"wont_fix" \
 if dropped. If the notes give no signal, use "planned".
-
-STATEMENT-FORM ITEMS — route by MEANING, not by grammar:
-- A task update phrased as a plain STATEMENT is still a task update, NOT \
-discussion. "The CDC migration is done", "documenting the API is underway", "the \
-flaky checks are finished with issues" → MATCH the existing task by id and set \
-its status (finished_successfully / in-progress / finished_with_issues); do NOT \
-file it in "discussion" or "issues".
-- A DECISION about the AI LEAD's OWN to-do is an AI-Lead ACTION ITEM, not \
-discussion: "we decided NOT to roll out X", "dropped the plan to build that \
-skill" → an "action_items" entry with status "wont_fix" (or "abandoned" if it \
-was already underway). (A decision to drop a CHAMPION/team task is instead that \
-TASK with status "wont_fix" — see the rejected-idea rule under COMPLETENESS.)
-- Never restate something you already captured as a structured task / artifact / \
-action item into "discussion" or "issues". Each note line becomes EXACTLY ONE \
-structured entry OR one discussion/issue entry — never both.
 
 CATCH-ALLS — discussion and issues (each is a LIST of items):
 - "discussion" is a LIST of discussion points: the DEFAULT catch-all for any \
