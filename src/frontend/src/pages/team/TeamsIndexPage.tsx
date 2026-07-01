@@ -9,6 +9,7 @@ import { useAuth } from '@/auth/AuthContext';
 // Route: "/" — Teams index (list of champion portfolios). Wave-3 agent 3B.
 
 export default function TeamsIndexPage() {
+  const { isAdmin } = useAuth();
   const [entries, setEntries] = useState<TeamPageIndexEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -35,9 +36,11 @@ export default function TeamsIndexPage() {
           <span className="top-bar-sub">All team champion portfolios</span>
         </div>
         <div className="top-bar-actions">
-          <Link to="/manage" className="btn btn-secondary btn-sm">
-            Manage teams / domains
-          </Link>
+          {isAdmin && (
+            <Link to="/manage" className="btn btn-secondary btn-sm">
+              Manage teams / domains
+            </Link>
+          )}
         </div>
       </div>
 
@@ -60,10 +63,14 @@ export default function TeamsIndexPage() {
               icon="◇"
               title="No teams yet"
               hint={
-                <>
-                  Add your first team and champion in <Link to="/manage">Manage</Link> to
-                  start tracking adoption.
-                </>
+                isAdmin ? (
+                  <>
+                    Add your first team and champion in <Link to="/manage">Manage</Link> to
+                    start tracking adoption.
+                  </>
+                ) : (
+                  'No teams are available to you yet.'
+                )
               }
             />
           </div>
