@@ -1,7 +1,7 @@
 import './domain-page.css';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { api } from '@/api';
+import { useParams, Link, Navigate } from 'react-router-dom';
+import { api, ForbiddenError } from '@/api';
 import type { DomainPage as DomainPageData, Artifact, Task, ArtifactDetail } from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
@@ -18,6 +18,9 @@ export default function DomainPage() {
   const [data, setData] = useState<DomainPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // Set when the backend rejects the load with a 403 — this domain is not in the
+  // user's scope. We render the curated Forbidden surface, not a load error.
+  const [forbidden, setForbidden] = useState(false);
 
   // Artifact detail modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -29,10 +32,17 @@ export default function DomainPage() {
     let cancelled = false;
     setLoading(true);
     setError(false);
+    setForbidden(false);
     api.views
       .domainPage(Number(domainId))
       .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { console.error(e); if (!cancelled) setError(true); })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        // Out-of-scope domain id → the backend 403s: show the Forbidden surface.
+        if (e instanceof ForbiddenError) setForbidden(true);
+        else setError(true);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [domainId]);
@@ -72,6 +82,9 @@ export default function DomainPage() {
       </>
     );
   }
+
+  // Out-of-scope domain id — the backend said "not your team". Curated 403 surface.
+  if (forbidden) return <Navigate to="/403" replace />;
 
   if (error || !data) {
     return (

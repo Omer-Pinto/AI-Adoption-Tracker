@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api, ApiError } from '@/api';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
+import { api, ApiError, ForbiddenError } from '@/api';
 import type {
   Artifact,
   ArtifactDetail,
@@ -56,6 +56,9 @@ export default function ArtifactDetailPage() {
   const [loading, setLoading] = useState(true);
   // 'invalid' = bad id (not found), 'error' = genuine load failure, null = ok.
   const [error, setError] = useState<'invalid' | 'error' | null>(null);
+  // Set when the backend rejects the load with a 403 — this artifact is not in the
+  // user's scope. We render the curated Forbidden surface, not a load error.
+  const [forbidden, setForbidden] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [editing, setEditing] = useState(false);
 
@@ -63,6 +66,7 @@ export default function ArtifactDetailPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setForbidden(false);
     setEditing(false);
     if (!Number.isFinite(artifactId)) {
       setError('invalid');
@@ -86,9 +90,14 @@ export default function ArtifactDetailPage() {
       .catch((e) => {
         if (cancelled) return;
         console.error(e);
-        // A removed/unknown id comes back as a 404 → show the friendly
-        // "not found" state, not the generic load-failure one.
-        setError(e instanceof ApiError && e.status === 404 ? 'invalid' : 'error');
+        // Out-of-scope artifact id → the backend 403s: show the Forbidden surface.
+        if (e instanceof ForbiddenError) {
+          setForbidden(true);
+        } else {
+          // A removed/unknown id comes back as a 404 → show the friendly
+          // "not found" state, not the generic load-failure one.
+          setError(e instanceof ApiError && e.status === 404 ? 'invalid' : 'error');
+        }
         setLoading(false);
       });
     return () => {
@@ -119,6 +128,9 @@ export default function ArtifactDetailPage() {
       </div>
     );
   }
+
+  // Out-of-scope artifact id — the backend said "not your team". Curated 403 surface.
+  if (forbidden) return <Navigate to="/403" replace />;
 
   if (error || !detail) {
     return (

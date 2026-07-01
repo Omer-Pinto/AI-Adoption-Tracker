@@ -1,7 +1,7 @@
 import './team-page.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api } from '@/api';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
+import { api, ForbiddenError } from '@/api';
 import type {
   TeamPage,
   DomainPage,
@@ -52,6 +52,9 @@ export default function TeamPage() {
   const [data, setData] = useState<TeamPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // Set when the backend rejects the load with a 403 — this team is not in the
+  // user's scope. We render the curated Forbidden surface, not a load error.
+  const [forbidden, setForbidden] = useState(false);
 
   // Artifact detail modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -63,10 +66,17 @@ export default function TeamPage() {
     let cancelled = false;
     setLoading(true);
     setError(false);
+    setForbidden(false);
     api.views
       .teamPage(Number(teamId))
       .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { console.error(e); if (!cancelled) setError(true); })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        // Out-of-scope team id → the backend 403s: show the Forbidden surface.
+        if (e instanceof ForbiddenError) setForbidden(true);
+        else setError(true);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [teamId]);
@@ -113,6 +123,9 @@ export default function TeamPage() {
       </>
     );
   }
+
+  // Out-of-scope team id — the backend said "not your team". Curated 403 surface.
+  if (forbidden) return <Navigate to="/403" replace />;
 
   if (error || !data) {
     return (
