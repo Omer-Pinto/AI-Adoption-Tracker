@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import type { Team, Domain } from '@/types';
 import type { DomainProposal } from '@/api';
 import { api } from '@/api';
+import { useAuth } from '@/auth/AuthContext';
 import { DomainFormFields } from '@/pages/manage/DomainForm';
 import type { DomainFormFieldValues } from '@/pages/manage/DomainForm';
 
@@ -144,6 +145,7 @@ function proposalToFields(p: DomainProposal): DomainFormFieldValues {
 }
 
 export default function DomainSetupPage() {
+  const { isAdmin } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [allDomains, setAllDomains] = useState<Domain[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
@@ -300,6 +302,10 @@ export default function DomainSetupPage() {
       navigate(`/teams/${selectedTeamId}`);
     }
   }, [allApproved, selectedTeamId, navigate]);
+
+  // This create surface (extract → approve domains) is admin-only; non-admins are
+  // bounced to the shared 403 page.
+  if (!isAdmin) return <Navigate to="/403" replace />;
 
   return (
     <>

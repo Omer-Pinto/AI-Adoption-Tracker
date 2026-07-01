@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Modal } from '@/components/Modal';
 import { ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
+import { useAuth } from '@/auth/AuthContext';
 import type { ArtifactDetail } from '@/types';
 
 // Working detail modal (spec §7): summary + full data + change history.
@@ -16,6 +17,7 @@ export interface ArtifactDetailModalProps {
 }
 
 export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailModalProps) {
+  const { isAdmin } = useAuth();
   const artifact = detail?.artifact ?? null;
   const domain = detail?.domain ?? '';
   const history = detail?.history ?? [];
@@ -65,14 +67,16 @@ export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailMod
                   <ChangeKindBadge kind={h.change_kind} />
                   <span className="history-note">{h.change_note || '—'}</span>
                   {/* report_id is present on ArtifactHistoryEntry — link to the owning report */}
-                  <Link
-                    to={`/reports/${h.report_id}/edit`}
-                    className="btn btn-sm btn-outline"
-                    style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
-                    title="Edit the report that recorded this change"
-                  >
-                    Edit report
-                  </Link>
+                  {isAdmin && (
+                    <Link
+                      to={`/reports/${h.report_id}/edit`}
+                      className="btn btn-sm btn-outline"
+                      style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+                      title="Edit the report that recorded this change"
+                    >
+                      Edit report
+                    </Link>
+                  )}
                 </div>
               ))
             )}
