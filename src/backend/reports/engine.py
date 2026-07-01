@@ -417,17 +417,18 @@ def apply_draft_defaults(
     for entry in doc.tasks:
         if entry.owner:
             continue
-        if entry.id is not None and entry.id in task_owner_by_id:
-            # MATCHED task: mirror _record_task_entry EXACTLY. Fall back to the
-            # champion ONLY when the journal has no owner decision yet; otherwise
-            # keep the established (possibly deliberately-cleared → None) owner.
-            if _task_journal_has_owner(conn, entry.id):
-                entry.owner = task_owner_by_id[entry.id]
-            else:
-                entry.owner = champion
+        # A MATCHED task whose journal already carries an owner decision keeps its
+        # established (possibly deliberately-cleared → None) owner — mirroring
+        # _record_task_entry EXACTLY. Everything else defaults to the champion: a
+        # NEW task (id null), a never-owned matched task, or a model-hallucinated
+        # id not in context (save will 422 before persisting anything).
+        if (
+            entry.id is not None
+            and entry.id in task_owner_by_id
+            and _task_journal_has_owner(conn, entry.id)
+        ):
+            entry.owner = task_owner_by_id[entry.id]
         else:
-            # A NEW task (id null) — or a model-hallucinated id not in context
-            # (save will 422 before persisting anything) — defaults to champion.
             entry.owner = champion
 
     for entry in doc.artifacts:
