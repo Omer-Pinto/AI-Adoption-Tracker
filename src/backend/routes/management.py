@@ -25,11 +25,12 @@ supplied set (add missing pairs, remove stale ones).
 
 import sqlite3
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 import llm.interface as llm
-from db import get_connection
+from auth import can_read_team, get_current_user, readable_team_ids, require_admin
+from db import get_connection, provision_team_user
 from domain_helpers import build_domain, build_domains_for_query
 from models import Domain, Team
 from reports.engine import _ensure_context_creation_domain, _ensure_general_domain
@@ -161,35 +162,48 @@ def _reconcile_links(
 # ── teams ────────────────────────────────────────────────────────────────────
 
 @router.get("/teams", response_model=list[Team])
-def list_teams() -> list[Team]:
+def list_teams(user=Depends(get_current_user)) -> list[Team]:
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM team").fetchall()
-    conn.close()
-    return [Team(**dict(r)) for r in rows]
+    try:
+        rows = conn.execute("SELECT * FROM team").fetchall()
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            rows = [r for r in rows if r["id"] in allowed]
+        return [Team(**dict(r)) for r in rows]
+    finally:
+        conn.close()
 
 
 @router.get("/teams/{team_id}", response_model=Team)
-def get_team(team_id: int) -> Team:
+def get_team(team_id: int, user=Depends(get_current_user)) -> Team:
     conn = get_connection()
-    row = _fetch(conn, "team", team_id)
-    conn.close()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Team not found")
-    return Team(**dict(row))
+    try:
+        row = _fetch(conn, "team", team_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+        if not can_read_team(conn, user, team_id):
+            raise HTTPException(status_code=403, detail="Team out of read scope")
+        return Team(**dict(row))
+    finally:
+        conn.close()
 
 
 @router.post("/teams", response_model=Team, status_code=status.HTTP_201_CREATED)
-def create_team(body: TeamCreate) -> Team:
+def create_team(body: TeamCreate, user=Depends(require_admin)) -> Team:
     conn = get_connection()
-    new_id = _insert(conn, "team", body.model_dump())
-    conn.commit()
-    row = _fetch(conn, "team", new_id)
-    conn.close()
-    return Team(**dict(row))
+    try:
+        new_id = _insert(conn, "team", body.model_dump())
+        conn.commit()
+        row = _fetch(conn, "team", new_id)
+        # Auto-provision the champion's read-only login on the same connection.
+        provision_team_user(conn, row)
+        return Team(**dict(row))
+    finally:
+        conn.close()
 
 
 @router.patch("/teams/{team_id}", response_model=Team)
-def update_team(team_id: int, body: TeamUpdate) -> Team:
+def update_team(team_id: int, body: TeamUpdate, user=Depends(require_admin)) -> Team:
     conn = get_connection()
     existing = _fetch(conn, "team", team_id)
     if existing is None:
@@ -236,7 +250,9 @@ class DomainExtractRequest(BaseModel):
 
 
 @router.post("/domains/extract", tags=["management"])
-def extract_domains(body: DomainExtractRequest) -> dict:
+def extract_domains(
+    body: DomainExtractRequest, user=Depends(require_admin)
+) -> dict:
     """Extract domain proposals from free text via the LLM.
 
     Calls the configured LLM provider to identify technology/work domains
@@ -257,6 +273,7 @@ def extract_domains(body: DomainExtractRequest) -> dict:
 @router.get("/domains", response_model=list[Domain])
 def list_domains(
     team_id: int | None = Query(default=None),
+    user=Depends(get_current_user),
 ) -> list[Domain]:
     conn = get_connection()
     try:
@@ -265,25 +282,31 @@ def list_domains(
         if team_id is not None:
             clauses.append("d.team_id = ?")
             params.append(team_id)
-        return build_domains_for_query(conn, clauses, params)
+        domains = build_domains_for_query(conn, clauses, params)
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            domains = [d for d in domains if d.team_id in allowed]
+        return domains
     finally:
         conn.close()
 
 
 @router.get("/domains/{domain_id}", response_model=Domain)
-def get_domain(domain_id: int) -> Domain:
+def get_domain(domain_id: int, user=Depends(get_current_user)) -> Domain:
     conn = get_connection()
     try:
         domain = build_domain(conn, domain_id)
         if domain is None:
             raise HTTPException(status_code=404, detail="Domain not found")
+        if not can_read_team(conn, user, domain.team_id):
+            raise HTTPException(status_code=403, detail="Team out of read scope")
         return domain
     finally:
         conn.close()
 
 
 @router.post("/domains", response_model=Domain, status_code=status.HTTP_201_CREATED)
-def create_domain(body: DomainCreate) -> Domain:
+def create_domain(body: DomainCreate, user=Depends(require_admin)) -> Domain:
     conn = get_connection()
     try:
         if _fetch(conn, "team", body.team_id) is None:
@@ -309,7 +332,9 @@ def create_domain(body: DomainCreate) -> Domain:
 
 
 @router.patch("/domains/{domain_id}", response_model=Domain)
-def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
+def update_domain(
+    domain_id: int, body: DomainUpdate, user=Depends(require_admin)
+) -> Domain:
     conn = get_connection()
     try:
         existing_row = _fetch(conn, "domain", domain_id)
@@ -334,7 +359,7 @@ def update_domain(domain_id: int, body: DomainUpdate) -> Domain:
 
 
 @router.delete("/domains/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_domain(domain_id: int) -> None:
+def delete_domain(domain_id: int, user=Depends(require_admin)) -> None:
     """Delete a domain, reassigning its tasks & artifacts to the team's
     'General' catch-all first.
 

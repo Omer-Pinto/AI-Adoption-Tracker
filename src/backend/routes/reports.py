@@ -8,10 +8,11 @@ shape the response. See `reports/engine.py` for the fan-out + replay logic and
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 import llm.interface as llm
+from auth import can_read_team, get_current_user, require_admin
 from db import get_connection
 from models import Report, ReportDocument
 from reports import (
@@ -52,7 +53,7 @@ def _report_payload(row) -> ReportResponse:
 
 
 @router.post("/draft")
-def draft(req: DraftRequest) -> ReportDocument:
+def draft(req: DraftRequest, user=Depends(require_admin)) -> ReportDocument:
     """Draft a structured (unsaved) report from raw notes via the LLM adapter."""
     conn = get_connection()
     try:
@@ -85,7 +86,11 @@ def draft(req: DraftRequest) -> ReportDocument:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ReportResponse)
-def save(doc: ReportDocument, team_id: int = Query(...)) -> ReportResponse:
+def save(
+    doc: ReportDocument,
+    team_id: int = Query(...),
+    user=Depends(require_admin),
+) -> ReportResponse:
     """Confirm a previewed draft -> fan out to the tables in one transaction.
 
     `team_id` is a required query param (Wave 16): the report is keyed by team,
@@ -109,7 +114,7 @@ def save(doc: ReportDocument, team_id: int = Query(...)) -> ReportResponse:
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
-def get_one(report_id: int) -> ReportResponse:
+def get_one(report_id: int, user=Depends(get_current_user)) -> ReportResponse:
     """Fetch one saved report (report_json kept as a JSON string)."""
     conn = get_connection()
     try:
@@ -117,13 +122,17 @@ def get_one(report_id: int) -> ReportResponse:
             row = get_report_row(conn, report_id)
         except ReportNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if not can_read_team(conn, user, row["team_id"]):
+            raise HTTPException(status_code=403, detail="Team out of read scope")
         return _report_payload(row)
     finally:
         conn.close()
 
 
 @router.patch("/{report_id}", response_model=ReportResponse)
-def edit(report_id: int, doc: ReportDocument) -> ReportResponse:
+def edit(
+    report_id: int, doc: ReportDocument, user=Depends(require_admin)
+) -> ReportResponse:
     """Edit a saved report + replay the team's timeline (no LLM needed).
 
     Replays by the existing report's `team_id` (Wave 16); the engine derives the

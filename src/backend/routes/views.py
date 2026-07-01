@@ -20,12 +20,13 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
 
 from models import ArtifactType, TaskStatus, TERMINAL_STATUSES
 
 import models
+from auth import can_read_team, get_current_user, readable_team_ids, require_admin
 from db import get_connection
 from domain_helpers import build_domain
 from reports import (
@@ -312,6 +313,15 @@ def _action_item(row: sqlite3.Row) -> models.ActionItem:
     return models.ActionItem(**dict(row))
 
 
+# ── Wave-18 read-scope helper ────────────────────────────────────────────────
+
+def _enforce_read_team(conn: sqlite3.Connection, user, team_id: int) -> None:
+    """Raise 403 if `user` may not read `team_id`. Call AFTER the 404 existence
+    check so a missing resource 404s and an out-of-scope one 403s (no leak)."""
+    if not can_read_team(conn, user, team_id):
+        raise HTTPException(status_code=403, detail="Team out of read scope")
+
+
 # ── Wave-10 helpers ──────────────────────────────────────────────────────────
 
 def _domain_name(conn: sqlite3.Connection, domain_id: int | None) -> str | None:
@@ -395,7 +405,9 @@ def _artifact_history_for_domain(
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/team-pages", response_model=list[TeamPageIndexEntry])
-def list_team_pages() -> list[TeamPageIndexEntry]:
+def list_team_pages(
+    user=Depends(get_current_user),
+) -> list[TeamPageIndexEntry]:
     """Landing index: one entry per team (contract §2; Wave 16).
 
     One row per team (a team owns exactly one champion). `champion_name` is the
@@ -415,13 +427,16 @@ def list_team_pages() -> list[TeamPageIndexEntry]:
             ORDER BY t.name, t.id
             """
         ).fetchall()
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            rows = [r for r in rows if r["team_id"] in allowed]
         return [TeamPageIndexEntry(**dict(r)) for r in rows]
     finally:
         conn.close()
 
 
 @router.get("/teams/{id}/page", response_model=TeamPage)
-def team_page(id: int) -> TeamPage:
+def team_page(id: int, user=Depends(get_current_user)) -> TeamPage:
     """The hub for one team's portfolio. `{id}` is the TEAM id (Wave 16).
 
     Returns each domain with current tasks/artifacts plus full history, and the
@@ -437,6 +452,7 @@ def team_page(id: int) -> TeamPage:
         ).fetchone()
         if team_row is None:
             raise HTTPException(status_code=404, detail="Team not found")
+        _enforce_read_team(conn, user, id)
         team = _team(team_row)
 
         domain_id_rows = conn.execute(
@@ -490,13 +506,14 @@ def team_page(id: int) -> TeamPage:
 
 
 @router.get("/domains/{id}/page", response_model=DomainPage)
-def domain_page(id: int) -> DomainPage:
+def domain_page(id: int, user=Depends(get_current_user)) -> DomainPage:
     """Drill into a single domain: current tasks/artifacts + full history."""
     conn = get_connection()
     try:
         domain = _domain(conn, id)
         if domain is None:
             raise HTTPException(status_code=404, detail="Domain not found")
+        _enforce_read_team(conn, user, domain.team_id)
         return DomainPage(
             domain=domain,
             tasks=_tasks_for_domain(conn, id),
@@ -509,15 +526,31 @@ def domain_page(id: int) -> DomainPage:
 
 
 @router.get("/tasks", response_model=list[models.Task])
-def list_tasks(q: str | None = Query(default=None)) -> list[models.Task]:
+def list_tasks(
+    q: str | None = Query(default=None),
+    user=Depends(get_current_user),
+) -> list[models.Task]:
     """All current-state tasks; optional `q` DSL filter (Agent 1D's search).
 
     `q` absent/empty → full list. An unknown DSL key raises `ParseError`, which
-    we surface as 422.
+    we surface as 422. Scoped read-only users see only tasks whose domain belongs
+    to a readable team (tasks carry no team_id, so team is resolved via domain).
     """
     conn = get_connection()
     try:
-        return filter_tasks(conn, q)
+        tasks = filter_tasks(conn, q)
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            allowed_domains = {
+                r["id"]
+                for r in conn.execute(
+                    "SELECT id FROM domain WHERE team_id IN "
+                    f"({','.join('?' * len(allowed))})",
+                    tuple(allowed),
+                ).fetchall()
+            } if allowed else set()
+            tasks = [t for t in tasks if t.domain_id in allowed_domains]
+        return tasks
     except ParseError as e:
         raise HTTPException(status_code=422, detail=str(e))
     finally:
@@ -525,13 +558,18 @@ def list_tasks(q: str | None = Query(default=None)) -> list[models.Task]:
 
 
 @router.get("/tasks/{id}", response_model=TaskDetail)
-def task_detail(id: int) -> TaskDetail:
+def task_detail(id: int, user=Depends(get_current_user)) -> TaskDetail:
     """A task plus its week-by-week journey (history ordered by meeting_date)."""
     conn = get_connection()
     try:
         t_row = conn.execute("SELECT * FROM task WHERE id = ?", (id,)).fetchone()
         if t_row is None:
             raise HTTPException(status_code=404, detail="Task not found")
+        dom = conn.execute(
+            "SELECT team_id FROM domain WHERE id = ?", (t_row["domain_id"],)
+        ).fetchone()
+        if dom is not None:
+            _enforce_read_team(conn, user, dom["team_id"])
         history_rows = conn.execute(
             "SELECT * FROM task_history WHERE task_id = ? ORDER BY meeting_date, id",
             (id,),
@@ -546,15 +584,23 @@ def task_detail(id: int) -> TaskDetail:
 
 
 @router.get("/artifacts", response_model=list[models.Artifact])
-def list_artifacts(q: str | None = Query(default=None)) -> list[models.Artifact]:
+def list_artifacts(
+    q: str | None = Query(default=None),
+    user=Depends(get_current_user),
+) -> list[models.Artifact]:
     """All current-state artifacts; optional `q` DSL filter (Agent 1D's search).
 
     `q` absent/empty → full list. An unknown DSL key raises `ParseError`, which
-    we surface as 422.
+    we surface as 422. Scoped read-only users see only artifacts of a readable
+    team (artifacts carry `team_id`).
     """
     conn = get_connection()
     try:
-        return filter_artifacts(conn, q)
+        artifacts = filter_artifacts(conn, q)
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            artifacts = [a for a in artifacts if a.team_id in allowed]
+        return artifacts
     except ParseError as e:
         raise HTTPException(status_code=422, detail=str(e))
     finally:
@@ -562,7 +608,7 @@ def list_artifacts(q: str | None = Query(default=None)) -> list[models.Artifact]
 
 
 @router.get("/artifacts/{id}", response_model=ArtifactDetail)
-def artifact_detail(id: int) -> ArtifactDetail:
+def artifact_detail(id: int, user=Depends(get_current_user)) -> ArtifactDetail:
     """An artifact plus its change history (ordered by meeting_date)."""
     conn = get_connection()
     try:
@@ -571,6 +617,7 @@ def artifact_detail(id: int) -> ArtifactDetail:
         ).fetchone()
         if a_row is None:
             raise HTTPException(status_code=404, detail="Artifact not found")
+        _enforce_read_team(conn, user, a_row["team_id"])
         history_rows = conn.execute(
             "SELECT * FROM artifact_history WHERE artifact_id = ? ORDER BY meeting_date, id",
             (id,),
@@ -587,7 +634,7 @@ def artifact_detail(id: int) -> ArtifactDetail:
 # ── Wave-10: report-editor entity picker + current-state edits ───────────────
 
 @router.get("/teams/{team_id}/entities", response_model=TeamEntities)
-def team_entities(team_id: int) -> TeamEntities:
+def team_entities(team_id: int, user=Depends(get_current_user)) -> TeamEntities:
     """The team's existing tasks + artifacts as a picker-shaped projection.
 
     Feeds the report editor's `@`-task / `#`-artifact mentions. NOT the full
@@ -605,6 +652,7 @@ def team_entities(team_id: int) -> TeamEntities:
             "SELECT 1 FROM team WHERE id = ?", (team_id,)
         ).fetchone() is None:
             raise HTTPException(status_code=404, detail="Team not found")
+        _enforce_read_team(conn, user, team_id)
 
         task_rows = conn.execute(
             """
@@ -636,7 +684,9 @@ def team_entities(team_id: int) -> TeamEntities:
 
 
 @router.patch("/tasks/{id}", response_model=models.Task)
-def patch_task(id: int, body: TaskPatch) -> models.Task:
+def patch_task(
+    id: int, body: TaskPatch, user=Depends(require_admin)
+) -> models.Task:
     """Manager edit for a task's current state — JOURNALED (source='manual').
 
     This is a management tool: the manager edits current-state directly. Accepts
@@ -714,7 +764,9 @@ def patch_task(id: int, body: TaskPatch) -> models.Task:
 
 
 @router.patch("/artifacts/{id}", response_model=models.Artifact)
-def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
+def patch_artifact(
+    id: int, body: ArtifactPatch, user=Depends(require_admin)
+) -> models.Artifact:
     """Entity-page edit for an artifact — JOURNALED (source='manual').
 
     Accepts `name`, `type`, `tags`, `summary`, `domain_id` (partial). `type` is
@@ -796,7 +848,9 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
     response_model=AILeadActionItem,
     status_code=status.HTTP_201_CREATED,
 )
-def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
+def create_action_item(
+    body: ActionItemCreate, user=Depends(require_admin)
+) -> AILeadActionItem:
     """Create a STANDALONE AI-Lead action item (A1+A2).
 
     An action item is EXCLUSIVELY the AI Lead's own to-do, so there is NO owner.
@@ -840,7 +894,7 @@ def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
 
 
 @router.delete("/action-items/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_action_item(id: int) -> None:
+def delete_action_item(id: int, user=Depends(require_admin)) -> None:
     """Delete ANY AI-Lead action item (A1+A2 full CRUD).
 
     Delete is allowed for every action item — report-derived and standalone
@@ -861,7 +915,9 @@ def delete_action_item(id: int) -> None:
 
 
 @router.patch("/action-items/{id}", response_model=models.ActionItem)
-def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
+def patch_action_item(
+    id: int, body: ActionItemPatch, user=Depends(require_admin)
+) -> models.ActionItem:
     """In-place edit for ANY action item's current state — UN-JOURNALED (A1+A2).
 
     Full in-place CRUD: EVERY field is editable on EVERY item (report-derived and
@@ -925,7 +981,9 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
 # ── Wave-12: cross-team AI-Lead worklist ─────────────────────────────────────
 
 @router.get("/ai-lead/action-items", response_model=list[AILeadActionItem])
-def ai_lead_action_items() -> list[AILeadActionItem]:
+def ai_lead_action_items(
+    user=Depends(get_current_user),
+) -> list[AILeadActionItem]:
     """EVERY action item — report-derived AND standalone (A1+A2).
 
     All action items are the AI Lead's (there is no owner), so the worklist
@@ -957,6 +1015,12 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
             ORDER BY (r.meeting_date IS NULL) DESC, r.meeting_date DESC, ai.id DESC
             """
         ).fetchall()
+        allowed = readable_team_ids(conn, user)
+        if allowed is not None:
+            # Scoped users see only items tagged to a readable team; a NULL-team
+            # (General/gutter) item has no team dimension, so it is not exposed to
+            # a scoped user (admin / read_all still see everything).
+            rows = [r for r in rows if r["team_id"] in allowed]
         return [AILeadActionItem(**dict(r)) for r in rows]
     finally:
         conn.close()
@@ -978,7 +1042,7 @@ def _ai_lead_item(row: sqlite3.Row) -> models.AILeadItem:
 
 
 @router.get("/ai-lead/items", response_model=list[models.AILeadItem])
-def ai_lead_items() -> list[models.AILeadItem]:
+def ai_lead_items(user=Depends(get_current_user)) -> list[models.AILeadItem]:
     """Every AI-Lead toolkit item, grouped by category then case-folded name."""
     conn = get_connection()
     try:
@@ -995,7 +1059,9 @@ def ai_lead_items() -> list[models.AILeadItem]:
     response_model=models.AILeadItem,
     status_code=status.HTTP_201_CREATED,
 )
-def create_ai_lead_item(body: models.AILeadItemCreate) -> models.AILeadItem:
+def create_ai_lead_item(
+    body: models.AILeadItemCreate, user=Depends(require_admin)
+) -> models.AILeadItem:
     """Create a toolkit item. A blank/whitespace-only name is rejected (422);
     the stored name is stripped. `category` is persisted as its string value."""
     name = body.name.strip()
@@ -1019,7 +1085,9 @@ def create_ai_lead_item(body: models.AILeadItemCreate) -> models.AILeadItem:
 
 
 @router.patch("/ai-lead/items/{id}", response_model=models.AILeadItem)
-def patch_ai_lead_item(id: int, body: models.AILeadItemPatch) -> models.AILeadItem:
+def patch_ai_lead_item(
+    id: int, body: models.AILeadItemPatch, user=Depends(require_admin)
+) -> models.AILeadItem:
     """Partial-PATCH a toolkit item (same pattern as `patch_action_item`).
 
     Only provided fields are written (`model_dump(exclude_unset=True)`); an
@@ -1066,7 +1134,7 @@ def patch_ai_lead_item(id: int, body: models.AILeadItemPatch) -> models.AILeadIt
 @router.delete(
     "/ai-lead/items/{id}", status_code=status.HTTP_204_NO_CONTENT
 )
-def delete_ai_lead_item(id: int) -> None:
+def delete_ai_lead_item(id: int, user=Depends(require_admin)) -> None:
     """Delete a toolkit item. 404 if missing."""
     conn = get_connection()
     try:

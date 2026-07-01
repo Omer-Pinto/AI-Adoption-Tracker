@@ -11,8 +11,9 @@ to ``GET /api/search/values?key=...``.
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from auth import get_current_user
 from db import get_connection
 from search.autocomplete import build_values
 
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 @router.get("/values", summary="Autocomplete values for a search DSL key")
 def search_values(
     key: Annotated[str, Query(description="DSL key: team|domain|type|tag|status|date")],
+    user=Depends(get_current_user),
 ) -> dict:
     """Return the candidate values for one DSL key as a tagged result.
 
