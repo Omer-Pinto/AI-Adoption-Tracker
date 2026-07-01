@@ -510,7 +510,7 @@
   color: var(--text-faint);
 }
 
-/* ---- Modal (Modal.tsx / ArtifactDetailModal.tsx) ---- */
+/* ---- Modal (Modal.tsx) ---- */
 .modal-overlay {
   position: fixed;
   inset: 0;

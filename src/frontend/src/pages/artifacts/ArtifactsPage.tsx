@@ -1,26 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
-import type { Artifact, ArtifactDetail } from '@/types';
+import type { Artifact } from '@/types';
 import { DataTable, type Column } from '@/components/DataTable';
-import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import { ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { SearchBar } from '@/search/SearchBar';
 import { useSearchQuery } from '@/search/useSearchQuery';
 import { EmptyState, ErrorState } from '@/components/EmptyState';
 
-// Route: "/artifacts" — artifacts registry (search bar + detail modal).
+// Route: "/artifacts" — artifacts registry (search bar). Clicking a row
+// navigates to the editable artifact detail page (/artifacts/:id), mirroring
+// how tasks open TaskDetailPage.
 
 export default function ArtifactsPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useSearchQuery();
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
-  // Detail modal state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [detail, setDetail] = useState<ArtifactDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState(false);
 
   // Fetch artifacts list when query changes
   const load = useCallback(() => {
@@ -47,23 +44,10 @@ export default function ArtifactsPage() {
 
   useEffect(() => load(), [load]);
 
-  const openDetail = useCallback((artifact: Artifact) => {
-    setModalOpen(true);
-    setDetail(null);
-    setDetailLoading(true);
-    setDetailError(false);
-    api.views
-      .artifact(artifact.id)
-      .then((d) => {
-        setDetail(d);
-        setDetailLoading(false);
-      })
-      .catch(() => {
-        setDetailLoading(false);
-        setModalOpen(false);
-        setDetailError(true);
-      });
-  }, []);
+  const openDetail = useCallback(
+    (artifact: Artifact) => navigate(`/artifacts/${artifact.id}`),
+    [navigate],
+  );
 
   const columns: Column<Artifact>[] = [
     {
@@ -111,12 +95,6 @@ export default function ArtifactsPage() {
       <div className="page-body">
         <SearchBar query={query} onChange={setQuery} />
 
-        {detailError && (
-          <div className="warning-banner" style={{ marginBottom: 16 }}>
-            Couldn&apos;t open that artifact. Please try again.
-          </div>
-        )}
-
         {loading ? (
           <div className="text-muted text-sm">Loading artifacts…</div>
         ) : error ? (
@@ -151,12 +129,6 @@ export default function ArtifactsPage() {
           </div>
         )}
       </div>
-
-      <ArtifactDetailModal
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setDetailError(false); }}
-        detail={detailLoading ? null : detail}
-      />
     </>
   );
 }

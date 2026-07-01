@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
 
-// Generic overlay modal used for the management edit form (spec §7 "one clean
-// isolated form") and as the shell for ArtifactDetailModal. Styling is local
-// (styles/app.css .modal-*) and matches the mvp/ panel look.
+// Generic overlay modal used for the management edit forms (spec §7 "one clean
+// isolated form"). Styling is local (styles/app.css .modal-*) and matches the
+// mvp/ panel look.
 
 export interface ModalProps {
   open: boolean;

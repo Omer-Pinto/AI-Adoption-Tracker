@@ -6,13 +6,11 @@ import type {
   TeamPage,
   DomainPage,
   Artifact,
-  ArtifactDetail,
   Task,
   TaskStatus,
 } from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
-import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 import { ErrorState } from '@/components/EmptyState';
@@ -66,11 +64,6 @@ export default function TeamPage() {
   // user's scope. We render the curated Forbidden surface, not a load error.
   const [forbidden, setForbidden] = useState(false);
 
-  // Artifact detail modal state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
-  const [modalError, setModalError] = useState(false);
-
   const load = useCallback(() => {
     if (effectiveTeamId == null || Number.isNaN(effectiveTeamId)) return;
     let cancelled = false;
@@ -100,23 +93,10 @@ export default function TeamPage() {
   const artifactsRef = useRef<HTMLDetailsElement>(null);
   const reportsRef = useRef<HTMLDetailsElement>(null);
 
-  function openArtifactModal(artifactId: number) {
-    setModalError(false);
-    api.views
-      .artifact(artifactId)
-      .then((detail) => {
-        setModalDetail(detail);
-        setModalOpen(true);
-      })
-      .catch(() => {
-        setModalError(true);
-      });
-  }
-
-  function closeModal() {
-    setModalOpen(false);
-    setModalDetail(null);
-    setModalError(false);
+  // Clicking an artifact navigates to its editable detail page (/artifacts/:id),
+  // mirroring how a task opens TaskDetailPage.
+  function goToArtifact(artifactId: number) {
+    navigate(`/artifacts/${artifactId}`);
   }
 
   // Guard rail: /ai_adoption reached without a resolvable single scoped team
@@ -348,7 +328,7 @@ export default function TeamPage() {
                   key={dp.domain.id}
                   dp={dp}
                   accent={domainColor(dp.domain.name, i)}
-                  onArtifactClick={openArtifactModal}
+                  onArtifactClick={goToArtifact}
                 />
               ))
             )}
@@ -416,7 +396,7 @@ export default function TeamPage() {
             {allArtifacts.length === 0 ? (
               <div className="empty-note">No artifacts.</div>
             ) : (
-              <ArtifactsTable artifacts={allArtifacts} onArtifactClick={openArtifactModal} />
+              <ArtifactsTable artifacts={allArtifacts} onArtifactClick={goToArtifact} />
             )}
           </div>
         </details>
@@ -454,13 +434,6 @@ export default function TeamPage() {
           </div>
         </details>
       </div>
-
-      {modalError && (
-        <div className="warning-banner" style={{ margin: '12px 0' }}>
-          Couldn&apos;t open that artifact. Please try again.
-        </div>
-      )}
-      <ArtifactDetailModal open={modalOpen} onClose={closeModal} detail={modalDetail} />
     </>
   );
 }

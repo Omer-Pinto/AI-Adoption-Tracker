@@ -1,11 +1,10 @@
 import './domain-page.css';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { api, ForbiddenError } from '@/api';
-import type { DomainPage as DomainPageData, Artifact, Task, ArtifactDetail } from '@/types';
+import type { DomainPage as DomainPageData, Artifact, Task } from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
-import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 import { ErrorState } from '@/components/EmptyState';
@@ -14,6 +13,7 @@ import { ErrorState } from '@/components/EmptyState';
 
 export default function DomainPage() {
   const { domainId } = useParams<{ domainId: string }>();
+  const navigate = useNavigate();
 
   const [data, setData] = useState<DomainPageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,11 +21,6 @@ export default function DomainPage() {
   // Set when the backend rejects the load with a 403 — this domain is not in the
   // user's scope. We render the curated Forbidden surface, not a load error.
   const [forbidden, setForbidden] = useState(false);
-
-  // Artifact detail modal
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
-  const [modalError, setModalError] = useState(false);
 
   const load = useCallback(() => {
     if (!domainId) return;
@@ -49,23 +44,10 @@ export default function DomainPage() {
 
   useEffect(() => load(), [load]);
 
-  function openArtifactModal(artifactId: number) {
-    setModalError(false);
-    api.views
-      .artifact(artifactId)
-      .then((detail) => {
-        setModalDetail(detail);
-        setModalOpen(true);
-      })
-      .catch(() => {
-        setModalError(true);
-      });
-  }
-
-  function closeModal() {
-    setModalOpen(false);
-    setModalDetail(null);
-    setModalError(false);
+  // Clicking an artifact navigates to its editable detail page (/artifacts/:id),
+  // mirroring how a task opens TaskDetailPage.
+  function goToArtifact(artifactId: number) {
+    navigate(`/artifacts/${artifactId}`);
   }
 
   if (loading) {
@@ -205,7 +187,7 @@ export default function DomainPage() {
           <div className="panel-header">
             <span className="panel-title">Artifacts</span>
           </div>
-          <ArtifactsTable artifacts={artifacts} onArtifactClick={openArtifactModal} />
+          <ArtifactsTable artifacts={artifacts} onArtifactClick={goToArtifact} />
         </div>
 
         {/* History — week by week (data-driven from report history; not narration) */}
@@ -218,17 +200,10 @@ export default function DomainPage() {
           artifacts={artifacts}
           taskHistory={task_history}
           artifactHistory={artifact_history}
-          onArtifactClick={openArtifactModal}
+          onArtifactClick={goToArtifact}
           connectors
         />
       </div>
-
-      {modalError && (
-        <div className="warning-banner" style={{ margin: '12px 0' }}>
-          Couldn&apos;t open that artifact. Please try again.
-        </div>
-      )}
-      <ArtifactDetailModal open={modalOpen} onClose={closeModal} detail={modalDetail} />
     </>
   );
 }
