@@ -799,15 +799,13 @@ def _insert_action_item(
     domain_id: int | None,
     item,
 ) -> None:
-    # Mirror the task-owner safety net: a model that emits a null/empty owner
-    # defaults to the champion (never an owner-less action item, which would also
-    # drop it from the 'AI Lead' worklist incorrectly). An owner the model DID
-    # declare — the champion name or the literal "AI Lead" — is left untouched.
-    owner = item.owner or _champion_name(conn, team_id)
+    # An action item is EXCLUSIVELY the AI Lead's own to-do (A1+A2): there is NO
+    # owner column — the owner is always, implicitly, the AI Lead. We persist the
+    # item's optional free-text ``note`` instead.
     conn.execute(
-        "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
+        "INSERT INTO action_item (report_id, domain_id, text, note, due_date, status) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        (report_id, domain_id, item.text, owner, item.due_date, item.status.value),
+        (report_id, domain_id, item.text, item.note, item.due_date, item.status.value),
     )
 
 
@@ -820,19 +818,25 @@ def replay_report_edit(
 
     Editing an already-saved OLD report once newer reports exist is not a real
     use case, so the old full-champion re-fan-out is gone. We touch ONLY this
-    report's own rows, in one transaction:
+    report's own tasks/artifacts rows, in one transaction:
 
-      1. delete THIS report's journal + action-item rows — i.e. the rows whose
+      1. delete THIS report's task/artifact journal rows — i.e. the rows whose
          ``report_id`` is this report. Manual rows (``source='manual'``,
          ``report_id IS NULL``) are NOT matched, so they are PRESERVED.
       2. overwrite the stored report_json (+ meeting_date / champion).
-      3. re-apply the edited document's entries as fresh ``source='report'``
-         journal rows (id back-filled, so a brand-new entity created on edit is
-         created once and never duplicated — the Wave-9 guarantee), persisting
-         the id-complete doc back to report_json.
+      3. re-apply the edited document's task/artifact entries as fresh
+         ``source='report'`` journal rows (id back-filled, so a brand-new entity
+         created on edit is created once and never duplicated — the Wave-9
+         guarantee), persisting the id-complete doc back to report_json.
       4. recompute current-state for every task this report's old OR new
          entries touched, purely from the journal (the preserved manual rows
          participate; if the meeting_date moved, the recompute reflects it).
+
+    ACTION ITEMS are CREATE-ONCE (A1+A2): they are the AI Lead's independent
+    to-dos, fanned out only at first save (``fan_out_report``) and thereafter
+    owned by their own CRUD endpoints. A report edit/replay MUST NOT delete or
+    re-insert them — ``doc.action_items`` still round-trips through the stored
+    report_json, but is deliberately NOT fanned out here.
 
     The name ``replay_report_edit`` is kept for the public seam; the behaviour is
     now a targeted re-apply, not a replay."""
@@ -850,11 +854,12 @@ def replay_report_edit(
             ).fetchall()
         }
 
-        # 1. wipe ONLY this report's rows. Manual rows have report_id IS NULL and
-        #    are not matched here — they survive the edit untouched.
+        # 1. wipe ONLY this report's task/artifact journal rows. Manual rows have
+        #    report_id IS NULL and are not matched here — they survive the edit
+        #    untouched. Action items are create-once (A1+A2) and are deliberately
+        #    NOT deleted or re-folded on edit.
         conn.execute("DELETE FROM task_history WHERE report_id = ?", (report_id,))
         conn.execute("DELETE FROM artifact_history WHERE report_id = ?", (report_id,))
-        conn.execute("DELETE FROM action_item WHERE report_id = ?", (report_id,))
 
         # 2. swap the stored document. The team is fixed by the existing report
         #    (never re-resolved from the label); re-stamp the champion label.
@@ -893,13 +898,8 @@ def replay_report_edit(
             _apply_artifact_entry(
                 conn, report_id, doc.meeting_date, team_id, entry
             )
-        for item in doc.action_items:
-            item_domain_id = _resolve_entry_domain_id(
-                conn, team_id, item.domain_id, item.domain, needs_domain=False
-            )
-            item.domain_id = item_domain_id
-            item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, team_id, item_domain_id, item)
+        # Action items are create-once (A1+A2): NOT re-folded on edit. They keep
+        # their independent lifecycle via the action-item CRUD endpoints.
 
         # Persist the id-complete document (entries created on edit now carry ids).
         conn.execute(

@@ -142,13 +142,19 @@ CREATE TABLE IF NOT EXISTS artifact_history (
 );
 
 -- ── action_item ───────────────────────────────────────────────────────────────
--- Smaller, optional to-do from a meeting. Optionally tied to a domain.
+-- The AI Lead's OWN to-do (A1+A2). An action item is EXCLUSIVELY the AI Lead's,
+-- so there is NO owner column (the owner is always, implicitly, the AI Lead). It
+-- is created once from a report's "AI Lead to…" lines on save, or added
+-- standalone on the AI-Lead board; thereafter it supports full in-place CRUD
+-- (text, status, due_date, note, domain, delete) for EVERY item. Action items are
+-- create-once — replay/edit of a report never re-folds them. Optionally tied to a
+-- domain. `note` is a free-text annotation.
 CREATE TABLE IF NOT EXISTS action_item (
     id        INTEGER PRIMARY KEY,
     report_id INTEGER REFERENCES report(id),    -- nullable: standalone AI-Lead item = NULL
     domain_id INTEGER REFERENCES domain(id),    -- nullable
     text      TEXT NOT NULL,
-    owner     TEXT,
+    note      TEXT,                              -- nullable: free-text annotation
     due_date  TEXT,
     status    TEXT NOT NULL DEFAULT 'planned' CHECK (status IN (
         'planned', 'in-progress', 'finished_successfully',

@@ -525,9 +525,10 @@ def scenario_9(db_dir: pathlib.Path) -> None:
                                 domain="signal-processing"),
             ],
             action_items=[
-                ReportActionItem(text="default-status item", owner="Dana",
+                # A1+A2: action items are the AI Lead's own to-dos — NO owner.
+                ReportActionItem(text="default-status item",
                                  domain_id=domain_id, domain="signal-processing"),
-                ReportActionItem(text="wont-fix item", owner="AI Lead",
+                ReportActionItem(text="wont-fix item",
                                  status=TaskStatus.wont_fix,
                                  domain_id=domain_id, domain="signal-processing"),
             ],

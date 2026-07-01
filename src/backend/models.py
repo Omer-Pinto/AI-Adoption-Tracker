@@ -152,11 +152,16 @@ class ArtifactHistory(BaseModel):
 
 
 class ActionItem(BaseModel):
+    """The AI Lead's OWN to-do (A1+A2) — no owner (always the AI Lead).
+
+    Report-derived (``report_id`` set) or standalone (``report_id`` None); both
+    support full in-place CRUD. ``note`` is a free-text annotation.
+    """
     id: int
     report_id: int | None = None    # nullable: standalone AI-Lead item = NULL
     domain_id: int | None = None
     text: str
-    owner: str | None = None
+    note: str | None = None
     due_date: str | None = None
     status: TaskStatus = TaskStatus.planned
 
@@ -281,7 +286,12 @@ class ReportArtifactEntry(BaseModel):
 
 
 class ReportActionItem(BaseModel):
-    """An action item in a report (§4: text, owner; optional domain/due).
+    """An action item in a report (A1+A2: the AI Lead's OWN to-do).
+
+    Action items are EXCLUSIVELY the AI-enablement-lead's to-dos — there is NO
+    owner field (the owner is always, implicitly, the AI Lead). A champion /
+    team-member follow-up is a TASK, never an action item. ``note`` is an
+    optional free-text annotation.
 
     DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
     ``domain`` its exact name (replacing the old free-text ``domain`` string).
@@ -291,7 +301,7 @@ class ReportActionItem(BaseModel):
     model_config = _doc_config
 
     text: str
-    owner: str | None = None
+    note: str | None = None
     due_date: str | None = None
     status: TaskStatus = TaskStatus.planned
     domain_id: int | None = None

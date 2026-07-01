@@ -117,9 +117,30 @@ def edit(report_id: int, doc: ReportDocument) -> ReportResponse:
 
     Replays by the existing report's `team_id` (Wave 16); the engine derives the
     team from the stored report, so the body stays a plain `ReportDocument`.
+
+    LATEST-ONLY (A1+A2): only the team's newest report is editable — older reports
+    are read-only. "Latest" is the team's report with the greatest `meeting_date`
+    (tie-break by greatest `id`). Editing a non-latest report → 409.
     """
     conn = get_connection()
     try:
+        try:
+            target = get_report_row(conn, report_id)
+        except ReportNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+        latest = conn.execute(
+            "SELECT id FROM report WHERE team_id = ? "
+            "ORDER BY meeting_date DESC, id DESC LIMIT 1",
+            (target["team_id"],),
+        ).fetchone()
+        if latest is not None and latest["id"] != report_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Only the latest report can be edited; older reports "
+                "are read-only.",
+            )
+
         try:
             row = replay_report_edit(conn, report_id, doc)
         except ReportNotFoundError as exc:

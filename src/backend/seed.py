@@ -231,7 +231,6 @@ def seed_radar(conn) -> None:
         action_items=[
             ReportActionItem(
                 text="find a context-usage tool",
-                owner="Omer",
                 domain_id=domain_id,
                 domain="signal-processing",
             ),
@@ -313,7 +312,6 @@ def seed_platform(conn) -> None:
         action_items=[
             ReportActionItem(
                 text="share deploy-gate-hook design with Radar team",
-                owner="Eli",
                 domain_id=domain_id,
                 domain="ci-cd",
             ),

@@ -262,21 +262,26 @@ ARTIFACT summary vs note — two DISTINCT fields:
 - "note" is the per-meeting change note (what happened to it this meeting).
 - Do not duplicate the same text into both; use whichever the line is about.
 
-OWNERS — who owns each task / action item:
+TASK OWNER — who owns each task:
 - TASK "owner": defaults to the champion (context["champion_name"]). Set a task \
 owner ONLY when the notes clearly attribute the task to a specific DIFFERENT \
 person; otherwise leave "owner" null and the backend fills in the champion.
-- ACTION ITEM "owner": you MUST declare it, and it must be EITHER the champion's \
-name (context["champion_name"]) OR the exact literal string "AI Lead" — those \
-are the only two valid action-item owners. Use "AI Lead" for a follow-up that \
-belongs to the AI enablement lead rather than the champion; otherwise use the \
-champion's name.
 
-ACTION ITEMS — no overlap with discussion/issues:
-- A follow-up, to-do, or "someone should do X" goes to "action_items" ONLY \
-(set "text", the required "owner" per the OWNERS rule, plus "due_date" / \
-domain_id+domain when stated). Do NOT ALSO repeat that same item in \
-"discussion" or "issues".
+ACTION ITEMS — the AI ENABLEMENT LEAD's OWN to-dos, EXCLUSIVELY:
+- An "action_items" entry is EXCLUSIVELY a to-do belonging to the AI enablement \
+lead (the person running the adoption, NOT the team's champion). Action items \
+have NO owner field — the owner is always, implicitly, the AI Lead.
+- Only put a line in "action_items" when it is the AI Lead's OWN follow-up (e.g. \
+"AI Lead to write a skill for the team", "I'll set up a hook for them"). Set \
+"text", plus "status" / "due_date" / "note" / domain_id+domain when stated.
+- A follow-up or to-do that belongs to the CHAMPION or another TEAM MEMBER is a \
+TASK, NOT an action item — file it in "tasks" with its best-fit domain_id (or \
+null = the General/unplaced bucket). Never route a champion/team-member to-do to \
+"action_items", and never route a real to-do to "discussion"/"issues".
+- No overlap: a line that becomes an action item must NOT ALSO be repeated in \
+"tasks", "discussion" or "issues".
+- ACTION ITEM "note": an optional free-text annotation on the item (extra context \
+about the AI Lead's to-do); set it when the notes support it, else leave null.
 - ACTION ITEM "status": set it from the notes — "planned" by default; \
 "in-progress" if work has started; "blocked" if the notes say it's blocked; \
 "finished_successfully"/"finished_with_issues" if done; "abandoned"/"wont_fix" \
@@ -299,9 +304,9 @@ Account for every line. Do not silently drop any item, field, or detail.
 - Map each item to the field that fits it: a task/status/owner/due date → a \
 "tasks" entry (with its best-fit domain_id, or null); a tool/artifact (with its \
 type/tags/summary/change) → an "artifacts" entry (with its best-fit domain_id, or \
-null if team-wide/unsure); a follow-up or to-do → an "action_items" entry; a \
-person present → "participants"; anything else → an entry in the "discussion" or \
-"issues" list.
+null if team-wide/unsure); the AI LEAD's OWN follow-up → an "action_items" entry \
+(a champion/team-member follow-up is a "tasks" entry instead); a person present → \
+"participants"; anything else → an entry in the "discussion" or "issues" list.
 
 NO FABRICATION (reconciled with completeness):
 - For fields with no value, use null (or an empty list for list fields) rather \

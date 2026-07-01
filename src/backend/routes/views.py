@@ -42,9 +42,6 @@ from search import ParseError, filter_artifacts, filter_tasks
 
 router = APIRouter(prefix="/api", tags=["views"])
 
-# AI-Lead literal owner string (FROZEN CONTRACT).
-_AI_LEAD_OWNER = "AI Lead"
-
 
 # ── local composite response models (not in models.py) ──────────────────────
 # Field names match the contract §2 shapes EXACTLY.
@@ -199,15 +196,19 @@ def _require_non_blank_text(v: str) -> str:
 
 
 class ActionItemCreate(BaseModel):
-    """Create a STANDALONE AI-Lead action item (Wave 15).
+    """Create a STANDALONE AI-Lead action item (A1+A2).
 
-    Server applies owner='AI Lead', report_id=NULL, domain_id=NULL — the caller
-    supplies only text/status/due_date. A blank/whitespace-only text is rejected
-    (422); text is stored stripped.
+    An action item is EXCLUSIVELY the AI Lead's own to-do, so there is NO owner.
+    The server applies report_id=NULL; the caller supplies text/status/due_date/
+    note and an optional ``domain_id`` (a standalone item may be placed in a
+    domain). A blank/whitespace-only text is rejected (422); text is stored
+    stripped.
     """
     text: str
     status: TaskStatus = TaskStatus.planned
     due_date: str | None = None
+    note: str | None = None
+    domain_id: int | None = None
 
     @field_validator("text")
     @classmethod
@@ -216,9 +217,18 @@ class ActionItemCreate(BaseModel):
 
 
 class ActionItemPatch(BaseModel):
+    """In-place edit for ANY action item (A1+A2 full CRUD).
+
+    Every field is editable on EVERY item (report-derived and standalone alike):
+    ``text``, ``status``, ``due_date``, ``note`` and ``domain_id``. An omitted
+    field is untouched; an explicit ``null`` clears a nullable field
+    (``model_dump(exclude_unset=True)``).
+    """
     text: str | None = None
     status: TaskStatus | None = None
     due_date: str | None = None
+    note: str | None = None
+    domain_id: int | None = None
 
     @field_validator("text")
     @classmethod
@@ -228,14 +238,15 @@ class ActionItemPatch(BaseModel):
 
 
 class AILeadActionItem(BaseModel):
-    """One AI-Lead-owned action item, flattened across ALL teams (Wave 12).
+    """One AI-Lead action item, flattened across ALL teams (A1+A2).
 
-    The cross-team AI-Lead worklist: every action item whose `owner` is the
-    literal 'AI Lead', resolved against its report/champion/team and (optional)
-    domain. `domain` is null when the item is unplaced/team-wide.
+    The AI-Lead worklist: EVERY action item (all are the AI Lead's — there is no
+    owner), resolved against its report/champion/team and (optional) domain.
+    `domain` is null when the item is unplaced/team-wide. `note` is the item's
+    free-text annotation.
 
-    Two flavours (Wave 15): a report-derived item has team/champion/meeting_date/
-    report_id all set; a standalone (self-managed) item has them all null.
+    Two flavours: a report-derived item has team/champion/meeting_date/report_id
+    all set; a standalone (self-managed) item has them all null.
     """
     id: int
     text: str
@@ -244,6 +255,7 @@ class AILeadActionItem(BaseModel):
     meeting_date: str | None = None
     status: str
     due_date: str | None = None
+    note: str | None = None
     domain: str | None = None
     report_id: int | None = None
 
@@ -292,7 +304,8 @@ def _artifact_history(row: sqlite3.Row) -> models.ArtifactHistory:
 
 
 def _action_item(row: sqlite3.Row) -> models.ActionItem:
-    # `status` is a plain TEXT column (Wave 12; `resolved` is gone) — pass through.
+    # A1+A2: no owner; the row carries `note` (free-text), `domain_id`, `status`
+    # (plain TEXT), text, due_date — all map straight onto ActionItem.
     return models.ActionItem(**dict(row))
 
 
@@ -784,20 +797,22 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
     status_code=status.HTTP_201_CREATED,
 )
 def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
-    """Create a STANDALONE AI-Lead action item (Wave 15).
+    """Create a STANDALONE AI-Lead action item (A1+A2).
 
-    Server-applied: owner='AI Lead' (`_AI_LEAD_OWNER`), report_id=NULL,
-    domain_id=NULL. Text is stored stripped (validator already rejected blank as
-    422). Returns the enriched `AILeadActionItem` (201) for the new row — a
-    standalone row has team_name/champion_name/meeting_date/domain/report_id all
-    null. Built directly from the inserted values (no cross-team JOIN needed).
+    An action item is EXCLUSIVELY the AI Lead's own to-do, so there is NO owner.
+    Server-applied: report_id=NULL. The caller may place it in a domain
+    (`domain_id`, else NULL = unplaced/team-wide) and supply a `note`. Text is
+    stored stripped (validator already rejected blank as 422). Returns the
+    enriched `AILeadActionItem` (201) for the new row — a standalone row has
+    team_name/champion_name/meeting_date/report_id all null; `domain` is resolved
+    from the supplied `domain_id`.
     """
     conn = get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO action_item (report_id, domain_id, text, owner, due_date, status) "
-            "VALUES (NULL, NULL, ?, ?, ?, ?)",
-            (body.text, _AI_LEAD_OWNER, body.due_date, body.status.value),
+            "INSERT INTO action_item (report_id, domain_id, text, note, due_date, status) "
+            "VALUES (NULL, ?, ?, ?, ?, ?)",
+            (body.domain_id, body.text, body.note, body.due_date, body.status.value),
         )
         conn.commit()
         return AILeadActionItem(
@@ -808,7 +823,8 @@ def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
             meeting_date=None,
             status=body.status.value,
             due_date=body.due_date,
-            domain=None,
+            note=body.note,
+            domain=_domain_name(conn, body.domain_id),
             report_id=None,
         )
     finally:
@@ -817,24 +833,19 @@ def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
 
 @router.delete("/action-items/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_action_item(id: int) -> None:
-    """Delete a STANDALONE AI-Lead action item (Wave 15).
+    """Delete ANY AI-Lead action item (A1+A2 full CRUD).
 
-    Precedence: missing → 404; meeting-derived (`report_id IS NOT NULL`) → 409
-    (mark it won't_fix/abandoned instead); else delete → 204.
+    Delete is allowed for every action item — report-derived and standalone
+    alike (all are the AI Lead's independent to-dos). Precedence: missing → 404;
+    else delete → 204.
     """
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT report_id FROM action_item WHERE id = ?", (id,)
+            "SELECT id FROM action_item WHERE id = ?", (id,)
         ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Action item not found")
-        if row["report_id"] is not None:
-            raise HTTPException(
-                status_code=409,
-                detail="Cannot delete a meeting-derived action item. "
-                "Mark it won't_fix or abandoned instead.",
-            )
         conn.execute("DELETE FROM action_item WHERE id = ?", (id,))
         conn.commit()
     finally:
@@ -843,19 +854,18 @@ def delete_action_item(id: int) -> None:
 
 @router.patch("/action-items/{id}", response_model=models.ActionItem)
 def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
-    """Manager edit for an action item's current state — UN-JOURNALED.
+    """In-place edit for ANY action item's current state — UN-JOURNALED (A1+A2).
 
-    Accepts `text`, `status` (validated against `TaskStatus`) and `due_date`
-    (partial PATCH). Action items have NO history table, so this writes current
-    state ONLY: re-saving/replaying the owning report can later overwrite this
-    manual edit — same accepted caveat as `PATCH /api/tasks`. Known & accepted.
+    Full in-place CRUD: EVERY field is editable on EVERY item (report-derived and
+    standalone alike). Accepts `text`, `status` (validated against `TaskStatus`),
+    `due_date`, `note` and `domain_id` (partial PATCH). Action items are
+    create-once and are NOT touched by report replay/edit, so an edit here is
+    durable (no journal, no re-fold).
 
-    Precedence: blank text → 422 (validator); row missing → 404; `text` supplied
-    AND row is meeting-derived (`report_id IS NOT NULL`) → 409 (text of a
-    meeting-derived item is immutable; mark it won't_fix/abandoned instead).
-    `status`/`due_date`-only PATCH on a meeting-derived item still succeeds.
+    Precedence: blank text → 422 (validator); row missing → 404; null status →
+    422 (the column is NOT NULL).
 
-    An explicit `null` clears a field; an omitted field is untouched
+    An explicit `null` clears a nullable field; an omitted field is untouched
     (`model_dump(exclude_unset=True)`).
     """
     conn = get_connection()
@@ -867,13 +877,6 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
             raise HTTPException(status_code=404, detail="Action item not found")
 
         changes = body.model_dump(exclude_unset=True)
-
-        if "text" in changes and row["report_id"] is not None:
-            raise HTTPException(
-                status_code=409,
-                detail="Cannot edit the text of a meeting-derived action item. "
-                "Mark it won't_fix or abandoned instead.",
-            )
 
         # `status` arrives as a TaskStatus enum (Pydantic already rejected an
         # invalid value as 422); persist its string value in the TEXT column.
@@ -904,15 +907,17 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
 
 @router.get("/ai-lead/action-items", response_model=list[AILeadActionItem])
 def ai_lead_action_items() -> list[AILeadActionItem]:
-    """Every action item owned by the AI Lead — report-derived AND standalone.
+    """EVERY action item — report-derived AND standalone (A1+A2).
 
-    LEFT-JOINs each `action_item` (owner = 'AI Lead') against its report
+    All action items are the AI Lead's (there is no owner), so the worklist
+    returns every row. LEFT-JOINs each `action_item` against its report
     (meeting_date, report_id) and team (name + champion_name); a standalone item
     (report_id NULL) leaves those null. `champion_name` is the team's single
-    champion (`team.champion_name`, Wave 16). `domain` is resolved via the
-    nullable `action_item.domain_id` (null = unplaced/team-wide). Ordered with
-    standalone/NULL-meeting-date items first, then meeting items newest-first
-    (meeting_date DESC, id DESC for same-date ties)."""
+    champion (`team.champion_name`). `note` is the item's free-text annotation.
+    `domain` is resolved via the nullable `action_item.domain_id` (null =
+    unplaced/team-wide). Ordered with standalone/NULL-meeting-date items first,
+    then meeting items newest-first (meeting_date DESC, id DESC for same-date
+    ties)."""
     conn = get_connection()
     try:
         rows = conn.execute(
@@ -925,16 +930,15 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
                 r.meeting_date    AS meeting_date,
                 ai.status         AS status,
                 ai.due_date       AS due_date,
+                ai.note           AS note,
                 d.name            AS domain,
                 r.id              AS report_id
             FROM action_item ai
             LEFT JOIN report r ON r.id = ai.report_id
             LEFT JOIN team t   ON t.id = r.team_id
             LEFT JOIN domain d ON d.id = ai.domain_id
-            WHERE ai.owner = ?
             ORDER BY (r.meeting_date IS NULL) DESC, r.meeting_date DESC, ai.id DESC
-            """,
-            (_AI_LEAD_OWNER,),
+            """
         ).fetchall()
         return [AILeadActionItem(**dict(r)) for r in rows]
     finally:

@@ -208,6 +208,8 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
         # (which captured the champion's name at save time) to the new name,
         # scoped to THIS team. Only owners equal to the OLD champion name are
         # touched — a differently-named owner (e.g. "Tomer") is left alone.
+        # Action items are EXCLUSIVELY the AI Lead's (A1+A2, no owner column), so
+        # a champion rename does NOT touch them.
         if new_champion is not None and new_champion != old_champion:
             conn.execute(
                 "UPDATE task SET owner = ? WHERE owner = ? AND domain_id IN ("
@@ -218,11 +220,6 @@ def update_team(team_id: int, body: TeamUpdate) -> Team:
                 "UPDATE task_history SET owner = ? WHERE owner = ? AND task_id IN ("
                 "SELECT t.id FROM task t JOIN domain d ON t.domain_id = d.id "
                 "WHERE d.team_id = ?)",
-                (new_champion, old_champion, team_id),
-            )
-            conn.execute(
-                "UPDATE action_item SET owner = ? WHERE owner = ? AND report_id IN ("
-                "SELECT id FROM report WHERE team_id = ?)",
                 (new_champion, old_champion, team_id),
             )
         conn.commit()
