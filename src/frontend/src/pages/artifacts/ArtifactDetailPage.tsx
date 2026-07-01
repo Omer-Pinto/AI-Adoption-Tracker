@@ -257,14 +257,14 @@ export default function ArtifactDetailPage() {
                         <span className="detail-tl-date">{h.meeting_date}</span>
                         <ChangeKindBadge kind={h.change_kind} />
                         <HistorySourceTag source={h.source} />
-                        {isAdmin && h.report_id != null && (
+                        {h.report_id != null && (
                           <Link
                             to={`/reports/${h.report_id}/edit`}
                             className="btn btn-sm btn-outline"
                             style={{ fontSize: 11, padding: '1px 7px' }}
-                            title="Edit the report that recorded this change"
+                            title={isAdmin ? 'Edit the report that recorded this change' : 'View the report that recorded this change'}
                           >
-                            Edit report
+                            {isAdmin ? 'Edit report' : 'View report'}
                           </Link>
                         )}
                       </div>

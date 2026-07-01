@@ -236,18 +236,16 @@ function JourneyTimeline({ history }: { history: TaskHistoryEntry[] }) {
           <div className="journey-step-header">
             <span className="journey-step-date">{entry.meeting_date}</span>
             <StatusBadge status={entry.status_at_meeting} />
-            {/* report_id is present on TaskHistoryEntry — the report editor is
-                admin-only, so non-admins get no "Edit report" link. */}
-            {isAdmin && (
-              <Link
-                to={`/reports/${entry.report_id}/edit`}
-                className="btn btn-sm btn-outline"
-                style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
-                title="Edit the report that recorded this entry"
-              >
-                Edit report
-              </Link>
-            )}
+            {/* report_id is present on TaskHistoryEntry. Everyone in scope may open
+                the report; admins get an edit affordance, others open read-only. */}
+            <Link
+              to={`/reports/${entry.report_id}/edit`}
+              className="btn btn-sm btn-outline"
+              style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+              title={isAdmin ? 'Edit the report that recorded this entry' : 'View the report that recorded this entry'}
+            >
+              {isAdmin ? 'Edit report' : 'View report'}
+            </Link>
           </div>
           {entry.change_note && (
             <p className="journey-step-note">{entry.change_note}</p>

@@ -143,14 +143,23 @@ function DomainSelect({
   domainId,
   domains,
   onChange,
+  readOnly = false,
 }: {
   domain: string | null | undefined;
   domainId: number | null | undefined;
   domains: DomainOption[];
   // null target = unplaced (clears both domain_id and domain)
   onChange: (next: DomainOption | null) => void;
+  readOnly?: boolean;
 }) {
   const c = colorForDomain(domainId, domains);
+  if (readOnly) {
+    return (
+      <span className="dom-static" style={{ background: c.bg, color: c.text, borderColor: c.border }}>
+        {domain ?? 'Unplaced / General'}
+      </span>
+    );
+  }
   return (
     <select
       className="dom-sel"
@@ -177,10 +186,20 @@ function DomainSelect({
 function StatusControl({
   value,
   onChange,
+  readOnly = false,
 }: {
   value: TaskStatus;
   onChange: (v: TaskStatus) => void;
+  readOnly?: boolean;
 }) {
+  if (readOnly) {
+    return (
+      <span className="status-static-wrap">
+        <span className={`status-dot ${statusCls(value)}`} />
+        <span className="status-static">{STATUS_OPTS.find((s) => s.v === value)?.l ?? value}</span>
+      </span>
+    );
+  }
   return (
     <span className="status-wrap">
       <span className={`status-dot ${statusCls(value)}`} />
@@ -205,10 +224,12 @@ function OwnerControl({
   value,
   champion,
   onChange,
+  readOnly = false,
 }: {
   value: string;
   champion: string;
   onChange: (v: string) => void;
+  readOnly?: boolean;
 }) {
   const presets = [AI_LEAD, champion];
   // "other" is active when the stored value is a non-preset, non-empty string,
@@ -216,6 +237,10 @@ function OwnerControl({
   // stays open even while it is still empty).
   const [otherActive, setOtherActive] = useState(value !== '' && !presets.includes(value));
   const selectValue = otherActive ? '__other__' : presets.includes(value) ? value : '';
+
+  if (readOnly) {
+    return <span className="cell-static">{value || <span className="cell-static muted">—</span>}</span>;
+  }
 
   return (
     <span className="owner-control">
@@ -324,12 +349,14 @@ function TaskNameCell({
   onName,
   onLink,
   onUnlink,
+  readOnly = false,
 }: {
   line: ReportTaskLine;
   tasks: EntityPickerTask[];
   onName: (name: string) => void;
   onLink: (t: EntityPickerTask) => void;
   onUnlink: () => void;
+  readOnly?: boolean;
 }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
@@ -343,9 +370,19 @@ function TaskNameCell({
           </span>
           {line.task}
         </Link>
-        <button className="unlink-btn" title="Mark as new — detach from the existing task" onClick={onUnlink}>
-          mark&nbsp;new
-        </button>
+        {!readOnly && (
+          <button className="unlink-btn" title="Mark as new — detach from the existing task" onClick={onUnlink}>
+            mark&nbsp;new
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (readOnly) {
+    return (
+      <div className="name-cell">
+        <span className="cell-static name-static">{line.task || <span className="cell-static muted">Untitled task</span>}</span>
+        <span className="new-badge">NEW</span>
       </div>
     );
   }
@@ -387,12 +424,14 @@ function ArtifactNameCell({
   onName,
   onLink,
   onUnlink,
+  readOnly = false,
 }: {
   line: ReportArtifactLine;
   artifacts: EntityPickerArtifact[];
   onName: (name: string) => void;
   onLink: (a: EntityPickerArtifact) => void;
   onUnlink: () => void;
+  readOnly?: boolean;
 }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
@@ -406,9 +445,19 @@ function ArtifactNameCell({
           </span>
           {line.artifact}
         </Link>
-        <button className="unlink-btn" title="Mark as new — detach from the existing artifact" onClick={onUnlink}>
-          mark&nbsp;new
-        </button>
+        {!readOnly && (
+          <button className="unlink-btn" title="Mark as new — detach from the existing artifact" onClick={onUnlink}>
+            mark&nbsp;new
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (readOnly) {
+    return (
+      <div className="name-cell">
+        <span className="cell-static name-static">{line.artifact || <span className="cell-static muted">Untitled artifact</span>}</span>
+        <span className="new-badge">NEW</span>
       </div>
     );
   }
@@ -453,6 +502,7 @@ function TasksCard({
   domains,
   champion,
   onChange,
+  readOnly = false,
 }: {
   tasks: ReportTaskLine[];
   keys: string[];
@@ -460,6 +510,7 @@ function TasksCard({
   domains: DomainOption[];
   champion: string;
   onChange: (next: ReportTaskLine[], nextKeys: string[]) => void;
+  readOnly?: boolean;
 }) {
   function patch(i: number, p: Partial<ReportTaskLine>) {
     const next = tasks.map((t, idx) => (idx === i ? { ...t, ...p } : t));
@@ -502,7 +553,7 @@ function TasksCard({
               <th>Domain</th>
               <th>Due on</th>
               <th>Note</th>
-              <th />
+              {!readOnly && <th />}
             </tr>
           </thead>
           <tbody>
@@ -515,50 +566,64 @@ function TasksCard({
                     onName={(name) => patch(i, { task: name })}
                     onLink={(ent) => linkExisting(i, ent)}
                     onUnlink={() => unlink(i)}
+                    readOnly={readOnly}
                   />
                 </td>
                 <td>
-                  <StatusControl value={t.status} onChange={(s) => patch(i, { status: s })} />
+                  <StatusControl value={t.status} onChange={(s) => patch(i, { status: s })} readOnly={readOnly} />
                 </td>
                 <td>
                   <OwnerControl
                     value={t.owner ?? ''}
                     champion={champion}
                     onChange={(v) => patch(i, { owner: v })}
+                    readOnly={readOnly}
                   />
                 </td>
                 <td>
-                  <DomainSelect domain={t.domain} domainId={t.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
+                  <DomainSelect domain={t.domain} domainId={t.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} readOnly={readOnly} />
                 </td>
                 <td>
-                  <input
-                    className="cell-date"
-                    type="date"
-                    value={t.due_date ?? ''}
-                    onChange={(e) => patch(i, { due_date: e.target.value })}
-                  />
+                  {readOnly ? (
+                    <span className="cell-static">{t.due_date || <span className="cell-static muted">—</span>}</span>
+                  ) : (
+                    <input
+                      className="cell-date"
+                      type="date"
+                      value={t.due_date ?? ''}
+                      onChange={(e) => patch(i, { due_date: e.target.value })}
+                    />
+                  )}
                 </td>
                 <td>
-                  <input
-                    className="cell-input note-input"
-                    value={t.note ?? ''}
-                    placeholder="note"
-                    onChange={(e) => patch(i, { note: e.target.value })}
-                  />
+                  {readOnly ? (
+                    <span className="cell-static">{t.note || <span className="cell-static muted">—</span>}</span>
+                  ) : (
+                    <input
+                      className="cell-input note-input"
+                      value={t.note ?? ''}
+                      placeholder="note"
+                      onChange={(e) => patch(i, { note: e.target.value })}
+                    />
+                  )}
                 </td>
-                <td>
-                  <button className="del-btn" title="Remove row" onClick={() => del(i)}>
-                    ×
-                  </button>
-                </td>
+                {!readOnly && (
+                  <td>
+                    <button className="del-btn" title="Remove row" onClick={() => del(i)}>
+                      ×
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button className="add-row-btn" onClick={add}>
-        + Add task
-      </button>
+      {!readOnly && (
+        <button className="add-row-btn" onClick={add}>
+          + Add task
+        </button>
+      )}
     </div>
   );
 }
@@ -571,12 +636,14 @@ function ArtifactsCard({
   entities,
   domains,
   onChange,
+  readOnly = false,
 }: {
   artifacts: ReportArtifactLine[];
   keys: string[];
   entities: TeamEntities;
   domains: DomainOption[];
   onChange: (next: ReportArtifactLine[], nextKeys: string[]) => void;
+  readOnly?: boolean;
 }) {
   function patch(i: number, p: Partial<ReportArtifactLine>) {
     const next = artifacts.map((a, idx) => (idx === i ? { ...a, ...p } : a));
@@ -640,7 +707,7 @@ function ArtifactsCard({
               <th>Change</th>
               <th>Summary</th>
               <th>Note</th>
-              <th />
+              {!readOnly && <th />}
             </tr>
           </thead>
           <tbody>
@@ -653,83 +720,112 @@ function ArtifactsCard({
                     onName={(name) => patch(i, { artifact: name })}
                     onLink={(ent) => linkExisting(i, ent)}
                     onUnlink={() => unlink(i)}
+                    readOnly={readOnly}
                   />
                 </td>
                 <td>
-                  <select
-                    className="cell-select"
-                    value={a.type ?? ''}
-                    onChange={(e) => setType(i, e.target.value)}
-                  >
-                    <option value="">— type —</option>
-                    {TYPE_OPTS.map((t) => (
-                      <option key={t} value={t}>
-                        {ARTIFACT_TYPE_LABELS[t]}
-                      </option>
-                    ))}
-                  </select>
+                  {readOnly ? (
+                    <span className="cell-static">
+                      {a.type ? ARTIFACT_TYPE_LABELS[a.type] : <span className="cell-static muted">—</span>}
+                    </span>
+                  ) : (
+                    <select
+                      className="cell-select"
+                      value={a.type ?? ''}
+                      onChange={(e) => setType(i, e.target.value)}
+                    >
+                      <option value="">— type —</option>
+                      {TYPE_OPTS.map((t) => (
+                        <option key={t} value={t}>
+                          {ARTIFACT_TYPE_LABELS[t]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td>
-                  <input
-                    className="cell-input tags-input"
-                    value={(a.tags ?? []).join(', ')}
-                    placeholder="tags"
-                    onChange={(e) =>
-                      patch(i, {
-                        tags: e.target.value
-                          .split(',')
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                  />
+                  {readOnly ? (
+                    <span className="cell-static">
+                      {(a.tags ?? []).length > 0 ? (a.tags ?? []).join(', ') : <span className="cell-static muted">—</span>}
+                    </span>
+                  ) : (
+                    <input
+                      className="cell-input tags-input"
+                      value={(a.tags ?? []).join(', ')}
+                      placeholder="tags"
+                      onChange={(e) =>
+                        patch(i, {
+                          tags: e.target.value
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                    />
+                  )}
                 </td>
                 <td>
-                  <DomainSelect domain={a.domain} domainId={a.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
+                  <DomainSelect domain={a.domain} domainId={a.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} readOnly={readOnly} />
                 </td>
                 <td>
-                  <select
-                    className="cell-select"
-                    value={a.change_kind ?? ''}
-                    onChange={(e) => setChangeKind(i, e.target.value)}
-                  >
-                    <option value="">— change —</option>
-                    {CHANGE_OPTS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  {readOnly ? (
+                    <span className="cell-static">{a.change_kind || <span className="cell-static muted">—</span>}</span>
+                  ) : (
+                    <select
+                      className="cell-select"
+                      value={a.change_kind ?? ''}
+                      onChange={(e) => setChangeKind(i, e.target.value)}
+                    >
+                      <option value="">— change —</option>
+                      {CHANGE_OPTS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td>
-                  <input
-                    className="cell-input summary-input"
-                    value={a.summary ?? ''}
-                    placeholder="summary"
-                    onChange={(e) => patch(i, { summary: e.target.value })}
-                  />
+                  {readOnly ? (
+                    <span className="cell-static">{a.summary || <span className="cell-static muted">—</span>}</span>
+                  ) : (
+                    <input
+                      className="cell-input summary-input"
+                      value={a.summary ?? ''}
+                      placeholder="summary"
+                      onChange={(e) => patch(i, { summary: e.target.value })}
+                    />
+                  )}
                 </td>
                 <td>
-                  <input
-                    className="cell-input note-input"
-                    value={a.note ?? ''}
-                    placeholder="note"
-                    onChange={(e) => patch(i, { note: e.target.value })}
-                  />
+                  {readOnly ? (
+                    <span className="cell-static">{a.note || <span className="cell-static muted">—</span>}</span>
+                  ) : (
+                    <input
+                      className="cell-input note-input"
+                      value={a.note ?? ''}
+                      placeholder="note"
+                      onChange={(e) => patch(i, { note: e.target.value })}
+                    />
+                  )}
                 </td>
-                <td>
-                  <button className="del-btn" title="Remove row" onClick={() => del(i)}>
-                    ×
-                  </button>
-                </td>
+                {!readOnly && (
+                  <td>
+                    <button className="del-btn" title="Remove row" onClick={() => del(i)}>
+                      ×
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <button className="add-row-btn" onClick={add}>
-        + Add artifact
-      </button>
+      {!readOnly && (
+        <button className="add-row-btn" onClick={add}>
+          + Add artifact
+        </button>
+      )}
     </div>
   );
 }
@@ -868,6 +964,7 @@ function RichMentionEditor({
   entities,
   placeholder,
   singleLine = false,
+  readOnly = false,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -877,6 +974,9 @@ function RichMentionEditor({
   // inserts a newline and long content scrolls horizontally — the row height
   // stays fixed and aligned with the other columns' inputs.
   singleLine?: boolean;
+  // Read-only viewer: render the tokenized value as static chips + text, with no
+  // contentEditable surface, no @/# picker, and no change emission.
+  readOnly?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ac, setAc] = useState<AcState | null>(null);
@@ -885,14 +985,16 @@ function RichMentionEditor({
   const lastEmitted = useRef(value);
 
   useLayoutEffect(() => {
+    if (readOnly) return;
     if (ref.current && value !== lastEmitted.current) {
       ref.current.innerHTML = tokensToHtml(value);
       lastEmitted.current = value;
     }
-  }, [value]);
+  }, [value, readOnly]);
 
   // Initial mount seed.
   useLayoutEffect(() => {
+    if (readOnly) return;
     if (ref.current) {
       ref.current.innerHTML = tokensToHtml(value);
       lastEmitted.current = value;
@@ -1043,6 +1145,17 @@ function RichMentionEditor({
     }
   }
 
+  if (readOnly) {
+    return (
+      <div className="rte-wrap">
+        <div
+          className={`${singleLine ? 'rte rte-inline' : 'rte'} rte-readonly`}
+          dangerouslySetInnerHTML={{ __html: tokensToHtml(value) }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="rte-wrap">
       <div
@@ -1092,11 +1205,13 @@ function ActionItemsCard({
   keys,
   entities,
   onChange,
+  readOnly = false,
 }: {
   items: ReportActionItemLine[];
   keys: string[];
   entities: TeamEntities;
   onChange: (next: ReportActionItemLine[], nextKeys: string[]) => void;
+  readOnly?: boolean;
 }) {
   function patch(i: number, p: Partial<ReportActionItemLine>) {
     onChange(items.map((it, idx) => (idx === i ? { ...it, ...p } : it)), keys);
@@ -1130,13 +1245,13 @@ function ActionItemsCard({
               <th>Status</th>
               <th>Due</th>
               <th>Note</th>
-              <th />
+              {!readOnly && <th />}
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-muted text-sm" style={{ padding: 14 }}>
+                <td colSpan={readOnly ? 4 : 5} className="text-muted text-sm" style={{ padding: 14 }}>
                   No action items.
                 </td>
               </tr>
@@ -1150,45 +1265,60 @@ function ActionItemsCard({
                       entities={entities}
                       placeholder="Action item…"
                       singleLine
+                      readOnly={readOnly}
                     />
                   </td>
                   <td>
-                    <StatusControl value={it.status ?? 'planned'} onChange={(s) => patch(i, { status: s })} />
+                    <StatusControl value={it.status ?? 'planned'} onChange={(s) => patch(i, { status: s })} readOnly={readOnly} />
                   </td>
                   <td>
-                    <input
-                      className="cell-date"
-                      type="date"
-                      value={it.due_date ?? ''}
-                      onChange={(e) => patch(i, { due_date: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <span className="cell-static">{it.due_date || <span className="cell-static muted">—</span>}</span>
+                    ) : (
+                      <input
+                        className="cell-date"
+                        type="date"
+                        value={it.due_date ?? ''}
+                        onChange={(e) => patch(i, { due_date: e.target.value })}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      className="cell-input note-input"
-                      value={it.note ?? ''}
-                      placeholder="note"
-                      onChange={(e) => patch(i, { note: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <span className="cell-static">{it.note || <span className="cell-static muted">—</span>}</span>
+                    ) : (
+                      <input
+                        className="cell-input note-input"
+                        value={it.note ?? ''}
+                        placeholder="note"
+                        onChange={(e) => patch(i, { note: e.target.value })}
+                      />
+                    )}
                   </td>
-                  <td>
-                    <button className="del-btn" title="Remove row" onClick={() => del(i)}>
-                      ×
-                    </button>
-                  </td>
+                  {!readOnly && (
+                    <td>
+                      <button className="del-btn" title="Remove row" onClick={() => del(i)}>
+                        ×
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-      <button className="add-row-btn" onClick={add}>
-        + Add action item
-      </button>
-      <div className="hint-line">
-        These are the <strong>AI Lead&apos;s own</strong> to-dos (no owner). Type <strong>@</strong> for a
-        task reference, <strong>#</strong> for an artifact — picks insert a subtle icon-chip.
-      </div>
+      {!readOnly && (
+        <button className="add-row-btn" onClick={add}>
+          + Add action item
+        </button>
+      )}
+      {!readOnly && (
+        <div className="hint-line">
+          These are the <strong>AI Lead&apos;s own</strong> to-dos (no owner). Type <strong>@</strong> for a
+          task reference, <strong>#</strong> for an artifact — picks insert a subtle icon-chip.
+        </div>
+      )}
     </div>
   );
 }
@@ -1210,6 +1340,7 @@ function NoteListCard({
   entities,
   addLabel,
   onChange,
+  readOnly = false,
 }: {
   title: string;
   items: string[];
@@ -1217,6 +1348,7 @@ function NoteListCard({
   entities: TeamEntities;
   addLabel: string;
   onChange: (nextItems: string[], nextKeys: string[]) => void;
+  readOnly?: boolean;
 }) {
   function patch(i: number, v: string) {
     onChange(items.map((t, idx) => (idx === i ? v : t)), keys);
@@ -1236,31 +1368,42 @@ function NoteListCard({
         </span>
       </div>
       <div className="card-body">
-        <div className="note-list">
-          {items.map((text, i) => (
-            <div className="note-item" key={keys[i]}>
-              <span className="bullet" />
-              <div className="note-rte-host">
-                <RichMentionEditor
-                  value={text}
-                  onChange={(v) => patch(i, v)}
-                  entities={entities}
-                  placeholder="…"
-                />
+        {readOnly && items.length === 0 ? (
+          <div className="text-muted text-sm">None recorded.</div>
+        ) : (
+          <div className="note-list">
+            {items.map((text, i) => (
+              <div className="note-item" key={keys[i]}>
+                <span className="bullet" />
+                <div className="note-rte-host">
+                  <RichMentionEditor
+                    value={text}
+                    onChange={(v) => patch(i, v)}
+                    entities={entities}
+                    placeholder="…"
+                    readOnly={readOnly}
+                  />
+                </div>
+                {!readOnly && (
+                  <button className="del-btn" title="Remove item" onClick={() => del(i)}>
+                    ×
+                  </button>
+                )}
               </div>
-              <button className="del-btn" title="Remove item" onClick={() => del(i)}>
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-        <button className="add-row-btn add-row-inline" onClick={add}>
-          {addLabel}
-        </button>
-        <div className="hint-line">
-          Type <strong>@</strong> for a task, <strong>#</strong> for an artifact — inserts a linked icon-chip
-          mid-text.
-        </div>
+            ))}
+          </div>
+        )}
+        {!readOnly && (
+          <button className="add-row-btn add-row-inline" onClick={add}>
+            {addLabel}
+          </button>
+        )}
+        {!readOnly && (
+          <div className="hint-line">
+            Type <strong>@</strong> for a task, <strong>#</strong> for an artifact — inserts a linked icon-chip
+            mid-text.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1367,19 +1510,23 @@ function ParticipantsRow({
   participants,
   champion,
   onChange,
+  readOnly = false,
 }: {
   participants: string[];
   champion: string;
   // undefined target clears the participants key entirely (extra="forbid" clean).
   onChange: (next: string[] | undefined) => void;
+  readOnly?: boolean;
 }) {
   const [draft, setDraft] = useState('');
 
   // Seed default participants — [<champion>, "AI Lead"] — when none are present;
   // otherwise guarantee the AI Lead is always a participant (the drafted report
   // may list others but omit it). Runs once on mount (the editor only renders
-  // with a loaded report) so the AI Lead pill shows and gets saved.
+  // with a loaded report) so the AI Lead pill shows and gets saved. Skipped in
+  // read-only mode — a viewer never mutates the report.
   useEffect(() => {
+    if (readOnly) return;
     if (participants.length === 0) {
       onChange([champion, AI_LEAD].filter(Boolean));
     } else if (!participants.includes(AI_LEAD)) {
@@ -1397,6 +1544,24 @@ function ParticipantsRow({
   function remove(idx: number) {
     const next = participants.filter((_, i) => i !== idx);
     onChange(next.length > 0 ? next : undefined);
+  }
+
+  if (readOnly) {
+    return (
+      <div className="participants-row">
+        <span className="participants-label">Participants:</span>
+        {participants.length === 0 ? (
+          <span className="text-muted text-sm">—</span>
+        ) : (
+          participants.map((p, pi) => (
+            <span className="avatar" key={pi}>
+              <span className="dot">{p.slice(0, 1).toUpperCase()}</span>
+              {p}
+            </span>
+          ))
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1454,6 +1619,7 @@ export function FlatReportEditor({
   entities,
   domains,
   showActionItems = true,
+  readOnly = false,
   onReportChange,
   onKeysChange,
 }: {
@@ -1464,6 +1630,9 @@ export function FlatReportEditor({
   // Action items are folded ONCE (CREATE flow), so the section renders only there.
   // The EDIT flow hides it entirely — action items are managed on the AI-Lead board.
   showActionItems?: boolean;
+  // Read-only viewer (non-admin): every inline control renders as static text and
+  // no control can emit a change / fire a write.
+  readOnly?: boolean;
   onReportChange: (next: ReportJson) => void;
   onKeysChange: (next: EditorKeys) => void;
 }) {
@@ -1471,17 +1640,21 @@ export function FlatReportEditor({
     <div className="report-editor">
       {/* Report header card */}
       <div className="report-head">
-        <div className="team-eyebrow">Report editor</div>
+        <div className="team-eyebrow">{readOnly ? 'Report' : 'Report editor'}</div>
         <h1 className="report-head-h1">Report — champion {report.champion}</h1>
         <div className="head-row">
           <div className="meta-field">
             <label>Meeting date</label>
-            <input
-              className="meta-input"
-              type="date"
-              value={report.meeting_date}
-              onChange={(e) => onReportChange({ ...report, meeting_date: e.target.value })}
-            />
+            {readOnly ? (
+              <span className="meta-static">{report.meeting_date || '—'}</span>
+            ) : (
+              <input
+                className="meta-input"
+                type="date"
+                value={report.meeting_date}
+                onChange={(e) => onReportChange({ ...report, meeting_date: e.target.value })}
+              />
+            )}
           </div>
           <div className="meta-field">
             <label>Champion</label>
@@ -1491,6 +1664,7 @@ export function FlatReportEditor({
         <ParticipantsRow
           participants={report.participants ?? []}
           champion={report.champion}
+          readOnly={readOnly}
           onChange={(next) => {
             const r = { ...report };
             if (next && next.length > 0) r.participants = next;
@@ -1506,6 +1680,7 @@ export function FlatReportEditor({
         entities={entities}
         domains={domains}
         champion={report.champion}
+        readOnly={readOnly}
         onChange={(tasks, nextKeys) => {
           onReportChange({ ...report, tasks });
           onKeysChange({ ...keys, tasks: nextKeys });
@@ -1517,6 +1692,7 @@ export function FlatReportEditor({
         keys={keys.artifacts}
         entities={entities}
         domains={domains}
+        readOnly={readOnly}
         onChange={(artifacts, nextKeys) => {
           onReportChange({ ...report, artifacts });
           onKeysChange({ ...keys, artifacts: nextKeys });
@@ -1528,6 +1704,7 @@ export function FlatReportEditor({
           items={report.action_items ?? []}
           keys={keys.actionItems}
           entities={entities}
+          readOnly={readOnly}
           onChange={(action_items, nextKeys) => {
             onReportChange({ ...report, action_items });
             onKeysChange({ ...keys, actionItems: nextKeys });
@@ -1541,6 +1718,7 @@ export function FlatReportEditor({
         keys={keys.discussion}
         entities={entities}
         addLabel="+ Add point"
+        readOnly={readOnly}
         onChange={(discussion, nextKeys) => {
           onReportChange({ ...report, discussion });
           onKeysChange({ ...keys, discussion: nextKeys });
@@ -1553,6 +1731,7 @@ export function FlatReportEditor({
         keys={keys.issues}
         entities={entities}
         addLabel="+ Add issue"
+        readOnly={readOnly}
         onChange={(issues, nextKeys) => {
           onReportChange({ ...report, issues });
           onKeysChange({ ...keys, issues: nextKeys });

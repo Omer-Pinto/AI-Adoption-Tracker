@@ -408,12 +408,11 @@ export default function TeamPage() {
                     <div className="report-date">{r.meeting_date}</div>
                     <div className="report-label">Champion meeting &bull; {team.champion_name}</div>
                   </div>
-                  {/* The report editor is admin-only; non-admins get no link. */}
-                  {isAdmin && (
-                    <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
-                      {r.id === latestReportId ? 'View / Edit' : 'View'}
-                    </Link>
-                  )}
+                  {/* Everyone in scope may open the report; only admins editing the
+                      latest report get an edit affordance — others open read-only. */}
+                  <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
+                    {isAdmin && r.id === latestReportId ? 'View / Edit' : 'View'}
+                  </Link>
                 </div>
               ))
             )}

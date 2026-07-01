@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError } from '@/api';
+import { api, ApiError, ForbiddenError } from '@/api';
 import type { ReportJson, TeamEntities } from '@/types';
 import { ErrorState } from '@/components/EmptyState';
 import { useAuth } from '@/auth/AuthContext';
@@ -41,12 +41,16 @@ export default function ReportEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the backend rejects the load with a 403 — the report is not in this
+  // user's team scope. We render the curated Forbidden surface, not a load error.
+  const [forbidden, setForbidden] = useState(false);
 
   const load = useCallback(() => {
     if (!reportId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setForbidden(false);
     api.reports
       .get(Number(reportId))
       .then(async ({ report: saved }) => {
@@ -77,7 +81,13 @@ export default function ReportEditPage() {
         ).slice(-1)[0];
         setIsLatest(latest ? latest.id === saved.id : true);
       })
-      .catch((e) => { console.error(e); setError('Failed to load report.'); })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        // Out-of-scope report id → the backend 403s: show the Forbidden surface.
+        if (e instanceof ForbiddenError) setForbidden(true);
+        else setError('Failed to load report.');
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -88,8 +98,11 @@ export default function ReportEditPage() {
 
   useEffect(() => load(), [load]);
 
-  // The report editor is admin-only; non-admins are bounced to the shared 403 page.
-  if (!isAdmin) return <Navigate to="/403" replace />;
+  // Non-admins may VIEW a report that is in their team scope (the backend already
+  // gate-keeps: an out-of-scope id 404/403s during load → ForbiddenError). They
+  // get a fully read-only rendering; only admins editing the LATEST report edit.
+  const canEdit = isAdmin && isLatest;
+  const readOnly = !canEdit;
 
   async function handleSave() {
     if (!report || !reportId) return;
@@ -125,7 +138,7 @@ export default function ReportEditPage() {
       <>
         <div className="top-bar">
           <div>
-            <span className="top-bar-title">Edit Report</span>
+            <span className="top-bar-title">{canEdit ? 'Edit Report' : 'View Report'}</span>
           </div>
         </div>
         <div className="page-body">
@@ -135,12 +148,15 @@ export default function ReportEditPage() {
     );
   }
 
+  // Out-of-scope report id — the backend said "not your team". Curated 403 surface.
+  if (forbidden) return <Navigate to="/403" replace />;
+
   if (error && !report) {
     return (
       <>
         <div className="top-bar">
           <div>
-            <span className="top-bar-title">Edit Report</span>
+            <span className="top-bar-title">{canEdit ? 'Edit Report' : 'View Report'}</span>
           </div>
         </div>
         <div className="page-body">
@@ -162,11 +178,11 @@ export default function ReportEditPage() {
     <>
       <div className="top-bar">
         <div>
-          <span className="top-bar-title">{isLatest ? 'Edit Report' : 'View Report'}</span>
+          <span className="top-bar-title">{canEdit ? 'Edit Report' : 'View Report'}</span>
           <span className="top-bar-sub">
             {report.champion}
             {report.meeting_date ? ` — ${report.meeting_date}` : ''}
-            {!isLatest ? ' • read-only' : ''}
+            {readOnly ? ' • read-only' : ''}
           </span>
         </div>
         <div className="top-bar-actions">
@@ -174,9 +190,9 @@ export default function ReportEditPage() {
             className="btn btn-secondary btn-sm"
             onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
           >
-            {isLatest ? 'Cancel' : 'Back'}
+            {canEdit ? 'Cancel' : 'Back'}
           </button>
-          {isLatest && (
+          {canEdit && (
             <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => void handleSave()}>
               {saving ? 'Saving…' : 'Save changes'}
             </button>
@@ -188,13 +204,17 @@ export default function ReportEditPage() {
         <div className="breadcrumb">
           <a href="/">Teams</a>
           <span className="breadcrumb-sep">/</span>
-          <span>{isLatest ? 'Edit' : 'View'} Report — {report.meeting_date}</span>
+          <span>{canEdit ? 'Edit' : 'View'} Report — {report.meeting_date}</span>
         </div>
 
-        {isLatest ? (
+        {canEdit ? (
           <div className="info-banner" style={{ marginBottom: 20 }}>
             <strong>Editing a saved report.</strong> You are editing the structured fields, not the original raw
             notes. On save, task and artifact records will be recomputed from this report&apos;s data.
+          </div>
+        ) : !isAdmin ? (
+          <div className="info-banner" style={{ marginBottom: 20 }}>
+            <strong>Read-only view.</strong> You have view access to this report. Editing is limited to admins.
           </div>
         ) : (
           <div className="warning-banner" style={{ marginBottom: 20 }}>
@@ -210,19 +230,20 @@ export default function ReportEditPage() {
           </div>
         )}
 
-        <fieldset className="ro-editor" disabled={!isLatest}>
+        <fieldset className="ro-editor" disabled={readOnly}>
           <FlatReportEditor
             report={report}
             keys={keys}
             entities={entities}
             domains={domains}
             showActionItems={false}
+            readOnly={readOnly}
             onReportChange={setReport}
             onKeysChange={setKeys}
           />
         </fieldset>
 
-        {isLatest && (
+        {canEdit && (
           <div className="form-actions-bottom" style={{ marginTop: 18 }}>
             <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave()}>
               {saving ? 'Saving…' : 'Save changes'}

@@ -66,17 +66,16 @@ export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailMod
                   <span className="history-date">{h.meeting_date}</span>
                   <ChangeKindBadge kind={h.change_kind} />
                   <span className="history-note">{h.change_note || '—'}</span>
-                  {/* report_id is present on ArtifactHistoryEntry — link to the owning report */}
-                  {isAdmin && (
-                    <Link
-                      to={`/reports/${h.report_id}/edit`}
-                      className="btn btn-sm btn-outline"
-                      style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
-                      title="Edit the report that recorded this change"
-                    >
-                      Edit report
-                    </Link>
-                  )}
+                  {/* report_id is present on ArtifactHistoryEntry — link to the owning
+                      report. Admins edit; others open it read-only. */}
+                  <Link
+                    to={`/reports/${h.report_id}/edit`}
+                    className="btn btn-sm btn-outline"
+                    style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+                    title={isAdmin ? 'Edit the report that recorded this change' : 'View the report that recorded this change'}
+                  >
+                    {isAdmin ? 'Edit report' : 'View report'}
+                  </Link>
                 </div>
               ))
             )}

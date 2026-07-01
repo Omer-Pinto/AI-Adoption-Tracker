@@ -1135,6 +1135,20 @@ fieldset.ro-editor:disabled .del-btn { display: none; }
 }
 .report-editor .dom-sel:focus { outline: none; box-shadow: 0 0 0 2px rgba(67,97,238,.18); }
 
+/* ── Read-only viewer (non-admin): inline controls render as static text ──── */
+.report-editor .cell-static { font-size: 13px; color: var(--text); padding: 3px 7px; display: inline-block; }
+.report-editor .cell-static.muted { color: var(--text-faint); padding: 0; }
+.report-editor .name-static { font-weight: 600; }
+.report-editor .status-static-wrap { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.report-editor .status-static { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.report-editor .dom-static {
+  border: 1px solid; border-radius: 5px; padding: 4px 8px; font-size: 12px; font-weight: 600;
+  display: inline-block; line-height: 1.4;
+}
+.report-editor .rte-readonly {
+  border-color: transparent; background: transparent; padding-left: 0; padding-right: 0; min-height: 0;
+}
+
 /* Name cell — matched link / NEW two-line editor */
 .report-editor .matched-name { display: flex; align-items: center; gap: 8px; }
 .report-editor .name-chip {
