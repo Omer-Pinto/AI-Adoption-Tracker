@@ -80,11 +80,17 @@ def default_password(username: str) -> str:
 # ── session tokens (opaque bearer, stored server-side) ───────────────────────
 
 def create_session(conn: sqlite3.Connection, username: str) -> str:
-    """Mint + persist a new session token for ``username``; return the token."""
+    """Mint + persist a new session token for ``username``; return the token.
+
+    The session is keyed on the user's immutable ``id`` (resolved from the
+    just-authenticated ``username``), not the mutable username — so renaming a
+    user in the admin portal never invalidates or errors their live sessions.
+    """
     token = secrets.token_urlsafe(_TOKEN_BYTES)
     created_at = datetime.now(timezone.utc).isoformat()
     conn.execute(
-        "INSERT INTO session (token, username, created_at) VALUES (?, ?, ?)",
+        "INSERT INTO session (token, user_id, created_at) "
+        "VALUES (?, (SELECT id FROM user WHERE username = ?), ?)",
         (token, username, created_at),
     )
     conn.commit()
@@ -98,7 +104,7 @@ def resolve_session(conn: sqlite3.Connection, token: str):
     inactive. There is no time-based expiry (see uncertainties).
     """
     row = conn.execute(
-        "SELECT u.* FROM session s JOIN user u ON u.username = s.username "
+        "SELECT u.* FROM session s JOIN user u ON u.id = s.user_id "
         "WHERE s.token = ?",
         (token,),
     ).fetchone()

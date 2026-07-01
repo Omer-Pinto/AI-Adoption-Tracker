@@ -210,11 +210,13 @@ CREATE TABLE IF NOT EXISTS user_team (
 
 -- ── session (opaque bearer tokens) ────────────────────────────────────────────
 -- One row per active login. `token` is a random secrets.token_urlsafe value sent
--- as `Authorization: Bearer <token>`; it resolves to a user by `username`. Rows
--- cascade when the user is deleted (a deleted user's sessions die with them).
--- No server-side expiry column (see auth.py uncertainty note); logout deletes.
+-- as `Authorization: Bearer <token>`; it resolves to a user by the immutable
+-- `user_id` (NOT the mutable username, so an admin renaming a user does not break
+-- or 500 that user's active sessions). Rows cascade when the user is deleted (a
+-- deleted user's sessions die with them). No server-side expiry column (see
+-- auth.py uncertainty note); logout deletes.
 CREATE TABLE IF NOT EXISTS session (
     token      TEXT PRIMARY KEY,
-    username   TEXT NOT NULL REFERENCES user(username) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL                  -- ISO-8601 UTC timestamp
 );
