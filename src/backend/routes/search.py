@@ -13,7 +13,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user
+from auth import get_current_user, readable_team_ids
 from db import get_connection
 from search.autocomplete import build_values
 
@@ -31,12 +31,19 @@ def search_values(
 
         {"key": str, "kind": "enum"|"free"|"date", "values": [{"value","label"}]}
 
+    Read-scope (Wave 18): for a scoped read-only user the team/domain/tag value
+    lists are filtered to their readable teams (via ``readable_team_ids``) so the
+    autocomplete never leaks the names of out-of-scope teams, domains or tags.
+    Admin / ``read_all`` (scope ``None``) get the full lists. The non-team-
+    identifying keys (``status``, ``type``, ``date``) are unaffected.
+
     Raises:
         HTTPException: 422 when *key* is not one of the six DSL keys.
     """
     conn = get_connection()
     try:
-        return build_values(conn, key)
+        allowed = readable_team_ids(conn, user)
+        return build_values(conn, key, allowed)
     except KeyError:
         raise HTTPException(status_code=422, detail=f"Unknown search key: {key}")
     finally:

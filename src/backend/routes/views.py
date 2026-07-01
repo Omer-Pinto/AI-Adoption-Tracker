@@ -565,11 +565,18 @@ def task_detail(id: int, user=Depends(get_current_user)) -> TaskDetail:
         t_row = conn.execute("SELECT * FROM task WHERE id = ?", (id,)).fetchone()
         if t_row is None:
             raise HTTPException(status_code=404, detail="Task not found")
+        # Read-scope (Wave 18): enforce UNCONDITIONALLY and fail closed. Resolve
+        # the task's owning team via its domain; if the team cannot be resolved
+        # for any reason (should be impossible — task.domain_id is NOT NULL and
+        # references domain), DENY (403) rather than fall through to the task.
+        # The 404 above (task missing) still precedes this 403 (exists, out of
+        # scope / unresolvable) so existence is not leaked.
         dom = conn.execute(
             "SELECT team_id FROM domain WHERE id = ?", (t_row["domain_id"],)
         ).fetchone()
-        if dom is not None:
-            _enforce_read_team(conn, user, dom["team_id"])
+        if dom is None:
+            raise HTTPException(status_code=403, detail="Team out of read scope")
+        _enforce_read_team(conn, user, dom["team_id"])
         history_rows = conn.execute(
             "SELECT * FROM task_history WHERE task_id = ? ORDER BY meeting_date, id",
             (id,),

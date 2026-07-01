@@ -47,19 +47,71 @@ def _humanize(token: str) -> str:
     return token.replace("_", " ").replace("-", " ").capitalize()
 
 
-def _teams(conn: sqlite3.Connection) -> list[dict[str, str]]:
-    rows = conn.execute("SELECT name FROM team ORDER BY name").fetchall()
+def _placeholders(allowed: set[int]) -> str:
+    """Build a `?,?,…` placeholder run for an `IN (…)` clause (parameterized)."""
+    return ",".join("?" * len(allowed))
+
+
+def _teams(
+    conn: sqlite3.Connection, allowed: set[int] | None
+) -> list[dict[str, str]]:
+    """Team names, scoped to `allowed` team ids (None = all, empty set = none)."""
+    if allowed is None:
+        rows = conn.execute("SELECT name FROM team ORDER BY name").fetchall()
+    elif not allowed:
+        return []
+    else:
+        rows = conn.execute(
+            f"SELECT name FROM team WHERE id IN ({_placeholders(allowed)}) "
+            "ORDER BY name",
+            tuple(allowed),
+        ).fetchall()
     return [_value_label(r["name"], r["name"]) for r in rows]
 
 
-def _domains(conn: sqlite3.Connection) -> list[dict[str, str]]:
-    rows = conn.execute("SELECT name FROM domain ORDER BY name").fetchall()
+def _domains(
+    conn: sqlite3.Connection, allowed: set[int] | None
+) -> list[dict[str, str]]:
+    """Domain names, scoped to domains whose `team_id` ∈ `allowed`.
+
+    None = all domains; an empty `allowed` set = no readable teams → no domains.
+    """
+    if allowed is None:
+        rows = conn.execute("SELECT name FROM domain ORDER BY name").fetchall()
+    elif not allowed:
+        return []
+    else:
+        rows = conn.execute(
+            f"SELECT name FROM domain WHERE team_id IN ({_placeholders(allowed)}) "
+            "ORDER BY name",
+            tuple(allowed),
+        ).fetchall()
     return [_value_label(r["name"], r["name"]) for r in rows]
 
 
-def _tags(conn: sqlite3.Connection) -> list[dict[str, str]]:
+def _tags(
+    conn: sqlite3.Connection, allowed: set[int] | None
+) -> list[dict[str, str]]:
+    """Tag values: the fixed §5 set ∪ tags seen on readable artifacts.
+
+    The fixed set is always offered (it is not team-identifying). DB-seen tags are
+    restricted to artifacts of `allowed` teams so a scoped user cannot mine tags
+    that exist only on out-of-scope artifacts. None = all artifacts; an empty
+    `allowed` set contributes no DB tags (fixed set only).
+    """
     seen: set[str] = set(_FIXED_TAGS)
-    rows = conn.execute("SELECT tags FROM artifact WHERE tags IS NOT NULL").fetchall()
+    if allowed is None:
+        rows = conn.execute(
+            "SELECT tags FROM artifact WHERE tags IS NOT NULL"
+        ).fetchall()
+    elif not allowed:
+        rows = []
+    else:
+        rows = conn.execute(
+            f"SELECT tags FROM artifact WHERE tags IS NOT NULL "
+            f"AND team_id IN ({_placeholders(allowed)})",
+            tuple(allowed),
+        ).fetchall()
     for r in rows:
         for tag in json.loads(r["tags"]):
             seen.add(tag)
@@ -67,12 +119,21 @@ def _tags(conn: sqlite3.Connection) -> list[dict[str, str]]:
     return [_value_label(t, _humanize(t)) for t in ordered]
 
 
-def build_values(conn: sqlite3.Connection, key: str) -> dict:
+def build_values(
+    conn: sqlite3.Connection,
+    key: str,
+    allowed_team_ids: set[int] | None = None,
+) -> dict:
     """Build the tagged autocomplete result for *key*.
 
     Args:
         conn: An open SQLite connection (``row_factory = Row``).
         key: One of :data:`VALID_KEYS`.
+        allowed_team_ids: The caller's read-scope (``readable_team_ids``): a set of
+            team ids to restrict team/domain/tag values to, or ``None`` for an
+            unrestricted (admin / ``read_all``) caller. An empty set = a scoped user
+            with no readable teams (team/domain lists come back empty). The
+            non-team-identifying keys (``type``, ``status``, ``date``) ignore it.
 
     Returns:
         ``{"key", "kind", "values": [{"value","label"}, ...]}``.
@@ -84,9 +145,13 @@ def build_values(conn: sqlite3.Connection, key: str) -> dict:
         raise KeyError(key)
 
     if key == "team":
-        return {"key": "team", "kind": "enum", "values": _teams(conn)}
+        return {"key": "team", "kind": "enum", "values": _teams(conn, allowed_team_ids)}
     if key == "domain":
-        return {"key": "domain", "kind": "enum", "values": _domains(conn)}
+        return {
+            "key": "domain",
+            "kind": "enum",
+            "values": _domains(conn, allowed_team_ids),
+        }
     if key == "type":
         return {
             "key": "type",
@@ -100,6 +165,6 @@ def build_values(conn: sqlite3.Connection, key: str) -> dict:
             "values": [_value_label(s.value, _humanize(s.value)) for s in TaskStatus],
         }
     if key == "tag":
-        return {"key": "tag", "kind": "free", "values": _tags(conn)}
+        return {"key": "tag", "kind": "free", "values": _tags(conn, allowed_team_ids)}
     # key == "date"
     return {"key": "date", "kind": "date", "values": []}
