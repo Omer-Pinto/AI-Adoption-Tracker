@@ -631,6 +631,9 @@ a:hover { text-decoration: underline; }
 .artifact-type.type-skill { background: #ecfdf5; color: #065f46; }
 .artifact-type.type-hook { background: #fff7ed; color: #9a3412; }
 .artifact-type.type-context { background: #f0fdf4; color: #14532d; }
+.artifact-type.type-workflow { background: #eef2ff; color: #3730a3; }
+.artifact-type.type-mcp { background: #fdf2f8; color: #9d174d; }
+.artifact-type.type-other { background: #f1f5f9; color: #334155; }
 
 /* ---- Tabs ---- */
 .tabs {
@@ -1592,6 +1595,9 @@ html[data-theme="dark"] .artifact-type.type-agent  { background: rgba(139, 92, 2
 html[data-theme="dark"] .artifact-type.type-skill  { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
 html[data-theme="dark"] .artifact-type.type-hook   { background: rgba(234, 88, 12, 0.18);  color: #fdba74; }
 html[data-theme="dark"] .artifact-type.type-context{ background: rgba(22, 163, 74, 0.16);  color: #86efac; }
+html[data-theme="dark"] .artifact-type.type-workflow{ background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
+html[data-theme="dark"] .artifact-type.type-mcp    { background: rgba(219, 39, 119, 0.18); color: #f9a8d4; }
+html[data-theme="dark"] .artifact-type.type-other  { background: rgba(100, 116, 139, 0.20); color: #cbd5e1; }
 
 /* Failure cards */
 html[data-theme="dark"] .failure-card  { background: rgba(220, 38, 38, 0.09); border-color: rgba(220, 38, 38, 0.30); }

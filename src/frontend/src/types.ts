@@ -14,7 +14,14 @@ export type TaskStatus =
   | 'abandoned'
   | 'wont_fix';
 
-export type ArtifactType = 'agent' | 'skill' | 'hook' | 'context';
+export type ArtifactType =
+  | 'agent'
+  | 'skill'
+  | 'hook'
+  | 'context'
+  | 'workflow'
+  | 'mcp'
+  | 'other';
 
 export type ArtifactChangeKind = 'added' | 'updated' | 'retired' | 'moved';
 
@@ -73,7 +80,8 @@ export interface Task {
 export interface Artifact {
   id: number;
   team_id: number;
-  domain_id: number | null; // null = general / team-wide (all-team gutter)
+  // Always set — every artifact now belongs to a team domain (no team-wide gutter).
+  domain_id: number;
   name: string;
   type: ArtifactType;
   tags: ArtifactTag[];
@@ -282,8 +290,6 @@ export interface DomainPage {
 export interface TeamPage {
   team: Team;
   domains: DomainPage[];
-  /** Un-domained, team-wide artifacts (the all-team gutter, domain_id = null). */
-  all_team_artifacts: Artifact[];
   reports: Report[];
   action_items: ActionItem[];
   // Summary tallies over the page's loaded data (Wave 12). "Closed" = status in

@@ -21,8 +21,24 @@ export function StatusBadge({ status }: { status: TaskStatus }) {
   return <span className={`status-chip status-${status}`}>{STATUS_LABELS[status]}</span>;
 }
 
+// Human-readable artifact-type labels. Covers the full 7-value union so new
+// types (workflow / mcp / other) render nicely rather than as raw enum text.
+export const ARTIFACT_TYPE_LABELS: Record<ArtifactType, string> = {
+  agent: 'agent',
+  skill: 'skill',
+  hook: 'hook',
+  context: 'context',
+  workflow: 'workflow',
+  mcp: 'MCP',
+  other: 'other',
+};
+
 export function ArtifactTypeBadge({ type }: { type: ArtifactType }) {
-  return <span className={`artifact-type type-${type}`}>{type}</span>;
+  return (
+    <span className={`artifact-type type-${type}`}>
+      {ARTIFACT_TYPE_LABELS[type] ?? type}
+    </span>
+  );
 }
 
 export function ChangeKindBadge({ kind }: { kind: string }) {

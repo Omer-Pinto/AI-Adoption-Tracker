@@ -133,7 +133,7 @@ export default function TeamPage() {
     );
   }
 
-  const { team, domains, all_team_artifacts, reports } = data;
+  const { team, domains, reports } = data;
 
   // Resolve domain_id → domain name client-side (tasks).
   const domainNameById = new Map(domains.map((dp) => [dp.domain.id, dp.domain.name]));
@@ -159,7 +159,8 @@ export default function TeamPage() {
   const constantDomainCount = domains.filter((dp) => isConstantDomain(dp.domain.name)).length;
   const realDomainCount = domains.length - constantDomainCount;
 
-  const allArtifacts = [...domains.flatMap((d) => d.artifacts), ...all_team_artifacts];
+  // Every artifact now lives under a domain — flatten the per-domain blocks.
+  const allArtifacts = domains.flatMap((d) => d.artifacts);
   const artifactTypes = Array.from(new Set(allArtifacts.map((a) => a.type)));
 
   const lastMeeting = reports.length
@@ -358,7 +359,7 @@ export default function TeamPage() {
           </div>
         </details>
 
-        {/* ── Artifacts fold (full catalog: domain-scoped + team-wide) ── */}
+        {/* ── Artifacts fold (full catalog: every artifact is domain-scoped) ── */}
         <details className="fold" ref={artifactsRef}>
           <summary>
             <span className="chev">▶</span>
@@ -557,7 +558,7 @@ function DomainCard({
   );
 }
 
-// ---- Artifacts table used for all-team gutter ----
+// ---- Artifacts table used for the full-catalog Artifacts fold ----
 
 function ArtifactsTable({
   artifacts,
@@ -607,7 +608,7 @@ function ArtifactsTable({
       rows={artifacts}
       rowKey={(a) => a.id}
       onRowClick={(a) => onArtifactClick(a.id)}
-      empty="No team-wide artifacts."
+      empty="No artifacts."
     />
   );
 }

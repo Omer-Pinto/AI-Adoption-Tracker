@@ -23,6 +23,7 @@ import {
   useState,
 } from 'react';
 import { Link } from 'react-router-dom';
+import { ARTIFACT_TYPE_LABELS } from '@/components/Badge';
 import type {
   ArtifactChangeKind,
   ArtifactType,
@@ -60,7 +61,7 @@ function statusCls(v: TaskStatus): string {
 }
 
 export const CHANGE_OPTS: ArtifactChangeKind[] = ['added', 'updated', 'retired', 'moved'];
-export const TYPE_OPTS: ArtifactType[] = ['agent', 'skill', 'hook', 'context'];
+export const TYPE_OPTS: ArtifactType[] = ['agent', 'skill', 'hook', 'context', 'workflow', 'mcp', 'other'];
 
 // ── domain colors — one distinct palette entry per domain (by index) ────────
 
@@ -663,7 +664,7 @@ function ArtifactsCard({
                     <option value="">— type —</option>
                     {TYPE_OPTS.map((t) => (
                       <option key={t} value={t}>
-                        {t}
+                        {ARTIFACT_TYPE_LABELS[t]}
                       </option>
                     ))}
                   </select>

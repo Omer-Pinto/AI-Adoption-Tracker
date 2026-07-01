@@ -8,7 +8,7 @@ import type {
   ArtifactType,
   Domain,
 } from '@/types';
-import { ArtifactTypeBadge, ChangeKindBadge, TagList } from '@/components/Badge';
+import { ArtifactTypeBadge, ChangeKindBadge, TagList, ARTIFACT_TYPE_LABELS } from '@/components/Badge';
 import { ErrorState } from '@/components/EmptyState';
 
 // A subtle, calm marker showing whether a history entry came from a report or a
@@ -40,10 +40,10 @@ function HistorySourceTag({ source }: { source: ArtifactHistoryEntry['source'] }
 // artifact chips in the report editor). Mirrors the approved prototype:
 //   - a hero with the artifact name + facts (type, tags, domain, summary),
 //   - a contextual Edit button toggling editing of name/type/tags/summary/domain
-//     (domain dropdown includes a "Team-wide" = null option), PATCH /api/artifacts/{id},
+//     (every artifact belongs to a domain), PATCH /api/artifacts/{id},
 //   - a history timeline using DATES ONLY (meeting_date + change_kind + change_note).
 
-const ARTIFACT_TYPES: ArtifactType[] = ['agent', 'skill', 'hook', 'context'];
+const ARTIFACT_TYPES: ArtifactType[] = ['agent', 'skill', 'hook', 'context', 'workflow', 'mcp', 'other'];
 
 export default function ArtifactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -290,16 +290,13 @@ interface ArtifactEditFormProps {
   onSaved: () => void;
 }
 
-const TEAM_WIDE = '__team_wide__';
-
 function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEditFormProps) {
   const [name, setName] = useState(artifact.name);
   const [type, setType] = useState<ArtifactType>(artifact.type);
   const [tagsText, setTagsText] = useState(artifact.tags.join(', '));
   const [summary, setSummary] = useState(artifact.summary ?? '');
-  const [domainSel, setDomainSel] = useState<string>(
-    artifact.domain_id === null ? TEAM_WIDE : String(artifact.domain_id),
-  );
+  // Every artifact belongs to a domain — the picker is a plain domain select.
+  const [domainSel, setDomainSel] = useState<string>(String(artifact.domain_id));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -311,7 +308,7 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
-    const nextDomainId = domainSel === TEAM_WIDE ? null : Number(domainSel);
+    const nextDomainId = Number(domainSel);
 
     // Only send changed, allowed fields.
     const body: {
@@ -319,7 +316,7 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
       type?: ArtifactType;
       tags?: string[];
       summary?: string | null;
-      domain_id?: number | null;
+      domain_id?: number;
     } = {};
     const nm = name.trim();
     if (nm !== artifact.name) body.name = nm;
@@ -373,7 +370,7 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
         >
           {ARTIFACT_TYPES.map((t) => (
             <option key={t} value={t}>
-              {t}
+              {ARTIFACT_TYPE_LABELS[t]}
             </option>
           ))}
         </select>
@@ -385,7 +382,6 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
           value={domainSel}
           onChange={(e) => setDomainSel(e.target.value)}
         >
-          <option value={TEAM_WIDE}>Team-wide (no domain)</option>
           {domains.map((d) => (
             <option key={d.id} value={String(d.id)}>
               {d.name}

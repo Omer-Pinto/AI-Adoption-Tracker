@@ -32,7 +32,7 @@ export interface KeyMeta {
 export const KEY_META: Record<SearchKey, KeyMeta> = {
   team:   { kind: 'enum', label: 'Team',   color: '#4361ee', hint: 'Filter by team name'              },
   domain: { kind: 'enum', label: 'Domain', color: '#7c3aed', hint: 'Filter by domain name'            },
-  type:   { kind: 'enum', label: 'Type',   color: '#065f46', hint: 'artifact type: agent/skill/hook/context' },
+  type:   { kind: 'enum', label: 'Type',   color: '#065f46', hint: 'artifact type: agent/skill/hook/context/workflow/mcp/other' },
   tag:    { kind: 'enum', label: 'Tag',    color: '#92400e', hint: 'Filter by artifact tag'           },
   status: { kind: 'enum', label: 'Status', color: '#1e40af', hint: 'Task status'                      },
   date:   { kind: 'date', label: 'Date',   color: '#b45309', hint: 'Filter by date (YYYY-MM-DD)'      },
