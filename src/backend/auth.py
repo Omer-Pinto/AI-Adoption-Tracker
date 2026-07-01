@@ -20,9 +20,10 @@ teams, incl. future) or a specific ``user_team`` set. Only admin writes anything
 
 import hashlib
 import hmac
+import math
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, Header, HTTPException
 
@@ -37,6 +38,37 @@ _PBKDF2_PREFIX = "pbkdf2_sha256"
 _PBKDF2_ITERS = 240_000          # OWASP-2023 floor for pbkdf2-sha256; see uncertainties
 _SALT_BYTES = 16
 _TOKEN_BYTES = 32                # secrets.token_urlsafe(32) → ~43-char token
+
+# ── session expiry (Wave 17.1) ───────────────────────────────────────────────
+# A session dies when EITHER limit is exceeded (whichever hits first): idle since
+# last use, or absolute age since birth. resolve_session enforces both and slides
+# the idle window forward on each valid use.
+SESSION_IDLE_SECONDS = 8 * 3600        # kill after 8h of inactivity (sliding)
+SESSION_ABSOLUTE_SECONDS = 24 * 3600   # hard cap: 24h since login, even if active
+
+# ── login lockout (Wave 17.1) ────────────────────────────────────────────────
+LOGIN_MAX_FAILS = 5                    # consecutive failures before a lockout
+LOGIN_LOCKOUT_SECONDS = 15 * 60        # lockout duration once the limit is hit
+
+
+# ── time helpers (single source of "now" + robust ISO parsing) ───────────────
+
+def _utcnow() -> datetime:
+    """Current time as a tz-aware UTC datetime (the one source of ``now``)."""
+    return datetime.now(timezone.utc)
+
+
+def _parse_ts(value: str) -> datetime:
+    """Parse a stored ISO-8601 timestamp back to a tz-aware UTC datetime.
+
+    Handles the ``datetime.isoformat()`` output written by this module (which
+    carries a ``+00:00`` offset); a naive value (no offset) is assumed UTC so a
+    hand-inserted row never throws off the comparison.
+    """
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def hash_password(password: str) -> str:
@@ -87,11 +119,11 @@ def create_session(conn: sqlite3.Connection, username: str) -> str:
     user in the admin portal never invalidates or errors their live sessions.
     """
     token = secrets.token_urlsafe(_TOKEN_BYTES)
-    created_at = datetime.now(timezone.utc).isoformat()
+    now = _utcnow().isoformat()
     conn.execute(
-        "INSERT INTO session (token, user_id, created_at) "
-        "VALUES (?, (SELECT id FROM user WHERE username = ?), ?)",
-        (token, username, created_at),
+        "INSERT INTO session (token, user_id, created_at, last_used_at) "
+        "VALUES (?, (SELECT id FROM user WHERE username = ?), ?, ?)",
+        (token, username, now, now),
     )
     conn.commit()
     return token
@@ -100,22 +132,96 @@ def create_session(conn: sqlite3.Connection, username: str) -> str:
 def resolve_session(conn: sqlite3.Connection, token: str):
     """Return the active user row for ``token``, or None.
 
-    None when the token is unknown, its user no longer exists, or the user is
-    inactive. There is no time-based expiry (see uncertainties).
+    None when the token is unknown, its user no longer exists, the user is
+    inactive, or the session has expired. Expiry (Wave 17.1): the session dies if
+    it is older than ``SESSION_ABSOLUTE_SECONDS`` (since ``created_at``) OR idle
+    longer than ``SESSION_IDLE_SECONDS`` (since ``last_used_at``) — whichever hits
+    first; the row is deleted and None returned (the caller maps None → 401). On a
+    still-valid session ``last_used_at`` slides forward to now (sliding idle window).
     """
     row = conn.execute(
-        "SELECT u.* FROM session s JOIN user u ON u.id = s.user_id "
+        "SELECT u.*, s.created_at AS session_created_at, "
+        "       s.last_used_at AS session_last_used_at "
+        "FROM session s JOIN user u ON u.id = s.user_id "
         "WHERE s.token = ?",
         (token,),
     ).fetchone()
     if row is None or not row["is_active"]:
         return None
+    now = _utcnow()
+    created = _parse_ts(row["session_created_at"])
+    last_used = _parse_ts(row["session_last_used_at"])
+    if (
+        (now - created).total_seconds() >= SESSION_ABSOLUTE_SECONDS
+        or (now - last_used).total_seconds() >= SESSION_IDLE_SECONDS
+    ):
+        conn.execute("DELETE FROM session WHERE token = ?", (token,))
+        conn.commit()
+        return None
+    conn.execute(
+        "UPDATE session SET last_used_at = ? WHERE token = ?",
+        (now.isoformat(), token),
+    )
+    conn.commit()
     return row
 
 
 def delete_session(conn: sqlite3.Connection, token: str) -> None:
     """Drop a session token (logout). No-op if the token is unknown."""
     conn.execute("DELETE FROM session WHERE token = ?", (token,))
+    conn.commit()
+
+
+# ── login lockout (Wave 17.1 — brute-force throttle, per submitted username) ──
+# Keyed on the SUBMITTED username (an accepted DoS tradeoff for an internal LAN
+# tool — a caller can lock out a known username; this is not internet-facing).
+
+def login_locked(conn: sqlite3.Connection, username: str) -> int:
+    """Remaining lockout seconds for ``username`` (0 if not currently locked).
+
+    Compares the stored ``locked_until`` to now; a positive return means the
+    login route should reject with 429 before touching credentials.
+    """
+    row = conn.execute(
+        "SELECT locked_until FROM login_attempt WHERE username = ?", (username,)
+    ).fetchone()
+    if row is None or row["locked_until"] is None:
+        return 0
+    remaining = (_parse_ts(row["locked_until"]) - _utcnow()).total_seconds()
+    return max(0, math.ceil(remaining))
+
+
+def record_login_failure(conn: sqlite3.Connection, username: str) -> None:
+    """Count one failed login for ``username``; trip the lockout at the limit.
+
+    Upserts an incrementing ``fail_count``. When it reaches ``LOGIN_MAX_FAILS`` we
+    set ``locked_until = now + LOGIN_LOCKOUT_SECONDS`` and reset ``fail_count`` to
+    0 so the window after the lockout starts fresh.
+    """
+    conn.execute(
+        "INSERT INTO login_attempt (username, fail_count, locked_until) "
+        "VALUES (?, 1, NULL) "
+        "ON CONFLICT(username) DO UPDATE SET fail_count = fail_count + 1",
+        (username,),
+    )
+    row = conn.execute(
+        "SELECT fail_count FROM login_attempt WHERE username = ?", (username,)
+    ).fetchone()
+    if row["fail_count"] >= LOGIN_MAX_FAILS:
+        locked_until = (
+            _utcnow() + timedelta(seconds=LOGIN_LOCKOUT_SECONDS)
+        ).isoformat()
+        conn.execute(
+            "UPDATE login_attempt SET fail_count = 0, locked_until = ? "
+            "WHERE username = ?",
+            (locked_until, username),
+        )
+    conn.commit()
+
+
+def clear_login_attempts(conn: sqlite3.Connection, username: str) -> None:
+    """Wipe the failure counter for ``username`` (called on a successful login)."""
+    conn.execute("DELETE FROM login_attempt WHERE username = ?", (username,))
     conn.commit()
 
 

@@ -7,14 +7,19 @@ the ONLY public endpoint; the other three require a valid bearer token via
 Router prefix is ``/api/auth``.
 """
 
+import math
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from auth import (
     _bearer_token,
+    clear_login_attempts,
     create_session,
     delete_session,
     get_current_user,
     hash_password,
+    login_locked,
+    record_login_failure,
     serialize_user,
     verify_password,
 )
@@ -26,9 +31,23 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=LoginResponse)
 def login(body: LoginRequest) -> LoginResponse:
-    """Verify credentials and mint a session. 401 on any failure (no user enum)."""
+    """Verify credentials and mint a session. 401 on any failure (no user enum).
+
+    Brute-force lockout (Wave 17.1): after ``LOGIN_MAX_FAILS`` consecutive failed
+    attempts the submitted username is locked for ``LOGIN_LOCKOUT_SECONDS`` and
+    further attempts 429 until the window elapses. The lockout is keyed on the
+    SUBMITTED username (accepted DoS tradeoff for an internal LAN tool).
+    """
     conn = get_connection()
     try:
+        # Gate BEFORE touching credentials: a locked username never even hashes.
+        remaining = login_locked(conn, body.username)
+        if remaining > 0:
+            minutes = math.ceil(remaining / 60)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed attempts. Try again in {minutes} minute(s).",
+            )
         row = conn.execute(
             "SELECT * FROM user WHERE username = ?", (body.username,)
         ).fetchone()
@@ -37,7 +56,10 @@ def login(body: LoginRequest) -> LoginResponse:
             or not row["is_active"]
             or not verify_password(body.password, row["password_hash"])
         ):
+            # Bad username OR bad password: count the failure, then generic 401.
+            record_login_failure(conn, body.username)
             raise HTTPException(status_code=401, detail="Invalid username or password")
+        clear_login_attempts(conn, body.username)
         token = create_session(conn, row["username"])
         return LoginResponse(token=token, user=serialize_user(conn, row))
     finally:

@@ -213,10 +213,27 @@ CREATE TABLE IF NOT EXISTS user_team (
 -- as `Authorization: Bearer <token>`; it resolves to a user by the immutable
 -- `user_id` (NOT the mutable username, so an admin renaming a user does not break
 -- or 500 that user's active sessions). Rows cascade when the user is deleted (a
--- deleted user's sessions die with them). No server-side expiry column (see
--- auth.py uncertainty note); logout deletes.
+-- deleted user's sessions die with them). Server-side expiry (Wave 17.1): a
+-- session dies when idle > SESSION_IDLE_SECONDS (8h) OR older than
+-- SESSION_ABSOLUTE_SECONDS (24h), whichever hits first — enforced in
+-- auth.resolve_session, which slides `last_used_at` forward on each valid use.
+-- Logout still deletes.
 CREATE TABLE IF NOT EXISTS session (
-    token      TEXT PRIMARY KEY,
-    user_id    INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-    created_at TEXT NOT NULL                  -- ISO-8601 UTC timestamp
+    token        TEXT PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+    created_at   TEXT NOT NULL,               -- ISO-8601 UTC timestamp (session birth)
+    last_used_at TEXT NOT NULL                -- ISO-8601 UTC timestamp (slides on each use)
+);
+
+-- ── login_attempt (Wave 17.1 — brute-force lockout) ───────────────────────────
+-- One row per username that has recently failed a login. After LOGIN_MAX_FAILS
+-- (5) consecutive failures the account is locked for LOGIN_LOCKOUT_SECONDS (15
+-- min): `locked_until` is set and `fail_count` reset to 0 so the next window
+-- starts fresh. A successful login deletes the row (see auth.clear_login_attempts).
+-- Keyed on the SUBMITTED username (an accepted DoS tradeoff for an internal LAN
+-- tool — an attacker can lock out a known username, but this is not internet-facing).
+CREATE TABLE IF NOT EXISTS login_attempt (
+    username     TEXT PRIMARY KEY,
+    fail_count   INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT                          -- nullable ISO-8601 UTC; NULL = not locked
 );
