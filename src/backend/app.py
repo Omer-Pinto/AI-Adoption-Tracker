@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db
-from routes import management, reports, search, views
+from routes import auth, management, reports, search, users, views
 
 
 def _resolve_version() -> str:
@@ -68,6 +68,10 @@ app.include_router(management.router)
 app.include_router(views.router)
 app.include_router(reports.router)
 app.include_router(search.router)
+
+# Auth + admin user-portal (Wave 17, RBAC).
+app.include_router(auth.router)
+app.include_router(users.router)
 
 
 @app.get("/api/health", tags=["health"])

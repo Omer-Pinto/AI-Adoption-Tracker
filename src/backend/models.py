@@ -200,6 +200,83 @@ class AILeadItemPatch(BaseModel):
     category: AILeadItemCategory | None = None
 
 
+# ── auth / RBAC models (Wave 17) ─────────────────────────────────────────────
+# One admin (is_admin=1) reads+edits everything and is untouchable. Every other
+# user is read-only with a read-scope: read_all=1 (all teams, incl. future) OR a
+# specific set of team ids (user_team). `password_hash` is NEVER exposed — no
+# model below carries it. Request models use `extra="forbid"` to reject stray keys.
+
+_auth_config = ConfigDict(extra="forbid")
+
+
+class User(BaseModel):
+    """A user as returned by the API — never carries the password hash.
+
+    ``teams`` is the read-scope team-id list from ``user_team``; it is meaningful
+    only when ``read_all`` is False (a read_all / admin user sees every team).
+    """
+    id: int
+    username: str
+    is_admin: bool = False
+    read_all: bool = False
+    is_active: bool = True
+    teams: list[int] = Field(default_factory=list)
+
+
+class UserCreate(BaseModel):
+    """Create a read-only user. ``read_all`` XOR ``teams`` express the read-scope:
+    ``read_all=True`` sees all teams; otherwise ``teams`` is the specific set.
+    Admin is never created through the portal, so there is no ``is_admin`` field."""
+    model_config = _auth_config
+
+    username: str
+    password: str
+    read_all: bool = False
+    teams: list[int] = Field(default_factory=list)
+    is_active: bool = True
+
+
+class UserUpdate(BaseModel):
+    """Partial edit of a read-only user (only provided fields change). Username,
+    read-scope (``read_all`` / ``teams``) and active flag are editable; the
+    password is changed only via reset-password. No ``is_admin`` (never settable)."""
+    model_config = _auth_config
+
+    username: str | None = None
+    read_all: bool | None = None
+    teams: list[int] | None = None
+    is_active: bool | None = None
+
+
+class LoginRequest(BaseModel):
+    model_config = _auth_config
+
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Successful-login payload: the bearer token plus the caller's own user row."""
+    token: str
+    user: User
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change the CURRENT user's own password (verifies ``old_password``)."""
+    model_config = _auth_config
+
+    old_password: str
+    new_password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Admin resets a user's password. ``new_password`` optional — omitted/null
+    means reset to the provisioning default (see auth.default_password)."""
+    model_config = _auth_config
+
+    new_password: str | None = None
+
+
 # ── report-document models (§4 JSON) ─────────────────────────────────────────
 # The report is FLAT: tasks and artifacts are top-level lists, each entry carrying
 # its own domain placement. There is no nested domain tree.

@@ -179,3 +179,42 @@ CREATE TABLE IF NOT EXISTS ai_lead_item (
     description TEXT,
     category    TEXT NOT NULL CHECK (category IN ('meta_skill', 'cc_enhancement'))
 );
+
+-- ── user (Wave 17 — RBAC) ─────────────────────────────────────────────────────
+-- Every user logs in. Exactly one ADMIN (username 'admin', is_admin=1) reads AND
+-- edits everything and is untouchable (never listed/edited/deleted in the portal).
+-- Every OTHER user is READ-ONLY; their sole permission is a read-scope:
+--   * read_all=1  → sees ALL teams, including teams created later.
+--   * read_all=0  → sees only the teams listed in `user_team`.
+-- There is NO role column beyond is_admin + read_all: a "champion" is a read-only
+-- user scoped to one team; a "manager" is a read-only user with read_all=1.
+-- `password_hash` is a self-describing pbkdf2_sha256 string (see auth.py); it is
+-- NEVER returned by any API.
+CREATE TABLE IF NOT EXISTS user (
+    id            INTEGER PRIMARY KEY,
+    username      TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    is_admin      INTEGER NOT NULL DEFAULT 0,   -- 1 = the single admin (untouchable)
+    read_all      INTEGER NOT NULL DEFAULT 0,   -- 1 = read every team (incl. future)
+    is_active     INTEGER NOT NULL DEFAULT 1    -- 0 = deactivated (login refused)
+);
+
+-- ── user_team (specific-teams read-scope) ─────────────────────────────────────
+-- The set of teams a read_all=0 user may read. Ignored for admin / read_all=1
+-- users (they see everything). Rows cascade when the user or team is deleted.
+CREATE TABLE IF NOT EXISTS user_team (
+    user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+    team_id INTEGER NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, team_id)
+);
+
+-- ── session (opaque bearer tokens) ────────────────────────────────────────────
+-- One row per active login. `token` is a random secrets.token_urlsafe value sent
+-- as `Authorization: Bearer <token>`; it resolves to a user by `username`. Rows
+-- cascade when the user is deleted (a deleted user's sessions die with them).
+-- No server-side expiry column (see auth.py uncertainty note); logout deletes.
+CREATE TABLE IF NOT EXISTS session (
+    token      TEXT PRIMARY KEY,
+    username   TEXT NOT NULL REFERENCES user(username) ON DELETE CASCADE,
+    created_at TEXT NOT NULL                  -- ISO-8601 UTC timestamp
+);
