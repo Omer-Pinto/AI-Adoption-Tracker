@@ -44,10 +44,21 @@
 >   `<colgroup>` widths + CSS so inputs align under STATUS/DUE/DOMAIN/NOTE and the status pill stops
 >   clipping. ⚠️ **Not visually verifiable on an empty DB** — needs eyes on a populated create-report
 >   editor during QA; small residual risk the status column needs a few px more.
-> - **Open questions for QA/decision (NOT fixed):** (1) does a board-only action item still need a
->   **domain**? domains belong to a team, action items are now cross-team AI-Lead to-dos — the board
->   form has no domain control, so standalone items are always domain-null. (2) keep the board's
->   per-item "Open report ↗" provenance link, or drop it too?
+> **Round-3 (07-01) — Omer decisions on the two open questions. ⚠️ FIXED-IN-CODE, NOT YET E2E-VERIFIED.**
+> Same full gate (2 agents / 2 worktrees → code-reviewer (1 FIX-NOW, fixed) → code-simplifier → cherry-pick):
+> - **(a) Action items carry a TEAM, not a domain.** `action_item.domain_id` DROPPED, `team_id`
+>   (nullable FK team) ADDED. Report-derived → `team_id` = the report's team; manual (board) →
+>   user picks a team or leaves the **"General"** gutter (null). Fully editable on the board anytime.
+>   Removed the Domain column from the report-editor action-items card; `ReportActionItem` dropped
+>   domain; worklist `team_name`/`champion_name` now resolve from `action_item.team_id` (not via the
+>   report); board add/edit form got a Team `<select>` (null="General", else `/api/team-pages`);
+>   prompt drops action-item domain. Review FIX-NOW: `AILeadActionItem` was missing `team_id` in the
+>   response → fixed (live-smoked: create + worklist return team_id/team_name).
+> - **(b) Dropped the per-item "Open report ↗" link** on the AI-Lead board.
+> - Tests: 17 pytest + 46 journal-harness green; FE build clean; DB deleted+recreated from schema.sql
+>   (`action_item` = id, report_id, team_id, text, note, due_date, status). *E2E/LLM QA still pending
+>   (after D): domain→team on drafts, board team-picker + gutter, per-week champion follow-ups landing
+>   as id-matched TASKS not fresh action-item rows (see qa/ ⚠️ annotations).*
 
 **Agreed model:**
 - **"Action item" = the AI Lead's own to-do, EXCLUSIVELY.** No owner (always the AI Lead). Created
