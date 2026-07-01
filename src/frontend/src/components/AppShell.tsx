@@ -1,10 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '@/api';
+import type { TeamPageIndexEntry } from '@/types';
+import { useAuth } from '@/auth/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
+import { SettingsMenu } from './SettingsMenu';
 
 // Sidebar + main-content shell, reusing the mvp/ look (.app-shell, .nav-sidebar).
-// Nav: Teams → /, Artifacts → /artifacts, Tasks → /tasks, + Manage → /manage.
+// Nav is RBAC-aware (Wave 18):
+//   * admin        → everything, incl. New Report / Manage / Users.
+//   * all-team     → the read-only cross-team views (Teams / Artifacts / Tasks /
+//     viewer          AI Lead); no create/edit, no Manage/Users.
+//   * scoped       → only their own team page(s) + Settings; cross-team nav is
+//     viewer          hidden entirely (not greyed).
 // Routed pages render in the <Outlet/>.
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -36,7 +44,12 @@ function NavIcon({ children }: { children: ReactNode }) {
 }
 
 export function AppShell() {
+  const { isAdmin, readAll } = useAuth();
   const [version, setVersion] = useState('');
+  // A scoped viewer (not admin, not all-team) sees only their own team links;
+  // everyone else (admin or all-team viewer) gets the cross-team read views.
+  const scoped = !isAdmin && !readAll;
+  const [scopedTeams, setScopedTeams] = useState<TeamPageIndexEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +58,20 @@ export function AppShell() {
       .catch(() => { /* version footer is best-effort */ });
     return () => { cancelled = true; };
   }, []);
+
+  // For a scoped viewer, load the (server-scoped) team index so we can label
+  // their own team link(s) by name. Admin/all-team viewers use the fixed nav.
+  useEffect(() => {
+    if (!scoped) {
+      setScopedTeams([]);
+      return;
+    }
+    let cancelled = false;
+    api.views.teamsIndex()
+      .then((rows) => { if (!cancelled) setScopedTeams(rows); })
+      .catch(() => { /* nav is best-effort; Settings still works */ });
+    return () => { cancelled = true; };
+  }, [scoped]);
 
   return (
     <div className="app-shell">
@@ -78,58 +105,105 @@ export function AppShell() {
           </div>
           {version && <span className="nav-logo-version">v{version}</span>}
         </div>
-        <div className="nav-section">
-          <div className="nav-section-label">Main</div>
-          <NavLink to="/reports/new" className={navClass}>
-            <NavIcon>
-              <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-              <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
-              <path d="M12 11v6" />
-              <path d="M9 14h6" />
-            </NavIcon> New Report
-          </NavLink>
-          <NavLink to="/" end className={navClass}>
-            <NavIcon>
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </NavIcon> Teams
-          </NavLink>
-          <NavLink to="/artifacts" className={navClass}>
-            <NavIcon>
-              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-              <path d="m3.3 7 8.7 5 8.7-5" />
-              <path d="M12 22V12" />
-            </NavIcon> Artifacts
-          </NavLink>
-          <NavLink to="/tasks" className={navClass}>
-            <NavIcon>
-              <path d="m3 17 2 2 4-4" />
-              <path d="m3 7 2 2 4-4" />
-              <path d="M13 6h8" />
-              <path d="M13 12h8" />
-              <path d="M13 18h8" />
-            </NavIcon> Tasks
-          </NavLink>
-          <NavLink to="/ai-lead" className={navClass}>
-            <NavIcon>
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="6" />
-              <circle cx="12" cy="12" r="2" />
-            </NavIcon> AI Lead
-          </NavLink>
-        </div>
-        <hr className="nav-divider" />
-        <div className="nav-section">
-          <NavLink to="/manage" className={navClass}>
-            <NavIcon>
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
-              <circle cx="12" cy="12" r="3" />
-            </NavIcon> Manage
-          </NavLink>
-        </div>
+        {scoped ? (
+          // Scoped viewer: only their own team page(s).
+          <div className="nav-section">
+            <div className="nav-section-label">My teams</div>
+            {scopedTeams.length === 0 ? (
+              <NavLink to="/" end className={navClass}>
+                <NavIcon>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </NavIcon> My team
+              </NavLink>
+            ) : (
+              scopedTeams.map((t) => (
+                <NavLink key={t.team_id} to={`/teams/${t.team_id}`} className={navClass}>
+                  <NavIcon>
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </NavIcon> {t.team_name}
+                </NavLink>
+              ))
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="nav-section">
+              <div className="nav-section-label">Main</div>
+              {/* New Report is admin-only (report creation is not a viewer action). */}
+              {isAdmin && (
+                <NavLink to="/reports/new" className={navClass}>
+                  <NavIcon>
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                    <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
+                    <path d="M12 11v6" />
+                    <path d="M9 14h6" />
+                  </NavIcon> New Report
+                </NavLink>
+              )}
+              <NavLink to="/" end className={navClass}>
+                <NavIcon>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </NavIcon> Teams
+              </NavLink>
+              <NavLink to="/artifacts" className={navClass}>
+                <NavIcon>
+                  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                  <path d="m3.3 7 8.7 5 8.7-5" />
+                  <path d="M12 22V12" />
+                </NavIcon> Artifacts
+              </NavLink>
+              <NavLink to="/tasks" className={navClass}>
+                <NavIcon>
+                  <path d="m3 17 2 2 4-4" />
+                  <path d="m3 7 2 2 4-4" />
+                  <path d="M13 6h8" />
+                  <path d="M13 12h8" />
+                  <path d="M13 18h8" />
+                </NavIcon> Tasks
+              </NavLink>
+              <NavLink to="/ai-lead" className={navClass}>
+                <NavIcon>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </NavIcon> AI Lead
+              </NavLink>
+            </div>
+            {/* Admin-only management surfaces. */}
+            {isAdmin && (
+              <>
+                <hr className="nav-divider" />
+                <div className="nav-section">
+                  <NavLink to="/manage" className={navClass}>
+                    <NavIcon>
+                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </NavIcon> Manage
+                  </NavLink>
+                  <NavLink to="/users" className={navClass}>
+                    <NavIcon>
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </NavIcon> Users
+                  </NavLink>
+                </div>
+              </>
+            )}
+          </>
+        )}
         <div className="nav-foot">
+          <SettingsMenu />
           <ThemeToggle />
         </div>
       </nav>

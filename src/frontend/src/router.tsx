@@ -15,6 +15,9 @@ import AiLeadPage from '@/pages/ai-lead/AiLeadPage';
 import ReportCreatePage from '@/pages/report/ReportCreatePage';
 import ReportPreviewPage from '@/pages/report/ReportPreviewPage';
 import ReportEditPage from '@/pages/report/ReportEditPage';
+import UsersPage from '@/pages/users/UsersPage';
+import ForbiddenPage from '@/pages/error/ForbiddenPage';
+import NotFoundPage from '@/pages/error/NotFoundPage';
 
 // FIXED ROUTES — Wave-2 agents fill the stub page BODIES, never this file.
 // Paths mirror spec §7 / task_breakdown Wave-2 page folders.
@@ -24,11 +27,9 @@ import ReportEditPage from '@/pages/report/ReportEditPage';
 export const router = createBrowserRouter([
   // Public — rendered outside the AppShell (no sidebar/nav).
   { path: '/login', element: <LoginPage /> },
-
-  // TODO(Wave 17, later agent): admin-only `/users` route (user portal page).
-  //   Add it INSIDE the ProtectedRoute subtree below, gated to admins.
-  // TODO(Wave 17, later agent): public `/403` Forbidden page (rendered when the
-  //   api layer throws ForbiddenError). Add as a sibling of `/login` (no shell).
+  // Public `/403` — the curated Forbidden surface (the api layer throws
+  // ForbiddenError on a 403). Rendered without the shell, like /login.
+  { path: '/403', element: <ForbiddenPage /> },
 
   {
     element: <ProtectedRoute />,
@@ -50,6 +51,10 @@ export const router = createBrowserRouter([
           { path: 'reports/new', element: <ReportCreatePage /> },
           { path: 'reports/:reportId/preview', element: <ReportPreviewPage /> },
           { path: 'reports/:reportId/edit', element: <ReportEditPage /> },
+          // Admin-only user portal (UsersPage self-guards non-admins → Forbidden).
+          { path: 'users', element: <UsersPage /> },
+          // Catch-all 404 inside the shell.
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
     ],

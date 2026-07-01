@@ -1,0 +1,70 @@
+/* Users portal — toast + scope pills. Table/panel/top-bar reuse the shared
+   design-system classes (matches the Manage page). */
+
+.users-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  padding: 11px 16px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.users-scope-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.users-scope-pill.is-all {
+  background: var(--accent-weak);
+  color: var(--accent);
+  border: 1px solid var(--accent-weak-border);
+}
+
+.users-scope-pill.is-team {
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.users-scope-pill.is-none {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.users-active-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.users-active-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.users-active-dot.is-active {
+  color: #16a34a;
+}
+
+.users-active-dot.is-inactive {
+  color: var(--text-faint);
+}

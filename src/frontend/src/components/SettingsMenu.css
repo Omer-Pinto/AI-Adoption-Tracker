@@ -1,0 +1,128 @@
+/* Settings menu that lives in the dark sidebar footer (dark in BOTH themes),
+   so its palette is fixed to the sidebar's dark tokens like .theme-toggle. */
+
+.settings-menu {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.settings-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #2e3240;
+  background: #20242e;
+  color: #c8cdd6;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.settings-trigger:hover {
+  background: #252932;
+  border-color: #3a3f4c;
+}
+
+.settings-trigger:focus-visible {
+  outline: 2px solid #5b73f0;
+  outline-offset: 2px;
+}
+
+.settings-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b73f0, #3a4fd0);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.settings-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-username {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-role {
+  font-size: 10.5px;
+  color: #8a92a1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-gear {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #9db0f4;
+}
+
+.settings-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #1b1f28;
+  border: 1px solid #2e3240;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 40;
+}
+
+.settings-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #c8cdd6;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-popover-item:hover {
+  background: #252932;
+  color: #fff;
+}
+
+.settings-popover-item .settings-popover-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #9db0f4;
+}
+
+.settings-popover-item.is-danger:hover {
+  background: #3b1d1f;
+  color: #fca5a5;
+}
+
+.settings-popover-item.is-danger:hover .settings-popover-icon {
+  color: #fca5a5;
+}
