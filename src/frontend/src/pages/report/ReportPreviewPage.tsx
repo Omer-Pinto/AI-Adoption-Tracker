@@ -171,7 +171,6 @@ export default function ReportPreviewPage() {
                 then confirm to save.
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>{actionButtons}</div>
           </div>
         )}
 
