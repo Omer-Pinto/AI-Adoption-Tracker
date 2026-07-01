@@ -1,32 +1,43 @@
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
 import { landingPath } from '@/auth/ProtectedRoute';
+import './login.css';
 
 // Full-page sign-in, rendered OUTSIDE the AppShell (no sidebar/nav). A single
-// centered card using the shared form-input / btn classes + theme tokens, so it
-// reads correctly in light and dark. On success we route to the user's landing
+// centered card using the shared theme tokens (see login.css), so it reads
+// correctly in light and dark. On success we route to the user's landing
 // (admin/read-all → Teams index; single-team scoped → that team's page).
 
-const pageStyle: CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 24,
-  background: 'var(--bg)',
-};
-
-const cardStyle: CSSProperties = {
-  width: '100%',
-  maxWidth: 380,
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 12,
-  padding: '32px 28px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-};
+// Brand mark — the same gradient logo the sidebar uses (AppShell.nav-logo-mark).
+function LogoMark() {
+  return (
+    <span className="login-logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="44" height="44" role="presentation" focusable="false">
+        <defs>
+          <linearGradient id="loginLogoMark" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#5b73f0" />
+            <stop offset="1" stopColor="#3a4fd0" />
+          </linearGradient>
+        </defs>
+        <rect width="32" height="32" rx="8" fill="url(#loginLogoMark)" />
+        <path
+          d="M7 22 L13 15.5 L18.5 18.5 L25 9.5"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="7" cy="22" r="2.2" fill="#ffffff" />
+        <circle cx="13" cy="15.5" r="2.2" fill="#ffffff" />
+        <circle cx="18.5" cy="18.5" r="2.2" fill="#ffffff" />
+        <circle cx="25" cy="9.5" r="2.7" fill="#ffffff" />
+      </svg>
+    </span>
+  );
+}
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -56,31 +67,43 @@ export default function LoginPage() {
   const canSubmit = username.trim() !== '' && password !== '' && !submitting;
 
   return (
-    <div style={pageStyle}>
-      <form style={cardStyle} onSubmit={handleSubmit}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>
-          Sign in
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
-          AI Adoption Tracker
-        </p>
+    <div className="login-page">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <div className="login-brand">
+          <LogoMark />
+          <h1 className="login-title">AI Adoption Tracker</h1>
+          <p className="login-subtitle">Sign in to continue</p>
+        </div>
 
         {error && (
-          <p
-            role="alert"
-            style={{ color: '#ef4444', fontSize: 13, margin: '0 0 14px' }}
-          >
-            {error}
-          </p>
+          <div className="login-error" role="alert">
+            <svg
+              className="login-error-icon"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{error}</span>
+          </div>
         )}
 
-        <div className="form-row">
-          <label className="form-label form-label-required" htmlFor="login-username">
+        <div className="login-field">
+          <label className="login-label" htmlFor="login-username">
             Username
           </label>
           <input
             id="login-username"
-            className="form-input"
+            className="login-input"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
@@ -88,13 +111,13 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="form-row">
-          <label className="form-label form-label-required" htmlFor="login-password">
+        <div className="login-field">
+          <label className="login-label" htmlFor="login-password">
             Password
           </label>
           <input
             id="login-password"
-            className="form-input"
+            className="login-input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -102,12 +125,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={!canSubmit}
-          style={{ width: '100%', marginTop: 8 }}
-        >
+        <button type="submit" className="login-submit" disabled={!canSubmit}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

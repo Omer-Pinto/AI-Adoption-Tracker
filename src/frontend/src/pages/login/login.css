@@ -1,0 +1,154 @@
+/* ============================================================
+   Login page — full-page, centered sign-in card.
+   Rendered OUTSIDE the AppShell (no sidebar). Uses the shared
+   design-system tokens so it reads correctly in light + dark.
+   ============================================================ */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 32px 32px;
+  box-shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+}
+
+/* ---- Brand: logo mark + title + subtitle ---- */
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.login-logo-mark {
+  display: inline-flex;
+  line-height: 0;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(67, 97, 238, 0.35);
+  margin-bottom: 16px;
+}
+
+.login-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.15;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 7px 0 0;
+}
+
+/* ---- Error banner ---- */
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 3px solid #ef4444;
+  border-radius: 8px;
+  padding: 10px 13px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #b91c1c;
+  line-height: 1.4;
+}
+
+.login-error-icon {
+  flex-shrink: 0;
+  color: #ef4444;
+}
+
+html[data-theme="dark"] .login-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.34);
+  border-left-color: #ef4444;
+  color: #fca5a5;
+}
+
+/* ---- Fields ---- */
+.login-field {
+  margin-bottom: 16px;
+}
+
+.login-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.login-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login-input::placeholder { color: var(--text-faint); }
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.14);
+}
+
+/* ---- Submit button ---- */
+.login-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+
+.login-submit:hover:not(:disabled) { background: var(--accent-hover); }
+
+.login-submit:active:not(:disabled) { transform: translateY(1px); }
+
+.login-submit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.35);
+}
+
+.login-submit:disabled {
+  background: var(--border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
