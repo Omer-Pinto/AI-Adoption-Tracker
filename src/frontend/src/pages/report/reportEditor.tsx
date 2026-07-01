@@ -12,7 +12,7 @@
 // id semantics: `line.id` SET = MATCHED (name links to the detail route);
 // `line.id` null/absent = NEW (two-line editor, NEW badge, "link existing…").
 // Domain placement: `domain_id` + `domain` set together, both cleared for
-// unplaced/team-wide.
+// unplaced (the "General" gutter).
 
 import {
   useCallback,
@@ -147,7 +147,7 @@ function DomainSelect({
   domain: string | null | undefined;
   domainId: number | null | undefined;
   domains: DomainOption[];
-  // null target = unplaced/team-wide (clears both domain_id and domain)
+  // null target = unplaced (clears both domain_id and domain)
   onChange: (next: DomainOption | null) => void;
 }) {
   const c = colorForDomain(domainId, domains);

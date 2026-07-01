@@ -17,6 +17,7 @@ export interface ArtifactDetailModalProps {
 
 export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailModalProps) {
   const artifact = detail?.artifact ?? null;
+  const domain = detail?.domain ?? '';
   const history = detail?.history ?? [];
   return (
     <Modal open={open && artifact !== null} title={artifact?.name ?? ''} onClose={onClose} wide>
@@ -31,10 +32,8 @@ export function ArtifactDetailModal({ open, onClose, detail }: ArtifactDetailMod
               </div>
             </div>
             <div className="case-meta-item">
-              <div className="case-meta-label">Scope</div>
-              <div className="case-meta-value">
-                {artifact.domain_id === null ? 'Team-wide (all-team gutter)' : 'Domain'}
-              </div>
+              <div className="case-meta-label">Domain</div>
+              <div className="case-meta-value">{domain}</div>
             </div>
           </div>
 

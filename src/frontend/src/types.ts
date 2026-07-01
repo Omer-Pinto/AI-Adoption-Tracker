@@ -143,7 +143,7 @@ export interface ArtifactHistoryEntry {
 //   * `id` SET   → MATCHED existing task/artifact (the row's PK).
 //   * `id` null  → a NEW task/artifact to create at fan-out time.
 //   * `domain_id` SET  → matched existing domain (with `domain` = its name).
-//   * `domain_id` null → UNPLACED / team-wide (the per-champion "General" gutter);
+//   * `domain_id` null → UNPLACED (the per-champion "General" gutter);
 //     it does NOT mint a domain.
 //
 // The backend has `extra="forbid"`: a saved line must carry ONLY these keys.
@@ -241,10 +241,10 @@ export interface TaskDetail {
 }
 
 /** Artifact detail wrapper — `GET /api/artifacts/{id}` (contract §2). `domain` is
- *  the resolved domain name (null = team-wide / domain_id null). */
+ *  the resolved domain name (every artifact belongs to a domain). */
 export interface ArtifactDetail {
   artifact: Artifact;
-  domain: string | null;
+  domain: string;
   history: ArtifactHistoryEntry[];
 }
 
@@ -263,13 +263,14 @@ export interface TaskPatchBody {
   due_date?: string | null;
 }
 
-/** Body for `PATCH /api/artifacts/{id}` — domain_id nullable (null = team-wide). */
+/** Body for `PATCH /api/artifacts/{id}` — every artifact belongs to a domain,
+ *  so `domain_id` is a non-null domain PK. */
 export interface ArtifactPatchBody {
   name?: string;
   type?: ArtifactType;
   tags?: string[];
   summary?: string | null;
-  domain_id?: number | null;
+  domain_id?: number;
 }
 
 /**

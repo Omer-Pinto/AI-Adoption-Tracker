@@ -97,8 +97,8 @@ export default function ArtifactDetailPage() {
   useEffect(() => load(), [load]);
 
   // After a successful PATCH, re-read the authoritative detail from the backend
-  // (it resolves the domain NAME server-side, null = team-wide) instead of
-  // guessing from a local domains list that may have failed to load.
+  // (it resolves the domain NAME server-side) instead of guessing from a local
+  // domains list that may have failed to load.
   async function handleSaved() {
     setEditing(false);
     try {
@@ -213,9 +213,7 @@ export default function ArtifactDetailPage() {
                   </div>
                   <div className="case-meta-item">
                     <div className="case-meta-label">Domain</div>
-                    <div className="case-meta-value">
-                      {domain || <span className="text-muted">Team-wide</span>}
-                    </div>
+                    <div className="case-meta-value">{domain}</div>
                   </div>
                   <div className="case-meta-item">
                     <div className="case-meta-label">Tags</div>
@@ -281,7 +279,7 @@ export default function ArtifactDetailPage() {
   );
 }
 
-// ── Edit form — name, type, tags, summary, domain (incl. Team-wide = null) ───
+// ── Edit form — name, type, tags, summary, domain ───────────────────────────
 
 interface ArtifactEditFormProps {
   artifact: Artifact;
