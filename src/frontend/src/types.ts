@@ -415,22 +415,10 @@ export interface User {
   teams: number[];
 }
 
-/** Body for `POST /api/auth/login`. */
-export interface LoginBody {
-  username: string;
-  password: string;
-}
-
 /** Response for `POST /api/auth/login` — bearer token + the caller's identity. */
 export interface LoginResponse {
   token: string;
   user: AuthUser;
-}
-
-/** Body for `POST /api/auth/change-password` (Bearer). */
-export interface ChangePasswordBody {
-  old_password: string;
-  new_password: string;
 }
 
 /** Body for `POST /api/users` — admin creates a user. */
@@ -450,12 +438,6 @@ export interface UserUpdateBody {
   read_all?: boolean;
   teams?: number[];
   is_active?: boolean;
-}
-
-/** Body for `POST /api/users/{id}/reset-password` — admin sets a new password;
- *  omit `new_password` to reset to the provisioning default. */
-export interface ResetPasswordBody {
-  new_password?: string;
 }
 
 // ---- Search autocomplete (api_contract §4 — `GET /api/search/values`) ----
