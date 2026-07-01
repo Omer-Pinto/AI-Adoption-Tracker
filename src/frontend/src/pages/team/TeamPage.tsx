@@ -16,6 +16,7 @@ import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 import { ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // Route: "/teams/:teamId" — one team's portfolio (champion folded in). Wave-13 redesign (13B).
 
@@ -46,6 +47,7 @@ function domainChipStyle(color: string): React.CSSProperties {
 export default function TeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const [data, setData] = useState<TeamPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -200,12 +202,14 @@ export default function TeamPage() {
           </span>
         </div>
         <div className="top-bar-actions">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => navigate(`/reports/new?team=${team.id}`)}
-          >
-            + Create report
-          </button>
+          {isAdmin && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => navigate(`/reports/new?team=${team.id}`)}
+            >
+              + Create report
+            </button>
+          )}
         </div>
       </div>
 
@@ -404,9 +408,12 @@ export default function TeamPage() {
                     <div className="report-date">{r.meeting_date}</div>
                     <div className="report-label">Champion meeting &bull; {team.champion_name}</div>
                   </div>
-                  <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
-                    {r.id === latestReportId ? 'View / Edit' : 'View'}
-                  </Link>
+                  {/* The report editor is admin-only; non-admins get no link. */}
+                  {isAdmin && (
+                    <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
+                      {r.id === latestReportId ? 'View / Edit' : 'View'}
+                    </Link>
+                  )}
                 </div>
               ))
             )}

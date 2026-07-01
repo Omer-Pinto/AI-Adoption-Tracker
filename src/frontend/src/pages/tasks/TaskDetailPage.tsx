@@ -4,6 +4,7 @@ import { api, ApiError } from '@/api';
 import type { Domain, TaskDetail, TaskHistoryEntry, TaskPatchBody, TaskStatus } from '@/types';
 import { StatusBadge } from '@/components/Badge';
 import { ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // A subtle, calm marker showing whether a history entry came from a report or a
 // manual current-state edit. Report entries stay unlabeled (the common case);
@@ -51,6 +52,7 @@ const STATUS_OPTS: { v: TaskStatus; l: string }[] = [
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const taskId = Number(id);
 
   const [detail, setDetail] = useState<TaskDetail | null>(null);
@@ -196,7 +198,7 @@ export default function TaskDetailPage() {
                 <div className="detail-eyebrow">Task</div>
                 <h2 className="detail-title">{task.name}</h2>
               </div>
-              {!editing && (
+              {isAdmin && !editing && (
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
@@ -269,7 +271,7 @@ export default function TaskDetailPage() {
                         <span className="detail-tl-date">{h.meeting_date}</span>
                         <StatusBadge status={h.status_at_meeting} />
                         <HistorySourceTag source={h.source} />
-                        {h.report_id != null && (
+                        {isAdmin && h.report_id != null && (
                           <Link
                             to={`/reports/${h.report_id}/edit`}
                             className="btn btn-sm btn-outline"

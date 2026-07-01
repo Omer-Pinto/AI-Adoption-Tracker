@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/Badge';
 import { SearchBar } from '@/search/SearchBar';
 import { useSearchQuery } from '@/search/useSearchQuery';
 import { EmptyState, ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // Route: "/tasks" — all tasks with week-by-week journey expand.
 
@@ -226,6 +227,7 @@ function dotClass(status: TaskStatus): string {
 }
 
 function JourneyTimeline({ history }: { history: TaskHistoryEntry[] }) {
+  const { isAdmin } = useAuth();
   return (
     <div className="journey-timeline">
       {history.map((entry) => (
@@ -234,15 +236,18 @@ function JourneyTimeline({ history }: { history: TaskHistoryEntry[] }) {
           <div className="journey-step-header">
             <span className="journey-step-date">{entry.meeting_date}</span>
             <StatusBadge status={entry.status_at_meeting} />
-            {/* report_id is present on TaskHistoryEntry — link to the owning report's edit page */}
-            <Link
-              to={`/reports/${entry.report_id}/edit`}
-              className="btn btn-sm btn-outline"
-              style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
-              title="Edit the report that recorded this entry"
-            >
-              Edit report
-            </Link>
+            {/* report_id is present on TaskHistoryEntry — the report editor is
+                admin-only, so non-admins get no "Edit report" link. */}
+            {isAdmin && (
+              <Link
+                to={`/reports/${entry.report_id}/edit`}
+                className="btn btn-sm btn-outline"
+                style={{ fontSize: 11, padding: '1px 7px', marginLeft: 6 }}
+                title="Edit the report that recorded this entry"
+              >
+                Edit report
+              </Link>
+            )}
           </div>
           {entry.change_note && (
             <p className="journey-step-note">{entry.change_note}</p>

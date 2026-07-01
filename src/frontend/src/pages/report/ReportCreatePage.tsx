@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import type { ReportJson, TeamPageIndexEntry } from '@/types';
 import { EmptyState, ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // Route: "/reports/new"
 // Champion is folded into the team — report creation is entered from a TEAM,
@@ -19,6 +20,7 @@ const STATIC_VALUE = { fontSize: 13, fontWeight: 600, color: 'var(--text)' };
 
 export default function ReportCreatePage() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
 
   // The team is the unit of entry. When ?team= is present we lock to it and show
@@ -59,6 +61,9 @@ export default function ReportCreatePage() {
   }, []);
 
   useEffect(() => loadTeams(), [loadTeams]);
+
+  // Report creation is admin-only; non-admins are bounced to the shared 403 page.
+  if (!isAdmin) return <Navigate to="/403" replace />;
 
   const selectedTeam = teams.find((t) => t.team_id === teamId) ?? null;
 

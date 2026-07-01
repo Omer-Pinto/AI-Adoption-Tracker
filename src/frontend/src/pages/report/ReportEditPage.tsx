@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '@/api';
 import type { ReportJson, TeamEntities } from '@/types';
 import { ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 import {
   FlatReportEditor,
   findMissingArtifactTypes,
@@ -21,6 +22,7 @@ const EMPTY_ENTITIES: TeamEntities = { tasks: [], artifacts: [] };
 export default function ReportEditPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const [report, setReport] = useState<ReportJson | null>(null);
   const [keys, setKeys] = useState<EditorKeys>({
@@ -85,6 +87,9 @@ export default function ReportEditPage() {
   }, [reportId]);
 
   useEffect(() => load(), [load]);
+
+  // The report editor is admin-only; non-admins are bounced to the shared 403 page.
+  if (!isAdmin) return <Navigate to="/403" replace />;
 
   async function handleSave() {
     if (!report || !reportId) return;

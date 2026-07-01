@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/api';
 import type { ReportJson, TeamEntities } from '@/types';
+import { useAuth } from '@/auth/AuthContext';
 import {
   FlatReportEditor,
   findMissingArtifactTypes,
@@ -28,6 +29,7 @@ export default function ReportPreviewPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const locationState = location.state as PreviewLocationState | null;
   const initialDraft = locationState?.draft ?? null;
@@ -117,6 +119,9 @@ export default function ReportPreviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [confirming, report],
   );
+
+  // Report preview/confirm is admin-only; non-admins are bounced to the shared 403 page.
+  if (!isAdmin) return <Navigate to="/403" replace />;
 
   if (!report) {
     return (

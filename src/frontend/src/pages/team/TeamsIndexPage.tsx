@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import type { TeamPageIndexEntry } from '@/types';
 import { EmptyState, ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // Route: "/" — Teams index (list of champion portfolios). Wave-3 agent 3B.
 
@@ -79,6 +80,7 @@ export default function TeamsIndexPage() {
 
 // One card per team (exactly one champion per team in the 1:1 model).
 function TeamCard({ entry }: { entry: TeamPageIndexEntry }) {
+  const { isAdmin } = useAuth();
   return (
     <div className="team-card">
       <div className="team-card-header">
@@ -110,12 +112,14 @@ function TeamCard({ entry }: { entry: TeamPageIndexEntry }) {
             )}
           </div>
           <div className="d-flex gap-8 align-center">
-            <Link
-              to={`/reports/new?team=${entry.team_id}`}
-              className="btn btn-primary btn-sm"
-            >
-              + Create report
-            </Link>
+            {isAdmin && (
+              <Link
+                to={`/reports/new?team=${entry.team_id}`}
+                className="btn btn-primary btn-sm"
+              >
+                + Create report
+              </Link>
+            )}
             <Link to={`/teams/${entry.team_id}`} className="btn btn-secondary btn-sm">
               View team
             </Link>

@@ -10,6 +10,7 @@ import type {
 } from '@/types';
 import { ArtifactTypeBadge, ChangeKindBadge, TagList, ARTIFACT_TYPE_LABELS } from '@/components/Badge';
 import { ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // A subtle, calm marker showing whether a history entry came from a report or a
 // manual current-state edit. Report entries stay unlabeled (the common case);
@@ -48,6 +49,7 @@ const ARTIFACT_TYPES: ArtifactType[] = ['agent', 'skill', 'hook', 'context', 'wo
 export default function ArtifactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const artifactId = Number(id);
 
   const [detail, setDetail] = useState<ArtifactDetail | null>(null);
@@ -181,7 +183,7 @@ export default function ArtifactDetailPage() {
                 <div className="detail-eyebrow">Artifact</div>
                 <h2 className="detail-title">{artifact.name}</h2>
               </div>
-              {!editing && (
+              {isAdmin && !editing && (
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
@@ -255,7 +257,7 @@ export default function ArtifactDetailPage() {
                         <span className="detail-tl-date">{h.meeting_date}</span>
                         <ChangeKindBadge kind={h.change_kind} />
                         <HistorySourceTag source={h.source} />
-                        {h.report_id != null && (
+                        {isAdmin && h.report_id != null && (
                           <Link
                             to={`/reports/${h.report_id}/edit`}
                             className="btn btn-sm btn-outline"

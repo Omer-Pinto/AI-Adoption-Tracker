@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { api } from '@/api';
+import { useAuth } from '@/auth/AuthContext';
 import type {
   ActionItemPatchBody,
   AILeadActionItem,
@@ -92,6 +93,7 @@ function teamColor(name: string): string {
 }
 
 export default function AiLeadPage() {
+  const { isAdmin } = useAuth();
   const [items, setItems] = useState<AILeadActionItem[]>([]);
   // Teams for the add/edit team dropdown (options: "General" + every team).
   const [teams, setTeams] = useState<TeamPageIndexEntry[]>([]);
@@ -397,9 +399,11 @@ export default function AiLeadPage() {
                       By team
                     </button>
                   </div>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
-                    + Add action item
-                  </button>
+                  {isAdmin && (
+                    <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
+                      + Add action item
+                    </button>
+                  )}
                 </div>
 
                 {actionForm && (
@@ -520,6 +524,7 @@ export default function AiLeadPage() {
                         <ItemRow
                           key={it.id}
                           it={it}
+                          canEdit={isAdmin}
                           onPatch={patchItem}
                           onEdit={openEdit}
                           onDelete={deleteAction}
@@ -547,6 +552,7 @@ export default function AiLeadPage() {
                             <ItemRow
                               key={it.id}
                               it={it}
+                              canEdit={isAdmin}
                               onPatch={patchItem}
                               onEdit={openEdit}
                               onDelete={deleteAction}
@@ -569,7 +575,7 @@ export default function AiLeadPage() {
           aria-labelledby="ail-tab-toolkit"
           hidden={tab !== 'toolkit'}
         >
-          <Toolkit onCountChange={setToolkitCount} />
+          <Toolkit onCountChange={setToolkitCount} canEdit={isAdmin} />
         </div>
       </div>
     </>
@@ -578,12 +584,14 @@ export default function AiLeadPage() {
 
 function ItemRow({
   it,
+  canEdit,
   onPatch,
   onEdit,
   onDelete,
   error,
 }: {
   it: AILeadActionItem;
+  canEdit: boolean;
   onPatch: (id: number, patch: ActionItemPatchBody) => void;
   onEdit: (it: AILeadActionItem) => void;
   onDelete: (it: AILeadActionItem) => void;
@@ -592,6 +600,7 @@ function ItemRow({
   const standalone = isStandalone(it);
   const closed = isClosed(it.status);
   const overdue = isOverdue(it);
+  const statusLabel = STATUS_OPTIONS.find(([v]) => v === it.status)?.[1] ?? it.status;
   return (
     <tr className={`item-row ${closed ? 'is-closed ' : ''}st-${it.status}`}>
       <td className="col-item">
@@ -621,43 +630,55 @@ function ItemRow({
         )}
       </td>
       <td className="col-due">
-        <input
-          type="date"
-          className={`due-input${overdue ? ' overdue' : ''}`}
-          value={it.due_date ?? ''}
-          // Empty value clears the due date (→ null per contract).
-          onChange={(e) => onPatch(it.id, { due_date: e.target.value || null })}
-          aria-label="Due date"
-        />
+        {canEdit ? (
+          <input
+            type="date"
+            className={`due-input${overdue ? ' overdue' : ''}`}
+            value={it.due_date ?? ''}
+            // Empty value clears the due date (→ null per contract).
+            onChange={(e) => onPatch(it.id, { due_date: e.target.value || null })}
+            aria-label="Due date"
+          />
+        ) : it.due_date ? (
+          <span className={`mtg-date${overdue ? ' overdue' : ''}`}>{it.due_date}</span>
+        ) : (
+          <span className="date-dash">—</span>
+        )}
         {overdue && <div className="overdue-tag">Overdue</div>}
       </td>
       <td className="col-status">
         <span className="status-wrap">
           <span className={`status-dot sd-${it.status}`} />
-          <select
-            className="status-sel"
-            aria-label="Status"
-            value={it.status}
-            onChange={(e) => onPatch(it.id, { status: e.target.value as TaskStatus })}
-          >
-            {STATUS_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          {canEdit ? (
+            <select
+              className="status-sel"
+              aria-label="Status"
+              value={it.status}
+              onChange={(e) => onPatch(it.id, { status: e.target.value as TaskStatus })}
+            >
+              {STATUS_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          ) : (
+            <span>{statusLabel}</span>
+          )}
         </span>
         {error && <div className="row-error">{error}</div>}
       </td>
       <td className="col-open">
         {/* A1+A2: every item (report-derived AND standalone) is fully editable +
-            deletable here. */}
-        <div className="row-acts">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
-            Edit
-          </button>
-          <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
-            Delete
-          </button>
-        </div>
+            deletable here — but only for admins. */}
+        {canEdit && (
+          <div className="row-acts">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
+              Edit
+            </button>
+            <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
+              Delete
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );
@@ -688,7 +709,13 @@ type ToolkitForm = {
 
 const BLANK_FORM: ToolkitForm = { id: null, name: '', description: '', category: 'meta_skill' };
 
-function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
+function Toolkit({
+  onCountChange,
+  canEdit,
+}: {
+  onCountChange: (n: number) => void;
+  canEdit: boolean;
+}) {
   const [items, setItems] = useState<AILeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -813,7 +840,7 @@ function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
           </span>
         </span>
         <span className="list-spacer" />
-        {!form && (
+        {canEdit && !form && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={openAdd}>
             + Add item
           </button>
@@ -896,22 +923,24 @@ function Toolkit({ onCountChange }: { onCountChange: (n: number) => void }) {
                           <div className="tk-row-desc">{it.description}</div>
                         )}
                       </div>
-                      <div className="tk-row-actions">
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => openEdit(it)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-danger-outline btn-sm"
-                          onClick={() => remove(it)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="tk-row-actions">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openEdit(it)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger-outline btn-sm"
+                            onClick={() => remove(it)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

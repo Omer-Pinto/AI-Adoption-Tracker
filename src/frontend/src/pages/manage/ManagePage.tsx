@@ -8,6 +8,7 @@ import type { Column } from '@/components/DataTable';
 import { TeamForm } from './TeamForm';
 import { DomainForm } from './DomainForm';
 import { ErrorState } from '@/components/EmptyState';
+import { useAuth } from '@/auth/AuthContext';
 
 // Route: "/manage" — Teams, Domains lists with Add/Edit.
 
@@ -20,6 +21,7 @@ type ModalState =
 
 export default function ManagePage() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [tab, setTab] = useState<ActiveTab>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -81,22 +83,27 @@ export default function ManagePage() {
       header: 'Start',
       render: (row) => <span className="text-muted">{row.champion_start_date ?? '—'}</span>,
     },
-    {
-      key: 'actions',
-      header: '',
-      width: '80px',
-      render: (row) => (
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setModal({ kind: 'team', editing: row });
-          }}
-        >
-          Edit
-        </button>
-      ),
-    },
+    // Edit affordance is admin-only.
+    ...(isAdmin
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            width: '80px',
+            render: (row: Team) => (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setModal({ kind: 'team', editing: row });
+                }}
+              >
+                Edit
+              </button>
+            ),
+          },
+        ]
+      : []),
   ];
 
   // --- Domains table ---
@@ -156,33 +163,38 @@ export default function ManagePage() {
           </div>
         ),
     },
-    {
-      key: 'actions',
-      header: '',
-      width: '150px',
-      render: (row) => (
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setModal({ kind: 'domain', editing: row });
-            }}
-          >
-            Edit
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleDeleteDomain(row);
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      ),
-    },
+    // Edit/Delete affordances are admin-only.
+    ...(isAdmin
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            width: '150px',
+            render: (row: Domain) => (
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModal({ kind: 'domain', editing: row });
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleDeleteDomain(row);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   // Group rows by team_id, ordered by the teams list, then any leftover teams.
@@ -241,7 +253,7 @@ export default function ManagePage() {
           <span className="top-bar-sub">Teams, domains</span>
         </div>
         <div className="top-bar-actions">
-          {tab === 'teams' && (
+          {isAdmin && tab === 'teams' && (
             <button
               className="btn btn-primary btn-sm"
               onClick={() => setModal({ kind: 'team', editing: null })}
@@ -249,7 +261,7 @@ export default function ManagePage() {
               + Add Team
             </button>
           )}
-          {tab === 'domains' && (
+          {isAdmin && tab === 'domains' && (
             <button
               className="btn btn-primary btn-sm"
               onClick={() => navigate('/domains/extract')}
