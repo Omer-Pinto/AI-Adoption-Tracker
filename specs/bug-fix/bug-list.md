@@ -28,6 +28,27 @@
 > build clean. Live-verified on :5173: edited a report-derived item's note end-to-end, latest-only
 > edit gating, read-only older report.
 
+> **Round-2 review fixes (07-01) — Omer QA of the build. ⚠️ FIXED-IN-CODE, NOT YET E2E-VERIFIED**
+> (DB is empty pre-MVP; final proof is the real QA/LLM E2E pass that Claude runs after D). Ran the
+> full gate this round: 2 agents in 2 worktrees → **code-reviewer** (0 FIX-NOW) → **code-simplifier**
+> → cherry-picked. Items:
+> - **b-place — action items are BOARD-ONLY** (Omer decision): removed from the **team page** entirely
+>   (backend `TeamPage` no longer returns `action_items`/`open/closed_action_items`; FE drops the tile
+>   + fold) and from the report **EDIT** flow (the "My action items (AI Lead)" section renders only in
+>   the **create** flow; the read-only-in-edit variant + its plumbing were deleted). AI-Lead board is
+>   the sole CRUD home. Resolves the "why per-team / why on team page / missing +Add in edit" confusion.
+> - **b-focus — autofocus bug**: the "other owner" task input had a hardcoded `autoFocus` that stole
+>   focus into a cell on report load (e.g. Payments report 3 → "Tomer"). Removed; popup/LinkPicker
+>   autofocus kept (correct). *Verify in QA: opening/creating a report leaves focus on the page.*
+> - **b-align — action-items editable table render (looked "like CRAP")**: rebalanced the `ai-table`
+>   `<colgroup>` widths + CSS so inputs align under STATUS/DUE/DOMAIN/NOTE and the status pill stops
+>   clipping. ⚠️ **Not visually verifiable on an empty DB** — needs eyes on a populated create-report
+>   editor during QA; small residual risk the status column needs a few px more.
+> - **Open questions for QA/decision (NOT fixed):** (1) does a board-only action item still need a
+>   **domain**? domains belong to a team, action items are now cross-team AI-Lead to-dos — the board
+>   form has no domain control, so standalone items are always domain-null. (2) keep the board's
+>   per-item "Open report ↗" provenance link, or drop it too?
+
 **Agreed model:**
 - **"Action item" = the AI Lead's own to-do, EXCLUSIVELY.** No owner (always the AI Lead). Created
   from the "AI Lead to…" lines in a report's notes, OR added standalone on the AI-Lead board. After
