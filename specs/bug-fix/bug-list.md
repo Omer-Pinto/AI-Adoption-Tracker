@@ -14,51 +14,15 @@
 
 ## A. Decisions to make FIRST (architectural — deferred per Omer, do not code until agreed)
 
-### A1 + A2 — RESOLVED (Omer + analysis, 06-30). Build plan below. — **BUILT ✅ (07-01, `mvp-bug-fixes-prod`)**
+### A1 + A2 — DONE ✅ (built + live-verified across all 3 QA teams, 07-01)
 
-> **Built + live-verified.** Parallel backend/frontend agents in worktrees, cherry-picked disjoint.
-> Backend: `action_item` dropped `owner` + added `note` (pre-MVP — no migration; DB deleted and
-> recreated clean from `schema.sql`, which is authoritative); AI-Lead worklist returns
-> ALL items (no owner filter); PATCH/DELETE allowed on ANY item (report-derived 409s removed);
-> replay skips action items (create-once); `PATCH /reports/{id}` → 409 on a non-latest report; prompt
-> redefined (action items = AI-Lead-only, champion follow-ups → tasks — closes **D2**). Tests: 12
-> pytest + 45 journal-harness green. Frontend: editor section relabeled "My action items (AI Lead)",
-> Owner column removed + Note added (read-only in edit = create-once), team + AI-Lead boards do full
-> in-place CRUD on all items with note+domain, non-latest reports render read-only (View only). FE
-> build clean. Live-verified on :5173: edited a report-derived item's note end-to-end, latest-only
-> edit gating, read-only older report.
+Action items = the **AI Lead's own to-dos, only** — no owner. Tagged to a **team** (`team_id`,
+nullable = the General gutter), NOT a domain. Created once from a report's "AI Lead to…" lines or
+added standalone; not journaled, not re-matched, not touched by replay. **Full CRUD on the AI-Lead
+board only** (removed from team pages and from the report-edit flow). Champion/team follow-ups become
+**tasks** (General if unplaced), never action items. Only the **latest** report per team is editable.
+`action_item` = (id, report_id, team_id, text, note, due_date, status).
 
-> **Round-2 review fixes (07-01) — Omer QA of the build. ⚠️ FIXED-IN-CODE, NOT YET E2E-VERIFIED**
-> (DB is empty pre-MVP; final proof is the real QA/LLM E2E pass that Claude runs after D). Ran the
-> full gate this round: 2 agents in 2 worktrees → **code-reviewer** (0 FIX-NOW) → **code-simplifier**
-> → cherry-picked. Items:
-> - **b-place — action items are BOARD-ONLY** (Omer decision): removed from the **team page** entirely
->   (backend `TeamPage` no longer returns `action_items`/`open/closed_action_items`; FE drops the tile
->   + fold) and from the report **EDIT** flow (the "My action items (AI Lead)" section renders only in
->   the **create** flow; the read-only-in-edit variant + its plumbing were deleted). AI-Lead board is
->   the sole CRUD home. Resolves the "why per-team / why on team page / missing +Add in edit" confusion.
-> - **b-focus — autofocus bug**: the "other owner" task input had a hardcoded `autoFocus` that stole
->   focus into a cell on report load (e.g. Payments report 3 → "Tomer"). Removed; popup/LinkPicker
->   autofocus kept (correct). *Verify in QA: opening/creating a report leaves focus on the page.*
-> - **b-align — action-items editable table render (looked "like CRAP")**: rebalanced the `ai-table`
->   `<colgroup>` widths + CSS so inputs align under STATUS/DUE/DOMAIN/NOTE and the status pill stops
->   clipping. ⚠️ **Not visually verifiable on an empty DB** — needs eyes on a populated create-report
->   editor during QA; small residual risk the status column needs a few px more.
-> **Round-3 (07-01) — Omer decisions on the two open questions. ⚠️ FIXED-IN-CODE, NOT YET E2E-VERIFIED.**
-> Same full gate (2 agents / 2 worktrees → code-reviewer (1 FIX-NOW, fixed) → code-simplifier → cherry-pick):
-> - **(a) Action items carry a TEAM, not a domain.** `action_item.domain_id` DROPPED, `team_id`
->   (nullable FK team) ADDED. Report-derived → `team_id` = the report's team; manual (board) →
->   user picks a team or leaves the **"General"** gutter (null). Fully editable on the board anytime.
->   Removed the Domain column from the report-editor action-items card; `ReportActionItem` dropped
->   domain; worklist `team_name`/`champion_name` now resolve from `action_item.team_id` (not via the
->   report); board add/edit form got a Team `<select>` (null="General", else `/api/team-pages`);
->   prompt drops action-item domain. Review FIX-NOW: `AILeadActionItem` was missing `team_id` in the
->   response → fixed (live-smoked: create + worklist return team_id/team_name).
-> - **(b) Dropped the per-item "Open report ↗" link** on the AI-Lead board.
-> - Tests: 17 pytest + 46 journal-harness green; FE build clean; DB deleted+recreated from schema.sql
->   (`action_item` = id, report_id, team_id, text, note, due_date, status). *E2E/LLM QA still pending
->   (after D): domain→team on drafts, board team-picker + gutter, per-week champion follow-ups landing
->   as id-matched TASKS not fresh action-item rows (see qa/ ⚠️ annotations).*
 
 **Agreed model:**
 - **"Action item" = the AI Lead's own to-do, EXCLUSIVELY.** No owner (always the AI Lead). Created
@@ -77,37 +41,15 @@
 - A report **creates** its action items once on save; replay/edit of the latest report re-folds
   tasks/artifacts but **does not touch** action items (in-place edits never clobbered).
 
-**Build plan (under A1+A2):**
-- **DB (`schema.sql` `action_item`):** DROP `owner`; ADD `note TEXT` (nullable). Keep `report_id`
-  (nullable), `domain_id` (nullable), `text`, `due_date`, `status`.
-- **Backend:** `models.ActionItem`/`ReportActionItem` drop `owner`, add `note`. `engine`:
-  `_insert_action_item` stops writing owner (delete the action-item owner-default logic), writes
-  `note`; **replay must skip action items** (create-once, independent). `routes/views.py`: AI-Lead
-  worklist drops the `owner='AI Lead'` filter (every action item is the AI Lead's now); action-item
-  **PATCH** allows text/status/due/note/domain on ANY item; **DELETE** allowed for ANY item (remove
-  the report-derived 409). `PATCH /reports/{id}`: reject editing a non-latest report (#3).
-- **Prompt (`llm/interface.py`):** redefine ACTION ITEMS = exclusively the AI-enablement-lead's own
-  to-dos (no owner); a champion/team follow-up is a TASK (its tech domain, else General) — never an
-  action item, never discussion. Remove all action-item owner rules. (Also fixes **D2**.) Task owner
-  default = champion stays.
-- **UI:** report editor action-items section — remove the Owner column/dropdown, add a **Note**
-  field, keep status/due/domain (relabel → "My action items (AI Lead)"). Team page + AI-Lead board:
-  in-place CRUD (status/text/due/note/delete) for ALL action items; show note + domain. Reports
-  list/detail: remove the Edit button on non-latest reports (#3). `types.ts`/`api.ts`: `ActionItem`
-  drop `owner`, add `note`; patch/delete for any item.
-- **Migration (existing QA DB):** DECIDED (Omer 06-30) — **just drop `owner`**; existing action
-  items all become AI-Lead items (no conversion to tasks). Omer re-enters/cleans QA fresh.
 - **A3 — Kill manual single-domain add** *(global #2)* — **done ✅** manual "+ Add Domain" modal
   trigger removed; single **"+ Add Domains"** entry → the smart-extract page (single domain = one
   line). `DomainForm` kept for *editing*; `POST /api/domains` kept for the extract approve step.
-- **A4 — Skill→domain placement** *(May 18 #3)* — **RESOLVED by design (Omer 06-30):** Context
-  Creation is the home for ALL Claude tooling (skills/agents/hooks/context) **and** any
-  task/action-item about *building* that tooling — it's domain-agnostic (e.g. an "FE-dev agent" →
-  Context Creation, NOT the FE domain). Tech domains hold actual product/feature work (FE = "add
-  reports page + API + tests"). So skills→Context Creation is correct, not a bug. **Prompt
-  tightened ✅** to enforce it (Context Creation = all Claude tooling; "team-wide skills" removed
-  from the null bucket). NOTE: this means team-wide skills now land in Context Creation instead of
-  the team-wide/null gutter — the qa Web-Experience a11y-skill expectation shifts accordingly.
+- **A4 — Artifact / tooling → domain placement** — **REVISED (Omer 07-01), reversing the earlier
+  "all tooling → Context Creation" rule.** An **artifact ALWAYS has a team domain** (never team-wide/
+  null): a skill/agent/hook/workflow/mcp → its **tech domain**; a **`context`** artifact (CLAUDE.md/
+  conventions) → **Context Creation**; unplaced → the team's **General**. A **task** about *building*
+  tooling → Context Creation; product tasks → their tech domain. Artifact **types expanded to 7**:
+  agent, skill, hook, context, **workflow, mcp, other**. Built + kept; live-verified in QA.
 
 ## B. Deterministic code bugs (no LLM involved) — done ✅
 
@@ -135,31 +77,21 @@
 - **C6** `[ui]` Rename "meetings" tile/section text so the tile label matches the section it opens
   *(May 4 #12b)*. *(#12 a/c/d already work correctly.)*
 
-## D. LLM extraction-quality (prompt fixes — probabilistic; one pass covers several) — **BUILT ✅ (07-01, `mvp-bug-fixes-prod`). ⚠️ NOT YET LIVE-VERIFIED (probabilistic — needs the live LLM QA that Claude runs next).**
+## D. LLM extraction-quality — status after live QA (07-01). Prompt-only, NO rule-based hacks.
 
-> **One coherent pass by an ai-engineer agent** (Omer's call — the LLM contract must be owned by an
-> LLM specialist, since python-agent/hand edits to the structured-output pydantic objects were the
-> risk). Full gate: ai-engineer → code-reviewer (2 FIX-NOW: draft-preview vs save divergences — a
-> matched-artifact domain silently stripped on save, and a cleared-vs-never-owned owner mismatch —
-> both fixed by reusing the exact save-path functions) → re-review (clean) → simplifier → cherry-pick.
-> - **Contract CURATED:** audited `ReportDocument` + sub-models; confirmed `ReportActionItem` is
->   `{text, note, status, due_date}` only (no owner/domain/team). Added tests proving BOTH provider
->   derivations clear — OpenAI-strict (`to_strict_json_schema`: all-required + nullable + additional
->   Properties:false) AND Anthropic (`model_json_schema()`), from the same code paths interface.py uses.
-> - **D1** no-drop safety net (rejected ideas → `wont_fix` tasks + final line-by-line check).
-> - **D3** `change_kind` always set (draft-time default mirroring save's inference + prompt).
-> - **D4** DECISION: KEEP `note`, tightened to a per-meeting CHANGE DELTA only (never restate name/
->   status/owner/summary; null when nothing changed) — it backs `task_history`/`artifact_history.change_note`.
-> - **D5** task owner emitted when the notes name a person.
-> - **D6** strong artifact names + always a real `summary`.
-> - **D7** problems/risks/slippage → `issues`, not discussion.
-> - **D8** APPROACH: deterministic **draft-time defaulting** in `routes/reports.py` (`apply_draft_defaults`,
->   reusing `_task_journal_has_owner` / change-kind inference) so the preview owner/change_kind == what
->   SAVE persists — the LLM can't forget, and a matched task's real owner isn't clobbered. No owner on
->   action items. Tests: 31 pytest + 46 harness + 14 contract/draft-default green.
-> - **Live QA still owed (Claude, after this):** the probabilistic behaviors above against all 3 teams'
->   reports (real OpenAI + Anthropic drafts) — confirm no-drop, change_kind, note-discipline, owners,
->   names/summaries, issues-routing, and preview==saved.
+**Works** (live-tested, 3 teams): D1 no-drop (rejected idea → `wont_fix` task) · D3 `change_kind`
+always set · D5 owners incl. different-person · D6 strong names + summaries · D7 risks→issues ·
+cross-week id-matching & sticky due-dates · artifact→tech-domain + `context`→Context Creation (A4).
+D2 folded into A1+A2. D4 (note-discipline) + D8 (draft-time owner default) kept.
+
+**Still FAILING — OPEN (fix with clean prompting, NOT rules):**
+- **Over-inclusion:** the model re-lists prior-week tasks/artifacts the current notes DON'T mention
+  (spurious history row). Worst on the "Multi-week tasks:" pattern; ~1/3 clean prompt-only.
+- **Statement-form misrouting:** a completion stated flatly ("the X is done") or an AI-Lead decision
+  ("we decided not to …") lands in `discussion` instead of updating the task / becoming an action item.
+
+> A rule-based guard + special-case prompt rules were tried for these two and **REVERTED** (wrong
+> tool for an LLM product) — fix with general NLP prompting + the UI-review step, not rules.
 
 - **D1** `[llm]` Dropped a whole task: "Rewrite the ledger in Rust" vanished entirely *(May 18 #1)* —
   no-drop safety-net failed. **High.**
