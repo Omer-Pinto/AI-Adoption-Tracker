@@ -112,13 +112,18 @@ CREATE TABLE IF NOT EXISTS task_history (
 );
 
 -- ── artifact (current state) ──────────────────────────────────────────────────
--- Belongs to a team; optionally to a domain (domain_id null = team-wide).
+-- Belongs to a team AND always to exactly one of that team's domains. There is
+-- NO team-wide / no-domain artifact: `domain_id` is NOT NULL. An unplaced
+-- artifact is resolved at fan-out to the team's 'General' domain (a `context`
+-- artifact to 'Context Creation'); cross-team skills live in `ai_lead_item`.
 CREATE TABLE IF NOT EXISTS artifact (
     id        INTEGER PRIMARY KEY,
     team_id   INTEGER NOT NULL REFERENCES team(id),
-    domain_id INTEGER REFERENCES domain(id),    -- nullable: null = team-wide
+    domain_id INTEGER NOT NULL REFERENCES domain(id),
     name      TEXT NOT NULL,
-    type      TEXT NOT NULL CHECK (type IN ('agent', 'skill', 'hook', 'context')),
+    type      TEXT NOT NULL CHECK (type IN (
+        'agent', 'skill', 'hook', 'context', 'workflow', 'mcp', 'other'
+    )),
     tags      TEXT,                              -- JSON array of tag strings
     summary   TEXT                               -- short human description
 );

@@ -40,10 +40,12 @@ top-level lists; each entry carries its OWN domain placement (``domain_id`` +
   id-resolved; a later edit/replay is then purely id-based (no duplicates).
 
 * **Domain id-match** — ``entry.domain_id`` / ``entry.domain`` name the EXISTING
-  domain to place the entry in. The report NEVER mints a named domain. If a task
-  resolves to no domain it falls back to the per-team "General" catch-all (a
-  task needs a domain); an artifact with no domain stays team-wide (``domain_id``
-  NULL).
+  domain to place the entry in. The report NEVER mints a named domain. BOTH tasks
+  and artifacts ALWAYS end up in a team domain (there is no team-wide / no-domain
+  artifact). If a task resolves to no domain it falls back to the per-team
+  "General" catch-all. An artifact with no resolved domain falls back the same
+  way — to "General", or to "Context Creation" for a ``context`` artifact — and a
+  MATCHED artifact the report does not re-place keeps its current domain.
 
 Replay no longer touches domain ``description``/``priority`` at all — those are
 owned by the Smart-extract / management-CRUD flow, not by reports.
@@ -72,7 +74,13 @@ import datetime
 import json
 import sqlite3
 
-from models import ArtifactChangeKind, ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
+from models import (
+    ArtifactChangeKind,
+    ArtifactType,
+    ReportArtifactEntry,
+    ReportDocument,
+    SCHEMA_VERSION,
+)
 
 # ── exceptions ──────────────────────────────────────────────────────────────
 
@@ -252,9 +260,11 @@ def _resolve_entry_domain_id(
     Resolution order (NEVER mints a named domain):
       1. ``domain_id`` set AND it is one of this team's domains → use it.
       2. else ``domain`` name matches one of this team's domains → that id.
-      3. else: for an entry that NEEDS a domain (a task) → the team's 'General'
-         catch-all; for one that does not (an artifact / action item) → NULL
-         (team-wide / unplaced)."""
+      3. else: for an entry that NEEDS a domain → the team's 'General' catch-all;
+         otherwise → NULL (the caller supplies its own fallback). Artifacts pass
+         ``needs_domain=False`` and resolve their own fallback in
+         ``_resolve_artifact_domain`` (General / Context Creation / keep current),
+         since an artifact is NEVER left team-wide."""
     if domain_id is not None:
         row = conn.execute(
             "SELECT id FROM domain WHERE id = ? AND team_id = ?",
@@ -269,6 +279,34 @@ def _resolve_entry_domain_id(
     if needs_domain:
         return _ensure_general_domain(conn, team_id)
     return None
+
+
+def _resolve_artifact_domain(
+    conn: sqlite3.Connection,
+    team_id: int,
+    entry: ReportArtifactEntry,
+    current_domain_id: int | None,
+) -> int:
+    """Resolve an artifact entry to a NON-NULL team domain — artifacts always
+    have one (there is no team-wide / no-domain artifact).
+
+    Order:
+      1. An explicit, valid placement (``domain_id``/``domain`` naming one of this
+         team's domains) → that domain.
+      2. else a MATCHED artifact the report did not re-place keeps its CURRENT
+         domain (``current_domain_id``), so a plain update never strips its place.
+      3. else the FALLBACK: a ``context`` artifact (CLAUDE.md / conventions) →
+         'Context Creation'; any other unplaced artifact → 'General'."""
+    explicit = _resolve_entry_domain_id(
+        conn, team_id, entry.domain_id, entry.domain, needs_domain=False
+    )
+    if explicit is not None:
+        return explicit
+    if current_domain_id is not None:
+        return current_domain_id
+    if entry.type == ArtifactType.context:
+        return _ensure_context_creation_domain(conn, team_id)
+    return _ensure_general_domain(conn, team_id)
 
 
 def _domain_name_for_id(conn: sqlite3.Connection, domain_id: int | None) -> str | None:
@@ -296,7 +334,7 @@ def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
       * ``tasks``: this team's existing tasks, each ``{id, name, status, owner,
         domain_id, domain}``.
       * ``artifacts``: this team's existing artifacts, each ``{id, name, type,
-        tags, domain_id, domain}`` (``domain``/``domain_id`` null = team-wide)."""
+        tags, domain_id, domain}`` (every artifact has a non-null domain)."""
     team = conn.execute(
         "SELECT id, name, champion_name FROM team WHERE id = ?", (team_id,)
     ).fetchone()
@@ -342,7 +380,7 @@ def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
             }
         )
 
-    # Artifacts: the team's existing artifacts (domain may be null = team-wide).
+    # Artifacts: the team's existing artifacts (each has a non-null domain).
     artifacts: list[dict] = []
     for a in conn.execute(
         "SELECT id, name, type, tags, domain_id FROM artifact "
@@ -356,7 +394,7 @@ def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
                 "type": a["type"],
                 "tags": json.loads(a["tags"]) if a["tags"] else [],
                 "domain_id": a["domain_id"],
-                "domain": domain_name_by_id.get(a["domain_id"]) if a["domain_id"] else None,
+                "domain": domain_name_by_id.get(a["domain_id"]),
             }
         )
 
@@ -746,18 +784,24 @@ def _apply_artifact_entry(
 ) -> None:
     """Resolve/create the current-state artifact row + append one history row.
 
-    An artifact may be team-wide (resolved domain NULL). A MATCHED artifact
-    (``entry.id`` set) is updated in place; a new one (``id`` None) is created and
-    requires a ``type`` (→ 422 ``EngineError`` if missing). ``summary`` →
-    ``artifact.summary`` and ``note`` → ``artifact_history.change_note`` are
-    persisted SEPARATELY. Back-fills resolved ids onto the entry."""
-    domain_id = _resolve_entry_domain_id(
-        conn, team_id, entry.domain_id, entry.domain, needs_domain=False
-    )
+    An artifact ALWAYS resolves to a team domain (never team-wide/NULL) — a
+    MATCHED artifact keeps its current domain unless the report re-places it, and
+    an unplaced new one falls back to 'General' ('Context Creation' for a
+    ``context`` artifact). A MATCHED artifact (``entry.id`` set) is updated in
+    place; a new one (``id`` None) is created and requires a ``type`` (→ 422
+    ``EngineError`` if missing). ``summary`` → ``artifact.summary`` and ``note`` →
+    ``artifact_history.change_note`` are persisted SEPARATELY. Back-fills resolved
+    ids onto the entry."""
     name = entry.artifact
 
     if entry.id is not None:
         artifact_id = _verify_artifact_in_team(conn, entry.id, team_id)
+        current = conn.execute(
+            "SELECT domain_id FROM artifact WHERE id = ?", (artifact_id,)
+        ).fetchone()
+        domain_id = _resolve_artifact_domain(
+            conn, team_id, entry, current["domain_id"]
+        )
         change_kind = _infer_artifact_change_kind(conn, artifact_id, domain_id, entry)
         _update_artifact(conn, artifact_id, domain_id, entry)
     else:
@@ -765,6 +809,7 @@ def _apply_artifact_entry(
         # domain error (→ 422) rather than letting sqlite3.IntegrityError escape.
         if entry.type is None:
             raise EngineError(f"artifact {name!r} is new but has no type")
+        domain_id = _resolve_artifact_domain(conn, team_id, entry, None)
         artifact_id = _create_artifact(conn, team_id, domain_id, name, entry)
         change_kind = entry.change_kind.value if entry.change_kind else "added"
 
@@ -796,7 +841,7 @@ def _verify_artifact_in_team(conn: sqlite3.Connection, artifact_id: int, team_id
 def _create_artifact(
     conn: sqlite3.Connection,
     team_id: int,
-    domain_id: int | None,
+    domain_id: int,
     name: str,
     entry: ReportArtifactEntry,
 ) -> int:
@@ -818,7 +863,7 @@ def _create_artifact(
 def _update_artifact(
     conn: sqlite3.Connection,
     artifact_id: int,
-    domain_id: int | None,
+    domain_id: int,
     entry: ReportArtifactEntry,
 ) -> None:
     """Patch only the artifact fields the entry supplies; a `retired` kind does

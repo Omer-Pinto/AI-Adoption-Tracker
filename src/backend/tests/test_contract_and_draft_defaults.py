@@ -121,6 +121,25 @@ def test_anthropic_input_schema_derivation():
     assert "ReportActionItem" in schema["$defs"]
 
 
+def test_artifact_type_enum_has_seven_values_and_is_strict_safe():
+    """The expanded 7-value ArtifactType must derive cleanly in BOTH schemas.
+
+    OpenAI-strict enums render as a plain ``enum`` list (no anyOf/nullable pain);
+    Anthropic's natural schema exposes the same set. Both must list all 7.
+    """
+    from openai.lib._pydantic import to_strict_json_schema
+
+    assert {t.value for t in ArtifactType} == {
+        "agent", "skill", "hook", "context", "workflow", "mcp", "other"
+    }
+    strict = to_strict_json_schema(ReportDocument)["$defs"]["ArtifactType"]
+    natural = ReportDocument.model_json_schema()["$defs"]["ArtifactType"]
+    for schema in (strict, natural):
+        assert set(schema["enum"]) == {
+            "agent", "skill", "hook", "context", "workflow", "mcp", "other"
+        }
+
+
 def test_action_item_is_ai_lead_only_in_both_schemas():
     """A1+A2: the emitted action-item shape carries NO owner and NO domain."""
     from openai.lib._pydantic import to_strict_json_schema
@@ -436,3 +455,165 @@ def test_matched_task_cleared_owner_stays_blank_but_never_owned_gets_champion(co
     assert conn.execute(
         "SELECT owner FROM task WHERE id = ?", (never_id,)
     ).fetchone()["owner"] == "Dana", "save must give the never-owned task the champion"
+
+
+# ── (4) artifacts ALWAYS have a team domain (no team-wide / null) ───────────────
+#
+# Every artifact resolves to exactly one domain at fan-out: an unplaced one falls
+# back to "General" (a `context` artifact to "Context Creation"); a matched one
+# the report does not re-place keeps its current domain. The DB column is NOT
+# NULL, so a stray null placement can never persist. All on a throwaway DB.
+
+
+def _team_only(conn: sqlite3.Connection, name="Radar", champion="Dana") -> int:
+    tid = conn.execute(
+        "INSERT INTO team (name, champion_name) VALUES (?, ?)", (name, champion)
+    ).lastrowid
+    conn.commit()
+    return tid
+
+
+def test_team_page_contract_has_no_all_team_artifacts():
+    """The team-wide gutter is gone: TeamPage no longer exposes all_team_artifacts
+    (all artifacts appear under their domain blocks)."""
+    from routes.views import TeamPage
+
+    assert "all_team_artifacts" not in TeamPage.model_fields
+    assert "domains" in TeamPage.model_fields
+
+
+def test_artifact_domain_id_column_is_not_null():
+    """schema.sql declares artifact.domain_id NOT NULL (no team-wide artifact)."""
+    conn = _fresh_conn()
+    try:
+        cols = {
+            r["name"]: r for r in conn.execute("PRAGMA table_info(artifact)").fetchall()
+        }
+        assert cols["domain_id"]["notnull"] == 1, "artifact.domain_id must be NOT NULL"
+    finally:
+        conn.close()
+
+
+def test_unplaced_new_artifact_falls_back_to_general():
+    """A NEW non-context artifact with a null domain resolves to the team's General."""
+    from reports.engine import fan_out_report
+
+    conn = _fresh_conn()
+    try:
+        team_id = _team_only(conn)
+        fan_out_report(conn, team_id, ReportDocument(
+            champion="Dana", meeting_date="2026-06-01", raw_notes="n",
+            artifacts=[ReportArtifactEntry(artifact="Loose skill", type=ArtifactType.skill)],
+        ))
+        row = conn.execute(
+            "SELECT d.name FROM artifact a JOIN domain d ON d.id = a.domain_id "
+            "WHERE a.name = 'Loose skill'"
+        ).fetchone()
+        assert row is not None and row["name"].endswith("General"), row
+    finally:
+        conn.close()
+
+
+def test_unplaced_context_artifact_falls_back_to_context_creation():
+    """A NEW `context` artifact with a null domain resolves to Context Creation."""
+    from reports.engine import fan_out_report
+
+    conn = _fresh_conn()
+    try:
+        team_id = _team_only(conn)
+        fan_out_report(conn, team_id, ReportDocument(
+            champion="Dana", meeting_date="2026-06-01", raw_notes="n",
+            artifacts=[ReportArtifactEntry(artifact="Arch conventions",
+                                           type=ArtifactType.context)],
+        ))
+        row = conn.execute(
+            "SELECT d.name FROM artifact a JOIN domain d ON d.id = a.domain_id "
+            "WHERE a.name = 'Arch conventions'"
+        ).fetchone()
+        assert row is not None and row["name"].endswith("Context Creation"), row
+    finally:
+        conn.close()
+
+
+def test_new_artifact_types_workflow_and_mcp_persist():
+    """The two new specific types round-trip through create + read-back."""
+    from reports.engine import fan_out_report
+
+    conn = _fresh_conn()
+    try:
+        team_id = _team_only(conn)
+        dom = conn.execute(
+            "INSERT INTO domain (team_id, name) VALUES (?, 'Infra')", (team_id,)
+        ).lastrowid
+        conn.commit()
+        fan_out_report(conn, team_id, ReportDocument(
+            champion="Dana", meeting_date="2026-06-01", raw_notes="n",
+            artifacts=[
+                ReportArtifactEntry(artifact="Release train", type=ArtifactType.workflow,
+                                    domain_id=dom, domain="Infra"),
+                ReportArtifactEntry(artifact="GH MCP server", type=ArtifactType.mcp,
+                                    domain_id=dom, domain="Infra"),
+            ],
+        ))
+        types = {
+            r["name"]: r["type"] for r in conn.execute(
+                "SELECT name, type FROM artifact WHERE team_id = ?", (team_id,)
+            ).fetchall()
+        }
+        assert types["Release train"] == "workflow"
+        assert types["GH MCP server"] == "mcp"
+    finally:
+        conn.close()
+
+
+def test_referenced_but_unchanged_prior_artifact_writes_no_history():
+    """Engine-level guarantee behind the over-inclusion fix.
+
+    The engine writes a history row ONLY for artifacts the report actually EMITS.
+    A prior artifact merely referenced in later notes (and thus correctly NOT
+    emitted by the model) gets NO spurious history row and keeps its domain — the
+    schema/engine never fabricates the re-emission the prompt now forbids.
+    """
+    from reports.engine import fan_out_report
+
+    conn = _fresh_conn()
+    try:
+        team_id = _team_only(conn)
+        dom = conn.execute(
+            "INSERT INTO domain (team_id, name) VALUES (?, 'Transformation')", (team_id,)
+        ).lastrowid
+        conn.commit()
+
+        # Report 1 creates the "reviewer agent".
+        fan_out_report(conn, team_id, ReportDocument(
+            champion="Dana", meeting_date="2026-05-15", raw_notes="n",
+            artifacts=[ReportArtifactEntry(artifact="dbt reviewer agent",
+                                           type=ArtifactType.agent,
+                                           domain_id=dom, domain="Transformation")],
+        ))
+        reviewer_id = conn.execute(
+            "SELECT id FROM artifact WHERE name = 'dbt reviewer agent'"
+        ).fetchone()["id"]
+        hist_before = conn.execute(
+            "SELECT COUNT(*) c FROM artifact_history WHERE artifact_id = ?", (reviewer_id,)
+        ).fetchone()["c"]
+
+        # Report 2 introduces a NEW agent and only NAMES the reviewer as a contrast
+        # — a well-behaved draft emits ONLY the new agent (reviewer NOT in the list).
+        fan_out_report(conn, team_id, ReportDocument(
+            champion="Dana", meeting_date="2026-05-22", raw_notes="n",
+            artifacts=[ReportArtifactEntry(artifact="dbt test generator",
+                                           type=ArtifactType.agent,
+                                           domain_id=dom, domain="Transformation")],
+        ))
+
+        hist_after = conn.execute(
+            "SELECT COUNT(*) c FROM artifact_history WHERE artifact_id = ?", (reviewer_id,)
+        ).fetchone()["c"]
+        assert hist_after == hist_before, "reviewer must get NO new history row"
+        # And its domain is untouched (still non-null, still Transformation).
+        assert conn.execute(
+            "SELECT domain_id FROM artifact WHERE id = ?", (reviewer_id,)
+        ).fetchone()["domain_id"] == dom
+    finally:
+        conn.close()

@@ -55,6 +55,9 @@ class ArtifactType(str, Enum):
     skill = "skill"
     hook = "hook"
     context = "context"
+    workflow = "workflow"
+    mcp = "mcp"
+    other = "other"
 
 
 class ArtifactChangeKind(str, Enum):
@@ -128,9 +131,13 @@ class TaskHistory(BaseModel):
 
 
 class Artifact(BaseModel):
+    """A team's Claude artifact. An artifact ALWAYS belongs to exactly one team
+    domain — ``domain_id`` is NOT NULL (there is no team-wide / no-domain
+    artifact). An unplaced artifact resolves to the team's 'General' domain (a
+    ``context`` artifact to 'Context Creation') at fan-out time."""
     id: int
     team_id: int
-    domain_id: int | None = None
+    domain_id: int
     name: str
     type: ArtifactType
     tags: list[str] = Field(default_factory=list)
@@ -202,9 +209,10 @@ class AILeadItemPatch(BaseModel):
 #     ``id = None`` MEANS "create a NEW task/artifact" at fan-out time.
 #   * Domain id (`domain_id` on every entry / action item): the matched existing
 #     domain's PK, with ``domain`` carrying that domain's exact name.
-#     ``domain_id = None`` does NOT create a domain — it means UNPLACED / team-wide
-#     (the per-champion "General" gutter). The report NEVER mints domains; a human
-#     reassigns null-domain items via the UI picker.
+#     ``domain_id = None`` does NOT create a domain — it means UNPLACED: the engine
+#     resolves it to the team's "General" catch-all (a ``context`` artifact to
+#     "Context Creation"). The report NEVER mints domains; a human reassigns
+#     resolved items via the UI picker.
 #
 # `populate_by_name=True` lets callers build models with either alias or Python
 # attribute name; `extra="forbid"` rejects any unknown key on every report
@@ -243,8 +251,8 @@ class ReportTaskEntry(BaseModel):
 
     DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
     ``domain`` its exact name. ``domain_id = None`` does NOT create a domain: it
-    marks the task as unplaced/team-wide ("General" bucket), reassigned via the
-    UI picker. The report never invents domains.
+    marks the task as unplaced (the engine resolves it to the team's "General"
+    bucket), reassigned via the UI picker. The report never invents domains.
     """
     model_config = _doc_config
 
@@ -289,10 +297,12 @@ class ReportArtifactEntry(BaseModel):
     name, and set a best-fit ``type`` (required for a NEW artifact).
 
     DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
-    ``domain`` its exact name. ``domain_id = None`` does NOT create a domain: it
-    marks the artifact as team-wide / cross-cutting (the all-team gutter; e.g.
-    shared context packs, team-wide skills), reassigned via the UI picker. The
-    report never invents domains.
+    ``domain`` its exact name. An artifact ALWAYS ends up in a team domain (there
+    is NO team-wide / no-domain artifact). ``domain_id = None`` does NOT create a
+    domain and does NOT mean team-wide: it marks the artifact as UNPLACED, and the
+    engine resolves it to the team's "General" domain — or, for a ``context``
+    artifact (CLAUDE.md / conventions), to "Context Creation". The report never
+    invents domains; a human can re-place via the UI picker.
     """
     model_config = _doc_config
 
@@ -339,8 +349,9 @@ class ReportDocument(BaseModel):
 
     FLAT shape: ``tasks`` and ``artifacts`` are top-level lists, each entry
     carrying its own ``domain_id``/``domain`` placement — there is no nested
-    domain tree. An artifact with ``domain_id = None`` is the team-wide /
-    cross-cutting case (formerly the separate top-level ``artifacts`` concept).
+    domain tree. Every artifact ends up in exactly one team domain; an entry left
+    with ``domain_id = None`` is resolved by the engine to the team's "General"
+    domain (a ``context`` artifact to "Context Creation"), never left team-wide.
     """
     model_config = _doc_config
 

@@ -211,30 +211,60 @@ best-fit "type" (required for a new artifact), and any of "tags" / "summary" / \
 a …", "started a new …") ALWAYS means NEW — omit "id" even if a similarly named \
 entity exists in the context.
 
+ONLY WHAT CHANGED THIS WEEK — do NOT re-emit unchanged prior entities:
+- Emit a task or artifact ONLY when the CURRENT notes actually discuss it as NEW \
+or as CHANGED this meeting (a status / owner / due-date change, a new capability, \
+a fix, a move, a retirement, or genuine progress). A "tasks"/"artifacts" entry \
+writes a history row for THIS meeting, so it must represent a real event this \
+week — not a standing restatement.
+- A prior task/artifact from the context that is merely NAMED as a reference, a \
+contrast, or background — and is NOT itself changed this week — MUST NOT be \
+emitted. Do NOT re-list last week's still-open tasks just because they remain \
+open, and do NOT re-emit an existing artifact as "updated" only because the notes \
+mention it. Example: "the new agent is separate from the existing reviewer agent" \
+changes the reviewer NOT AT ALL — emit ONLY the new agent and leave the reviewer \
+untouched (no history row for it).
+- This does NOT weaken entity-matching: when a prior entity IS genuinely updated \
+this week, MATCH it by id and emit it with its change. The test is "did THIS \
+meeting change it?", never "is it named in the notes?".
+
 DOMAIN MATCH — place each task/artifact in an EXISTING domain (the `domain_id` \
 field is the link signal). Action items are NEVER placed in a domain — they \
 belong to the report's team implicitly and carry no domain_id/domain:
 - The context ALSO passes this team's existing domains, each as { id, name, \
 description }. These are the team's tech/stack work areas (e.g. Backend, Web, \
 Deployment, Monitor & Debug). TWO constant domains are ALWAYS present:
-  * the domain whose name ENDS WITH "Context Creation" (it appears in the list \
-with a team-name prefix, e.g. "Acme's Context Creation") is a REAL placement \
-target — file here all Claude tooling the team builds: skills, agents, hooks, \
-AND CLAUDE.md / context files, knowledge docs, conventions, and other Claude \
-Code context. Use it like any other domain when an item fits it.
+  * the domain whose name ENDS WITH "Context Creation" (it appears with a \
+team-name prefix, e.g. "Acme's Context Creation") is a REAL placement target for \
+CONTEXT-ENGINEERING work specifically: (a) a `context`-type ARTIFACT — a \
+CLAUDE.md, a conventions file, a knowledge/architecture doc, or another Claude \
+Code context pack; and (b) a TASK/action about BUILDING Claude tooling itself \
+(writing a hook / skill / agent / workflow / MCP / context file). It is NOT a \
+dumping ground for every artifact: a skill / agent / hook / workflow / mcp \
+ARTIFACT is filed in its best-fit TECH domain (see ARTIFACT placement), NOT here.
   * the domain whose name ENDS WITH "General" (likewise team-name-prefixed, e.g. \
 "Acme's General") is the FALLBACK/unplaced bucket ONLY; never file an item here \
 on purpose. To leave an item unplaced, set its domain_id null (do NOT pick the \
-team's "General" domain); a human reassigns it later.
-  * BEST-FIT MATCH → set "domain_id" to that domain's id and "domain" to its \
-EXACT name.
-  * UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null (the unplaced \
-bucket). A team-wide / cross-cutting artifact (e.g. shared context packs) is \
-ALSO domain_id null. Do not drop the item — it still lives in the flat list.
+team's "General" domain); the engine parks it in General and a human reassigns \
+it later.
+- ARTIFACT placement: file each artifact in its BEST-FIT tech domain — the notes \
+usually tag the domain in free text (e.g. "domain - Infrastructure: …", or a \
+clear area the artifact serves). A `context` artifact → "Context Creation". If \
+the artifact fits no specific tech domain, leave "domain_id" null → the engine \
+files it in the team's "General" domain. An artifact is NEVER team-wide / \
+no-domain — it ALWAYS ends up in exactly one domain (General when unplaced).
+- TASK placement: product/team work → its best-fit tech domain. A task \
+specifically about BUILDING Claude tooling (writing a hook / skill / agent / \
+workflow / MCP / context file) → "Context Creation". Otherwise, when no tech \
+domain fits, leave "domain_id" null → the engine files it in "General".
+- BEST-FIT MATCH → set "domain_id" to that domain's id and "domain" to its EXACT \
+name. UNSURE / NONE FITS → leave BOTH "domain_id" and "domain" null; the engine \
+resolves it (General for a task or a non-context artifact, Context Creation for a \
+`context` artifact). Do not drop the item — it still lives in the flat list.
 - CRITICAL ASYMMETRY between the two null id semantics:
   * a null ENTITY "id" MEANS "create a NEW task/artifact".
-  * a null "domain_id" does NOT mean "create a new domain" — it means \
-unplaced/team-wide.
+  * a null "domain_id" does NOT mean "create a new domain" — it means unplaced \
+(the engine resolves it to General / Context Creation).
 - NEVER invent a domain, and NEVER make a domain out of "Claude Code", a meeting \
 heading (e.g. "Current Claude Code status"), or the adoption process itself — \
 those are never domains.
@@ -250,12 +280,19 @@ separate artifacts.
 
 ARTIFACT TYPE — every artifact entry must have a type:
 - Whenever you record an artifact entry, you MUST set its "type" to the best-fit \
-value from {agent, skill, hook, context}. A new artifact saved without a type \
-fails the backend (422), so an artifact entry must NEVER be emitted without a \
-type.
+value from {agent, skill, hook, context, workflow, mcp, other}. A new artifact \
+saved without a type fails the backend (422), so an artifact entry must NEVER be \
+emitted without a type.
+- Type meanings: "agent" = a Claude subagent; "skill" = a reusable Claude skill; \
+"hook" = a Claude Code hook (e.g. a pre-commit / validation hook); "context" = a \
+CLAUDE.md, a conventions file, a knowledge/architecture doc, or another context \
+pack; "workflow" = a multi-step workflow or automation (a chained / orchestrated \
+process); "mcp" = an MCP server or integration; "other" = a genuine Claude \
+artifact that fits none of the specific types above.
 - If the notes state the type, use it. If the notes do NOT state it, infer the \
-most likely type from the artifact's name and how it is described. You MAY flag \
-that assumption tersely in "note" (e.g. "type inferred as skill") when it is \
+best-fit type from the artifact's name and how it is described — prefer a \
+SPECIFIC type; use "other" only when nothing else genuinely fits. You MAY flag an \
+uncertain assumption tersely in "note" (e.g. "type inferred as skill") when it is \
 genuinely uncertain, but keep it short and skip it when the type is obvious. \
 Still always set "type" — never leave it null for a new artifact.
 
@@ -324,6 +361,21 @@ about the AI Lead's to-do); set it when the notes support it, else leave null.
 "finished_successfully"/"finished_with_issues" if done; "abandoned"/"wont_fix" \
 if dropped. If the notes give no signal, use "planned".
 
+STATEMENT-FORM ITEMS — route by MEANING, not by grammar:
+- A task update phrased as a plain STATEMENT is still a task update, NOT \
+discussion. "The CDC migration is done", "documenting the API is underway", "the \
+flaky checks are finished with issues" → MATCH the existing task by id and set \
+its status (finished_successfully / in-progress / finished_with_issues); do NOT \
+file it in "discussion" or "issues".
+- A DECISION about the AI LEAD's OWN to-do is an AI-Lead ACTION ITEM, not \
+discussion: "we decided NOT to roll out X", "dropped the plan to build that \
+skill" → an "action_items" entry with status "wont_fix" (or "abandoned" if it \
+was already underway). (A decision to drop a CHAMPION/team task is instead that \
+TASK with status "wont_fix" — see the rejected-idea rule under COMPLETENESS.)
+- Never restate something you already captured as a structured task / artifact / \
+action item into "discussion" or "issues". Each note line becomes EXACTLY ONE \
+structured entry OR one discussion/issue entry — never both.
+
 CATCH-ALLS — discussion and issues (each is a LIST of items):
 - "discussion" is a LIST of discussion points: the DEFAULT catch-all for any \
 narrative, talking point, context, or progress that is not a task, artifact, or \
@@ -344,9 +396,10 @@ COMPLETENESS — capture every piece of information (do not drop note lines):
 - EVERY piece of information in the notes must land somewhere in the output. \
 Account for every line. Do not silently drop any item, field, or detail.
 - Map each item to the field that fits it: a task/status/owner/due date → a \
-"tasks" entry (with its best-fit domain_id, or null); a tool/artifact (with its \
-type/tags/summary/change) → an "artifacts" entry (with its best-fit domain_id, or \
-null if team-wide/unsure); the AI LEAD's OWN follow-up → an "action_items" entry \
+"tasks" entry (with its best-fit domain_id, or null → General); a tool/artifact \
+(with its type/tags/summary/change) → an "artifacts" entry (with its best-fit \
+domain_id, or null when no specific tech domain fits → General, a `context` \
+artifact → Context Creation); the AI LEAD's OWN follow-up → an "action_items" entry \
 (a champion/team-member follow-up is a "tasks" entry instead); a person present → \
 "participants"; anything else → an entry in the "discussion" or "issues" list.
 - A REJECTED, declined, or "won't do" idea is STILL a task — record it with \

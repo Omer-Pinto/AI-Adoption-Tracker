@@ -74,11 +74,11 @@ class TeamPage(BaseModel):
 
     The `*_count` / open-closed fields are summary tallies over the data already
     loaded for the page (Wave 12). "Closed" uses the terminal status set; "open"
-    is everything else.
+    is everything else. Every artifact belongs to a domain (there is no team-wide
+    gutter), so all artifacts appear under their domain blocks.
     """
     team: models.Team
     domains: list[DomainBlock]
-    all_team_artifacts: list[models.Artifact]
     reports: list[models.Report]
     open_tasks: int
     closed_tasks: int
@@ -110,11 +110,12 @@ class TaskDetail(BaseModel):
 class ArtifactDetail(BaseModel):
     """An artifact plus its change history (contract §2).
 
-    `domain` is the artifact's domain name (null when domain_id is null = the
-    team-wide gutter), surfaced for the entity detail page's placement label.
+    `domain` is the artifact's domain name. Every artifact belongs to exactly one
+    domain (domain_id is NOT NULL), so this is ALWAYS populated — surfaced for the
+    entity detail page's placement label.
     """
     artifact: models.Artifact
-    domain: str | None = None
+    domain: str
     history: list[models.ArtifactHistory]
 
 
@@ -134,13 +135,14 @@ class EntityPickerTask(BaseModel):
 class EntityPickerArtifact(BaseModel):
     """One artifact as the picker sees it: id, name, type, domain placement.
 
-    `domain_id` is null for team-wide artifacts (then `domain` is null too).
+    Every artifact belongs to exactly one domain (domain_id is NOT NULL), so
+    `domain_id` and `domain` are always populated.
     """
     id: int
     name: str
     type: str
-    domain_id: int | None = None
-    domain: str | None = None
+    domain_id: int
+    domain: str
 
 
 class TeamEntities(BaseModel):
@@ -174,8 +176,9 @@ class TaskPatch(BaseModel):
 class ArtifactPatch(BaseModel):
     """Entity-page edit for an artifact: name/type/tags/summary/domain_id.
 
-    `domain_id` is nullable (null = team-wide). All fields optional (partial
-    PATCH); only supplied fields are written.
+    An artifact always has a domain (domain_id is NOT NULL): a supplied
+    `domain_id` must be non-null (a null is rejected 422 in the route). All fields
+    optional (partial PATCH); only supplied fields are written.
     """
     name: str | None = None
     type: str | None = None
@@ -421,11 +424,11 @@ def list_team_pages() -> list[TeamPageIndexEntry]:
 def team_page(id: int) -> TeamPage:
     """The hub for one team's portfolio. `{id}` is the TEAM id (Wave 16).
 
-    Returns each domain with current tasks/artifacts plus full history, the
-    all-team gutter (team artifacts with domain_id NULL), and the team's reports
-    (newest first). The champion is surfaced via `team.champion_name`. Action
-    items are NOT surfaced here — they live only on the AI-Lead board
-    (`GET /api/ai-lead/action-items`).
+    Returns each domain with current tasks/artifacts plus full history, and the
+    team's reports (newest first). Every artifact belongs to a domain (there is no
+    team-wide gutter), so all artifacts appear under their domain blocks. The
+    champion is surfaced via `team.champion_name`. Action items are NOT surfaced
+    here — they live only on the AI-Lead board (`GET /api/ai-lead/action-items`).
     """
     conn = get_connection()
     try:
@@ -453,13 +456,6 @@ def team_page(id: int) -> TeamPage:
                 )
             )
 
-        # All-team gutter: this team's artifacts with no domain.
-        gutter_rows = conn.execute(
-            "SELECT * FROM artifact WHERE team_id = ? AND domain_id IS NULL ORDER BY id",
-            (team.id,),
-        ).fetchall()
-        all_team_artifacts = [_artifact(r) for r in gutter_rows]
-
         report_rows = conn.execute(
             "SELECT * FROM report WHERE team_id = ? ORDER BY meeting_date DESC, id DESC",
             (id,),
@@ -467,9 +463,10 @@ def team_page(id: int) -> TeamPage:
         reports = [_report(r) for r in report_rows]
 
         # ── summary tallies over the data already loaded above (Wave 12) ──────
-        # Closed = status in the terminal set; open = everything else.
+        # Closed = status in the terminal set; open = everything else. Every
+        # artifact lives under a domain block, so artifact_count sums those.
         open_tasks = closed_tasks = 0
-        artifact_count = len(all_team_artifacts)
+        artifact_count = 0
         for block in domains:
             artifact_count += len(block.artifacts)
             for t in block.tasks:
@@ -481,7 +478,6 @@ def team_page(id: int) -> TeamPage:
         return TeamPage(
             team=team,
             domains=domains,
-            all_team_artifacts=all_team_artifacts,
             reports=reports,
             open_tasks=open_tasks,
             closed_tasks=closed_tasks,
@@ -598,8 +594,8 @@ def team_entities(team_id: int) -> TeamEntities:
     entity models — only id/name/status|type and the resolved domain.
 
     Tasks reach the team via task → domain → domain.team_id (tasks have no direct
-    team_id). Artifacts via artifact.team_id, including team-wide artifacts
-    (domain_id null → domain null). `domain` is the domain name via LEFT JOIN.
+    team_id). Artifacts via artifact.team_id; every artifact belongs to a domain
+    (domain_id NOT NULL), so `domain` is resolved via a plain JOIN.
 
     404 if the team does not exist; an empty team yields empty lists (200).
     """
@@ -626,7 +622,7 @@ def team_entities(team_id: int) -> TeamEntities:
             """
             SELECT a.id, a.name, a.type, a.domain_id, d.name AS domain
             FROM artifact a
-            LEFT JOIN domain d ON d.id = a.domain_id
+            JOIN domain d ON d.id = a.domain_id
             WHERE a.team_id = ?
             ORDER BY a.id
             """,
@@ -723,8 +719,9 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
 
     Accepts `name`, `type`, `tags`, `summary`, `domain_id` (partial). `type` is
     validated by the `ArtifactType` enum. `tags` is re-serialized to JSON text on
-    write. A non-null `domain_id` must exist and its team must equal the
-    artifact's team else 422; null is allowed (team-wide). 404 if missing.
+    write. An artifact always has a domain (domain_id NOT NULL): a supplied
+    `domain_id` must be non-null and must exist and its team must equal the
+    artifact's team, else 422. 404 if missing.
 
     The edit is BOTH saved to current-state AND journaled: the engine appends one
     `source='manual'` `artifact_history` row dated today (`change_kind` = 'moved'
@@ -756,8 +753,13 @@ def patch_artifact(id: int, body: ArtifactPatch) -> models.Artifact:
                     detail=f"Unknown artifact type {changes['type']!r}",
                 )
 
-        if "domain_id" in changes and changes["domain_id"] is not None:
+        if "domain_id" in changes:
             new_domain_id = changes["domain_id"]
+            if new_domain_id is None:
+                # artifact.domain_id is NOT NULL — an artifact must stay placed.
+                raise HTTPException(
+                    status_code=422, detail="domain_id cannot be null"
+                )
             new_dom = conn.execute(
                 "SELECT team_id FROM domain WHERE id = ?", (new_domain_id,)
             ).fetchone()
