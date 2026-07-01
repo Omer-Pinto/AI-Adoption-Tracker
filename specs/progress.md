@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **Waves 17 + 18 (auth core, FE foundation, guards, Users portal, edit-hiding) DONE** — 5 parallel agents across 2 waves, consultant-audited, all FIX-NOWs closed, session TTL + login lockout added, verified (47 routes, FE build green, tracker.db untouched). **1 open product decision: non-admin report viewing.** **▶ NEXT: Wave 19** (RBAC verify + adversarial security audit), then 20 (go-live), 21 (search).
+> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **RBAC batch — Waves 17 + 18 + 19 all DONE** — auth core, FE foundation, route guards, admin Users portal, read-only-for-non-admins (incl. read-only report viewing), session TTL + login lockout, and a 169/169 adversarial suite **plus live verification on the running server** (which caught 2 operational bugs + a 403-UX bug, all fixed). **▶ NEXT: Wave 20** (go-live walkthrough), then 21 (search).
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 96% (192/200)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 98% (195/200)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 192 / 200 | 96% |
+| 🟢 Done | 195 / 200 | 98% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 8 (RBAC 19: 3 · go-live 20: 2 · search 21: 3) | 4% |
+| ⬜ Pending | 5 (go-live 20: 2 · search 21: 3) | 2% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -41,8 +41,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 16 | **Done** | 6/6 | 6/6 | 0/24 | **One champion per team (1:1 refactor) — built + verified.** 6 disjoint agents (16A–16F) cherry-picked clean (`1122bf9`..`df569bb`, 0 conflicts); champion folded into team (`team.champion_name NOT NULL` + `champion_start_date`; `champion` table dropped), all keyed by `team_id`, report champion-picker gone, `cc_baseline`/`baseline_date` nuked. code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge nav fix + simplification (`5dc699d`,`03f489f`). DB expunged+recreated clean (backed up first); qa dataset folded to one champion **Noa** (`415d698`); live API verify 19/19. **Live UI walk + LLM draft = Omer (.env).** |
 | **17** | **Done** | 2/2 | 2/2 | 0/13 | **Auth core + admin user-portal API (17A) + FE auth foundation (17B).** Cherry-picked clean; contract reconciled; session-FK rename bug fixed; import OK (47 routes) + FE build green; tracker.db untouched. Live login walk = Omer |
 | **18** | **Done** | 3/3 | 3/3 | 0/11 | Read-scope guards (18A) + FE surfaces/Users-portal (18B) + hide-edits (18C). Consultant-audited (2 FE FIX-NOW fixed); import+build green. **Open: non-admin report viewing (Omer)** |
-| **19** | **Not Started ▶ NEXT** | — | — | 0/3 | RBAC verify + adversarial security audit (gate) |
-| 20 | Not Started | — | — | 0/2 | Go-live walkthrough (was 17) — README_HUMAN + `backup_db.sh` |
+| **19** | **Done** | — | — | 0/3 | RBAC verify + adversarial audit — 169/169 suite (pentester-audited) + **live-verified on the running server**; caught+fixed 2 operational bugs (stale session table, admin pw) + a 403→Forbidden UX bug; champions backfilled |
+| **20** | **Not Started ▶ NEXT** | — | — | 0/2 | Go-live walkthrough (was 17) — README_HUMAN + `backup_db.sh` |
 | 21 | Not Started | 0/1 | 0/1 | 0/3 | Search bar + DSL (was 18) — 21A design, then 21B+ |
 
 **Wave status values:** `Not Started` → `In Progress` → `Cherry-picking` → `Verifying` → `Done`
@@ -566,12 +566,14 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 19 — RBAC verify + security audit (gate)
+## Wave 19 — RBAC verify + security audit (gate) — 🟢 DONE
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Three-account live walk (admin / read-all / team-scoped) | ⬜ Pending | matrix behavior |
-| 2 | Adversarial bypass (IDOR, forged token, non-admin write/draft) → 401/403 | ⬜ Pending | validate gate |
-| 3 | Password-change + admin reset loop | ⬜ Pending | |
+| 1 | Three-account walk (admin / read-all / team-scoped) | 🟢 Done | verified **live on the running server** (admin 200, manager/champion 403 on writes+/users, champion IDOR→403, LLM-draft admin-only). Full UI click-through = Omer |
+| 2 | Adversarial bypass (IDOR, forged token, non-admin write/draft, inactive-user, expiry, lockout) → 401/403 | 🟢 Done | `tests/test_rbac_adversarial.py` **169/169** (throwaway DB); pentester-audited (rigorous, non-vacuous); coverage gaps closed (`c584a83`,`47623cc`) |
+| 3 | Password-change + admin reset loop | 🟢 Done | covered in the suite (self-change old→new; admin reset→default) |
+
+> **Live-verification caught two OPERATIONAL bugs the throwaway-DB tests missed** (lesson: verify against the real running app, not just fresh DBs): (a) the live `tracker.db` had a **stale `session` table** from an earlier server start — `CREATE TABLE IF NOT EXISTS` never migrated it → admin login 500'd; fixed by backing up + dropping/recreating only the `session` table + restart. (b) the `admin` password had been changed (Settings→Change-password working) so `admin`/`admin` was rejected; reset to the documented default. Also **backfilled champion logins** for the 3 pre-auth teams (`maya`/`noa`/`sven`, scoped) since forward-only provisioning only fires on new-team-create. **FE polish from live QA:** login page redesigned (`7de3d5f`); cross-team **403 now routes to the curated Forbidden page** on team/domain/task/artifact viewers (`5b5fe40`, was showing a generic "try again").
 
 ---
 
