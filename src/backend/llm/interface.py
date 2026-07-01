@@ -254,19 +254,54 @@ value from {agent, skill, hook, context}. A new artifact saved without a type \
 fails the backend (422), so an artifact entry must NEVER be emitted without a \
 type.
 - If the notes state the type, use it. If the notes do NOT state it, infer the \
-most likely type from the artifact's name and how it is described, and add a \
-short note of that assumption in the entry's "note" field (e.g. "type inferred \
-as skill"). Still always set "type" — never leave it null for a new artifact.
+most likely type from the artifact's name and how it is described. You MAY flag \
+that assumption tersely in "note" (e.g. "type inferred as skill") when it is \
+genuinely uncertain, but keep it short and skip it when the type is obvious. \
+Still always set "type" — never leave it null for a new artifact.
 
-ARTIFACT summary vs note — two DISTINCT fields:
-- "summary" is the artifact's standing description (what it is / does).
-- "note" is the per-meeting change note (what happened to it this meeting).
-- Do not duplicate the same text into both; use whichever the line is about.
+ARTIFACT NAME + SUMMARY — make both specific and self-describing:
+- "artifact": give a SPECIFIC, descriptive name — NEVER a bare generic type word. \
+A hook described as "a pre-commit hook that blocks secrets sneaking into config \
+files" is NOT named "pre-commit hook"; name it for what it does, e.g. "Secrets \
+pre-commit hook". A "gRPC scaffold generator skill" is named "gRPC scaffold \
+generator", not "generator" or "skill".
+- "summary": ALWAYS write the artifact's standing description — what it IS / does \
+— drawn from how the notes describe it (e.g. "Blocks secrets from being committed \
+into config files"; "Stamps out new gRPC service skeletons"). Every artifact \
+entry should carry a summary.
 
-TASK OWNER — who owns each task:
-- TASK "owner": defaults to the champion (context["champion_name"]). Set a task \
-owner ONLY when the notes clearly attribute the task to a specific DIFFERENT \
-person; otherwise leave "owner" null and the backend fills in the champion.
+ARTIFACT change_kind — ALWAYS classify the change (never leave it null):
+- Set "change_kind" to one of: "added" (a brand-new artifact created this \
+meeting), "updated" (an existing artifact changed — a new capability, fix, or \
+extension), "moved" (an existing artifact re-placed into a different domain), or \
+"retired" (an existing artifact dropped / deprecated).
+- A NEW artifact (id null) is ALWAYS "added". A MATCHED artifact (id set) is \
+"updated" unless it was explicitly moved to another domain ("moved") or \
+dropped ("retired"). Classify every artifact — do not omit change_kind.
+
+NOTE DISCIPLINE — "note" is a per-meeting CHANGE DELTA, not a restatement:
+- "note" (on a task or an artifact) records ONLY new information about what \
+changed THIS meeting that the entry's other fields do not already capture. \
+"summary" is the artifact's standing description; "note" is the change — they are \
+DISTINCT, never duplicate one into the other.
+- Good task notes: "target date set to June 20th", "dropped in favour of Renovate \
+bot". Good artifact notes: "extended to also support streaming RPCs", "added a CI \
+integration".
+- NEVER restate the name, status, owner, type, or summary in "note" (do NOT write \
+"in progress" on an in-progress task, or "gRPC scaffold skill" on that skill). If \
+there is no distinct per-meeting change to record, leave "note" NULL. A redundant \
+note is worse than no note.
+
+TASK OWNER — who owns each task (a task is never unowned):
+- When the notes explicitly attribute a task to a PERSON — whether that is the \
+champion ("Maya owns it", "Maya to standardize …") or a DIFFERENT team member \
+("Tomer is taking this", "Lior owns the migration") — set "owner" to that exact \
+name. A named person is ALWAYS kept and never overwritten by the default.
+- Otherwise leave "owner" null. The draft path then fills the default the same \
+way save does: a NEW task defaults to the champion (context["champion_name"]); a \
+MATCHED task keeps its already-established owner. Either way the preview shows a \
+concrete owner, never blank — so you do NOT need to echo the champion yourself.
+- Never invent an owner who is not named in the notes.
 
 ACTION ITEMS — the AI ENABLEMENT LEAD's OWN to-dos, EXCLUSIVELY:
 - An "action_items" entry is EXCLUSIVELY a to-do belonging to the AI enablement \
@@ -295,7 +330,12 @@ narrative, talking point, context, or progress that is not a task, artifact, or 
 action item. Emit one list ENTRY per distinct point — multiple items, never one \
 merged blob. A single entry may span multiple lines if it is one coherent point.
 - "issues" is a LIST of problems, risks, blockers, or concerns. Emit one list \
-ENTRY per distinct problem/risk/blocker — multiple items, not one blob.
+ENTRY per distinct problem/risk/blocker — multiple items, not one blob. ANY line \
+expressing something negative — a risk, a blocker, a slippage ("the team is \
+behind", "may slip our migration"), a growing burden ("on-call fatigue creeping \
+up"), a regression, or a worry — belongs in "issues", NOT "discussion". \
+"discussion" is for neutral talking points and progress only; when a line reads \
+as a problem, prefer "issues".
 - Anything that fits no structured field MUST STILL be captured: add it as an \
 entry in "discussion", unless it is a problem/risk/blocker → then add an entry in \
 "issues". Never drop it.
@@ -309,6 +349,15 @@ type/tags/summary/change) → an "artifacts" entry (with its best-fit domain_id,
 null if team-wide/unsure); the AI LEAD's OWN follow-up → an "action_items" entry \
 (a champion/team-member follow-up is a "tasks" entry instead); a person present → \
 "participants"; anything else → an entry in the "discussion" or "issues" list.
+- A REJECTED, declined, or "won't do" idea is STILL a task — record it with \
+status "wont_fix" (or "abandoned" if it was started and then dropped); NEVER omit \
+it just because it will not happen. Example: "We floated rewriting the ledger in \
+Rust but rejected it — too risky. Won't do." is a task "Rewrite the ledger in \
+Rust" with status "wont_fix", NOT a dropped line.
+- FINAL CHECK before you submit: re-read the notes line by line and confirm every \
+fact appears somewhere in the output. If any line is still unaccounted for, add \
+it — as a "tasks"/"artifacts"/"action_items" entry if it fits one, else a \
+"discussion" entry (or "issues" if it is a problem). Nothing is ever dropped.
 
 NO FABRICATION (reconciled with completeness):
 - For fields with no value, use null (or an empty list for list fields) rather \

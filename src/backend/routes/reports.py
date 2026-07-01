@@ -16,6 +16,7 @@ from db import get_connection
 from models import Report, ReportDocument
 from reports import (
     ReportNotFoundError,
+    apply_draft_defaults,
     build_draft_context,
     fan_out_report,
     get_report_row,
@@ -69,8 +70,12 @@ def draft(req: DraftRequest) -> ReportDocument:
     except llm.LLMRequestError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    # Validate the model output against the report contract before returning it.
-    return ReportDocument.model_validate(drafted)
+    # Validate the model output against the report contract, then fill the
+    # derived defaults (task owner, artifact change_kind) so the PREVIEW the
+    # editor shows already matches what save will compute — no blank owner
+    # dropdown (D8) and no missing change_kind (D3).
+    doc = ReportDocument.model_validate(drafted)
+    return apply_draft_defaults(doc, context)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ReportResponse)

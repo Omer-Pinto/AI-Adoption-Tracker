@@ -72,7 +72,7 @@ import datetime
 import json
 import sqlite3
 
-from models import ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
+from models import ArtifactChangeKind, ReportArtifactEntry, ReportDocument, SCHEMA_VERSION
 
 # ── exceptions ──────────────────────────────────────────────────────────────
 
@@ -368,6 +368,58 @@ def build_draft_context(conn: sqlite3.Connection, team_id: int) -> dict:
         "tasks": tasks,
         "artifacts": artifacts,
     }
+
+
+# ── draft defaulting (POST /draft, before preview) ─────────────────────────────
+
+def apply_draft_defaults(doc: ReportDocument, context: dict) -> ReportDocument:
+    """Fill the draft's derived defaults so the PREVIEW equals the saved result.
+
+    Pure (no DB): mirrors the fan-out engine's own defaulting so a drafted report
+    shown in the editor already carries what save would compute — closing the
+    "blank field in preview" gap (D8 task owner, D3 artifact change_kind). Mutates
+    and returns ``doc``.
+
+    * TASK owner (D8/D5) — a task is never unowned. If the model left ``owner``
+      null: a MATCHED task (``id`` set) inherits its established owner from the
+      context (falling back to the champion when none is on record); a NEW task
+      (``id`` null) defaults to the champion. A named owner the model DID emit is
+      kept as-is. This is exactly what ``_record_task_entry`` does on save.
+    * ARTIFACT change_kind (D3) — every artifact must be classified. If the model
+      left ``change_kind`` null: a NEW artifact (``id`` null) becomes ``added``;
+      a MATCHED artifact becomes ``moved`` when its drafted domain differs from
+      the context row's domain, else ``updated`` — mirroring
+      ``_infer_artifact_change_kind``.
+    """
+    champion = context.get("champion_name")
+    task_owner_by_id: dict[int, str | None] = {
+        t["id"]: t.get("owner") for t in context.get("tasks", [])
+    }
+    artifact_domain_by_id: dict[int, int | None] = {
+        a["id"]: a.get("domain_id") for a in context.get("artifacts", [])
+    }
+
+    for entry in doc.tasks:
+        if entry.owner:
+            continue
+        if entry.id is not None:
+            entry.owner = task_owner_by_id.get(entry.id) or champion
+        else:
+            entry.owner = champion
+
+    for entry in doc.artifacts:
+        if entry.change_kind is not None:
+            continue
+        if entry.id is None:
+            entry.change_kind = ArtifactChangeKind.added
+        else:
+            prior_domain = artifact_domain_by_id.get(entry.id)
+            if prior_domain != entry.domain_id:
+                entry.change_kind = ArtifactChangeKind.moved
+            else:
+                entry.change_kind = ArtifactChangeKind.updated
+
+    return doc
 
 
 # ── read one report ─────────────────────────────────────────────────────────────

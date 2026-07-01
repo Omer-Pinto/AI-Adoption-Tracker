@@ -7,6 +7,7 @@ here. See `engine.py`.
 from .engine import (
     EngineError,
     ReportNotFoundError,
+    apply_draft_defaults,
     apply_manual_artifact_edit,
     apply_manual_task_edit,
     build_draft_context,
@@ -18,6 +19,7 @@ from .engine import (
 __all__ = [
     "EngineError",
     "ReportNotFoundError",
+    "apply_draft_defaults",
     "apply_manual_artifact_edit",
     "apply_manual_task_edit",
     "build_draft_context",

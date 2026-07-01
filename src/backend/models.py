@@ -223,7 +223,17 @@ class ReportTaskEntry(BaseModel):
     (including a brand-new one) regardless of status; current-state ``due_date``
     is just the latest journal row's value, never auto-computed from status.
 
-    ``note`` is the per-meeting change note (-> ``task_history.change_note``).
+    ``owner`` defaults to the team's champion. Set it only when the notes name a
+    specific person who owns the task; that named person (whether the champion or
+    a DIFFERENT team member) is kept as-is. When ``owner`` is left null the draft
+    path resolves it to the champion (new task) or the task's established owner
+    (matched task), so the preview is NEVER blank and matches what save will do.
+
+    ``note`` is the per-meeting CHANGE note (-> ``task_history.change_note``): a
+    short delta describing what happened to the task THIS meeting that its other
+    fields (status/owner/due_date) do not already capture. It must ADD
+    information — never restate the task name, status, or owner. If there is no
+    distinct change to record, leave it null.
 
     ENTITY id-match — ``id`` is the link signal. The draft context feeds this
     team's existing tasks each with their integer PK. A note line that matches an
@@ -251,15 +261,25 @@ class ReportTaskEntry(BaseModel):
 class ReportArtifactEntry(BaseModel):
     """A flat artifact change line in a report (domain carried per entry).
 
-    ``artifact`` is the artifact's human-readable name.
+    ``artifact`` is the artifact's SPECIFIC, descriptive name — never a bare
+    generic type word ("pre-commit hook", "skill"). A hook that "blocks secrets
+    sneaking into config files" is named e.g. "Secrets pre-commit hook", not
+    "pre-commit hook".
 
-    ``summary`` is the artifact's standing description (-> entity
-    ``Artifact.summary``); ``note`` is the per-meeting change note
-    (-> ``artifact_history.change_note``). They are DISTINCT fields.
+    ``summary`` is the artifact's standing description — what it is / does
+    (-> entity ``Artifact.summary``); it should be populated for every artifact.
+    ``note`` is the per-meeting CHANGE note (-> ``artifact_history.change_note``):
+    a short delta of what changed to the artifact THIS meeting (e.g. "extended to
+    support streaming RPCs"). ``summary`` and ``note`` are DISTINCT; never copy
+    the standing description into ``note`` and never restate the name/type there.
+    Leave ``note`` null when there is no distinct per-meeting change.
 
     ``change_kind`` is "added" for a newly created artifact and
-    "updated"/"moved"/"retired" for an existing one; it may be supplied
-    explicitly to override inference.
+    "updated"/"moved"/"retired" for an existing one. The model should always
+    classify it, but it MAY be emitted null: the draft path and the fan-out
+    engine then fill it from the same rule (``added`` for a new artifact,
+    ``moved`` when the domain changed else ``updated`` for an existing one), so a
+    stored artifact_history row NEVER carries a null change_kind.
 
     ENTITY id-match — ``id`` is the link signal. The draft context feeds this
     team's existing artifacts each with their integer PK. A note line that
@@ -291,13 +311,19 @@ class ReportActionItem(BaseModel):
     """An action item in a report (A1+A2: the AI Lead's OWN to-do).
 
     Action items are EXCLUSIVELY the AI-enablement-lead's to-dos — there is NO
-    owner field (the owner is always, implicitly, the AI Lead). A champion /
-    team-member follow-up is a TASK, never an action item. ``note`` is an
-    optional free-text annotation.
+    owner field (the owner is always, implicitly, the AI Lead) and NO domain. A
+    champion / team-member follow-up is a TASK, never an action item.
 
-    An action item carries NO domain in the report: it inherits the report's
-    TEAM implicitly at fan-out time (``action_item.team_id`` = the report's
-    team). It is never placed in a domain.
+    The model emits exactly what an AI-Lead to-do needs: ``text`` (the to-do),
+    ``status`` (defaults to ``planned``), an optional ``due_date``, and an
+    optional ``note``. ``note`` is a free-text annotation that ADDS context about
+    the to-do — it is never a restatement of ``text``; leave it null if it adds
+    nothing.
+
+    An action item carries NO domain and NO team in the report: it inherits the
+    report's TEAM implicitly at fan-out time (``action_item.team_id`` = the
+    report's team). It is never placed in a domain, and the model is never asked
+    for a team.
     """
     model_config = _doc_config
 
