@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **▶ NEXT: Waves 17–19 — user credentials & RBAC** (login for all; admin edits everything & is untouchable; everyone else read-only, scoped by team). Then 20 (go-live) + 21 (search).
+> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **Wave 17 (auth core + FE foundation) DONE** — built by 2 parallel agents, consultant-audited, contract-reconciled, reviewed (session-FK rename bug fixed), simplified, verified (47 routes, FE build green, tracker.db untouched). **▶ NEXT: Wave 18** (read-scope guards + admin-only writes + FE surfaces), then 19 (RBAC verify), 20 (go-live), 21 (search).
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜⬜⬜] 84% (168/200)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 90% (181/200)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 168 / 200 | 84% |
+| 🟢 Done | 181 / 200 | 90% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 32 (RBAC 17: 13 · 18: 11 · 19: 3 · go-live 20: 2 · search 21: 3) | 16% |
+| ⬜ Pending | 19 (RBAC 18: 11 · 19: 3 · go-live 20: 2 · search 21: 3) | 10% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -39,8 +39,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 13 | **Done** | 3/3 | 3/3 | 0/18 | **Built + verified.** 13A/13B/13C cherry-picked clean (`bf5feb6`..`5fbef2f`, no conflicts — disjoint). Uncertainty gate → 1 FIX-NOW (artifacts fold = full catalog, not just gutter); review → 2 fixes (AI-Lead tile cursor/hover bleed, stable sort comparator); simplified (team-page CSS namespaced under `.team-page`, band-aid dropped). `npm run build` green (66 mods, tsc clean), `import app` OK (36 routes), 45/45 journal tests — tracker.db untouched throughout. **Live 10-item walk + draft round-trip = Omer (.env).** Type tidy (dead `cc_baseline`/`ended_on`/`resolved`) still deferred |
 | 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
 | 16 | **Done** | 6/6 | 6/6 | 0/24 | **One champion per team (1:1 refactor) — built + verified.** 6 disjoint agents (16A–16F) cherry-picked clean (`1122bf9`..`df569bb`, 0 conflicts); champion folded into team (`team.champion_name NOT NULL` + `champion_start_date`; `champion` table dropped), all keyed by `team_id`, report champion-picker gone, `cc_baseline`/`baseline_date` nuked. code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge nav fix + simplification (`5dc699d`,`03f489f`). DB expunged+recreated clean (backed up first); qa dataset folded to one champion **Noa** (`415d698`); live API verify 19/19. **Live UI walk + LLM draft = Omer (.env).** |
-| **17** | **Not Started ▶ NEXT** | 0/2 | 0/2 | 0/13 | **Auth core + admin user-portal API (17A) + FE auth foundation (17B)** — parallel, disjoint |
-| **18** | Not Started | 0/3 | 0/3 | 0/11 | Read-scope guards + admin-only writes (18A) + FE surfaces (18B) + hide edits (18C) — depend on W17 |
+| **17** | **Done** | 2/2 | 2/2 | 0/13 | **Auth core + admin user-portal API (17A) + FE auth foundation (17B).** Cherry-picked clean; contract reconciled; session-FK rename bug fixed; import OK (47 routes) + FE build green; tracker.db untouched. Live login walk = Omer |
+| **18** | **Not Started ▶ NEXT** | 0/3 | 0/3 | 0/11 | Read-scope guards + admin-only writes (18A) + FE surfaces (18B) + hide edits (18C) — depend on W17 |
 | **19** | Not Started | — | — | 0/3 | RBAC verify + adversarial security audit (gate) |
 | 20 | Not Started | — | — | 0/2 | Go-live walkthrough (was 17) — README_HUMAN + `backup_db.sh` |
 | 21 | Not Started | 0/1 | 0/1 | 0/3 | Search bar + DSL (was 18) — 21A design, then 21B+ |
@@ -508,30 +508,31 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 17 — Auth core + admin user-portal API + FE auth foundation  ▶ RUN NEXT
+## Wave 17 — Auth core + admin user-portal API + FE auth foundation — 🟢 DONE
 
 > Login for all; **admin (Omer) edits everything & is untouchable; everyone else READ-ONLY**, scoped by a read-matrix (all teams / specific teams). Session token + pbkdf2. See `task_breakdown.md` Wave 17.
+> **Built + verified.** 17A/17B cherry-picked clean (`f3be3ee`,`1253978`, disjoint backend/FE). Same-type consultants audited both; FE↔BE contract reconciled (2 FIX-NOW: reset-password returns User + `new_password` optional; dropped `password` from UserUpdateBody). code-review caught a real merge bug — session was FK'd to `user(username)` so renaming a logged-in user 500'd → **re-keyed sessions to `user.id`** (`303d89a`). Simplified (dead body-types dropped, `61d0ef5`). `import app` OK (47 routes, 9 auth/users endpoints), FE `npm run build` green (71 mods), **tracker.db untouched**. **Live UI login walk = Omer.**
 
-### Agent 17A: Backend auth core + user-portal API (`security-engineer`)
+### Agent 17A: Backend auth core + user-portal API (`security-engineer`) — 🟢 DONE (`f3be3ee`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Schema: user + user_team + session (additive) | ⬜ Pending | read-scope = read_all OR user_team rows |
-| 2 | pbkdf2 hash + session-token primitives | ⬜ Pending | stdlib |
-| 3 | Deps: get_current_user / require_admin / can_read_team | ⬜ Pending | seam 18A consumes |
-| 4 | Auth routes: login / logout / me / change-password | ⬜ Pending | login public |
-| 5 | Admin Users portal API (CRUD, reset-pw, activate, read-scope); admin untouchable | ⬜ Pending | decision 2d |
-| 6 | provision_team_user + seed admin/manager | ⬜ Pending | forward-only |
-| 7 | Wire routers + additive models | ⬜ Pending | |
+| 1 | Schema: user + user_team + session (additive) | 🟢 Done | read-scope = read_all OR user_team rows; session keyed on `user.id` (post-review) |
+| 2 | pbkdf2 hash + session-token primitives | 🟢 Done | stdlib; 240k iters, constant-time compare |
+| 3 | Deps: get_current_user / require_admin / can_read_team | 🟢 Done | seam 18A consumes; None = unrestricted |
+| 4 | Auth routes: login / logout / me / change-password | 🟢 Done | login public; no password_hash leak |
+| 5 | Admin Users portal API (CRUD, reset-pw, activate, read-scope); admin untouchable | 🟢 Done | admin 404-invisible on every mutating path |
+| 6 | provision_team_user + seed admin/manager | 🟢 Done | forward-only; collision → `-<team_id>` |
+| 7 | Wire routers + additive models | 🟢 Done | in `/docs` |
 
-### Agent 17B: FE auth foundation (`frontend-developer`)
+### Agent 17B: FE auth foundation (`frontend-developer`) — 🟢 DONE (`1253978`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | AuthContext + AuthProvider in main.tsx | ⬜ Pending | first Context |
-| 2 | api.ts token + 401→login / 403→Forbidden + auth/users methods | ⬜ Pending | |
-| 3 | LoginPage (outside AppShell) | ⬜ Pending | |
-| 4 | ProtectedRoute + landing (admin/read-all→/, scoped→own team) | ⬜ Pending | |
-| 5 | router: /login + wrap AppShell | ⬜ Pending | sole W17 router editor |
-| 6 | Auth/user types | ⬜ Pending | |
+| 1 | AuthContext + AuthProvider in main.tsx | 🟢 Done | first Context; localStorage `aat_token`; rehydrate via `/me` |
+| 2 | api.ts token + 401→login / 403→Forbidden + auth/users methods | 🟢 Done | contract-reconciled with 17A |
+| 3 | LoginPage (outside AppShell) | 🟢 Done | inline 401 error |
+| 4 | ProtectedRoute + landing (admin/read-all→/, scoped→own team) | 🟢 Done | init loader guards render race |
+| 5 | router: /login + wrap AppShell | 🟢 Done | commented `/users` + `/403` slots for 18B |
+| 6 | Auth/user types | 🟢 Done | additive |
 
 ---
 
