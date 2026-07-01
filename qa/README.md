@@ -57,23 +57,30 @@ the a11y skill exists before it's matched in a later week:
   by) a later report for the same team. The Web Experience a11y skill uses this: created in one
   week, matched/updated in a later week as the SAME row. That is the headline trick.
 - **`domain_id` null never invents a domain.** For a **task** it falls back to **General**;
-  for an **artifact/action-item** it stays unplaced/team-wide.
+  for an **artifact** it stays unplaced/team-wide. (Action items have NO domain — see below.)
+- **Action items are the AI Lead's own to-dos (A1+A2).** They have **NO owner** and **NO domain**.
+  A report's action items are auto-tagged to **that report's team**; a manually-added action item
+  (created on the AI-Lead board) has **no team** by default, or you pick a team / leave it in the
+  gutter. They live only on the **AI-Lead board** (not on team pages, not editable in the report
+  edit flow) and support full in-place CRUD there (status / text / due / note / team / delete).
 - **Action items are per-report rows, NOT id-matched.** "Status change across weeks" = a fresh
   action-item row with the new status in the later report; the earlier row is untouched. Watch
   the AI-Lead view for whether re-mentions read as duplicates (flag if it bothers you).
-- **Owner defaults**: a task with no named owner → the champion; a named different person (e.g.
-  `Tomer`, `Lior`) is kept. Action-item owner is always either the champion's name or the
-  literal **`AI Lead`** (the only two allowed values).
+- **Task owner defaults**: a task with no named owner → the champion; a named different person
+  (e.g. `Tomer`, `Lior`) is kept. (This is TASK owner only — action items have no owner.)
 
 ## Uncertainties / assumptions (flag while eyeballing)
 1. **General placement is a judgment call.** The "commit-message format" (P 05-18) and "Q3
    hiring" (D 05-15) tasks are *meant* to land in **General** (null domain → task fallback).
    A capable model might over-reach and file them under Infrastructure / a tech domain, or it
    might emit them as discussion rather than tasks. Both are plausible — verify and note.
-2. **Action items are not deduplicated.** Re-mentioning a follow-up in a later week creates a
-   second `action_item` row. The "status change across weeks" rows (P 05-11, W 05-13, D 05-15)
-   will appear as NEW rows, not edits. If the AI-Lead cross-team list looks cluttered with
-   near-duplicates, that's the current design — flag if undesirable.
+2. **Action items are not deduplicated** (AI-Lead items only). Re-mentioning an **AI-Lead**
+   follow-up in a later week creates a second `action_item` row (not id-matched). ⚠️ **A1+A2
+   flip:** the old "status change across weeks" cases (P 05-11, W 05-13, D 05-15 — the
+   gRPC how-to doc, accessibility training, dbt-reviewer doc) were **champion** follow-ups, which
+   are now **tasks**. Tasks ARE id-matched, so those later mentions **UPDATE the same task** (one
+   row, new status) — the OPPOSITE of the old fresh-row behavior. Only genuine AI-Lead items
+   (no owner) still create per-week rows; watch the AI-Lead cross-team list for those.
 3. **Same-champion cross-week artifact match (W 05-14 a11y lint)** depends on the model
    actually using the team-wide artifact from the draft context. If it instead creates a
    duplicate skill or moves it into Mobile, that's a real bug to catch.
