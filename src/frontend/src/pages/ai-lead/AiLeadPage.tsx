@@ -20,12 +20,14 @@ type View = 'priority' | 'team';
 type Tab = 'actions' | 'toolkit';
 
 // Inline action-item form (shared by add + edit). `id` null = adding a new
-// standalone item; a number = editing that standalone item.
+// standalone item; a number = editing that item. A1+A2: ALL items (report-derived
+// AND standalone) are fully editable here.
 type ActionForm = {
   id: number | null;
   text: string;
   status: TaskStatus;
   due_date: string; // '' = no due date
+  note: string; // '' = no note
 };
 
 const STATUS_OPTIONS: ReadonlyArray<readonly [TaskStatus, string]> = [
@@ -69,7 +71,9 @@ function isOverdue(it: AILeadActionItem): boolean {
   return !!it.due_date && it.due_date < TODAY && !isClosed(it.status);
 }
 
-// A standalone (self-managed) item carries no report — fully editable + deletable.
+// A standalone (self-managed) item carries no report; a report-derived item was
+// folded from a champion report. A1+A2: BOTH are fully editable + deletable — this
+// flag now only drives the display label / team cell, not edit permissions.
 function isStandalone(it: AILeadActionItem): boolean {
   return it.report_id === null;
 }
@@ -137,7 +141,7 @@ export default function AiLeadPage() {
         setItems((list) =>
           list.map((it) =>
             it.id === id
-              ? { ...it, status: updated.status ?? it.status, due_date: updated.due_date, text: updated.text }
+              ? { ...it, status: updated.status ?? it.status, due_date: updated.due_date, text: updated.text, note: updated.note }
               : it,
           ),
         );
@@ -162,12 +166,12 @@ export default function AiLeadPage() {
   function openAdd() {
     setActionError(null);
     setTab('actions');
-    setActionForm({ id: null, text: '', status: 'planned', due_date: '' });
+    setActionForm({ id: null, text: '', status: 'planned', due_date: '', note: '' });
   }
 
   function openEdit(it: AILeadActionItem) {
     setActionError(null);
-    setActionForm({ id: it.id, text: it.text, status: it.status, due_date: it.due_date ?? '' });
+    setActionForm({ id: it.id, text: it.text, status: it.status, due_date: it.due_date ?? '', note: it.note ?? '' });
   }
 
   function closeForm() {
@@ -182,9 +186,10 @@ export default function AiLeadPage() {
     setActionSaving(true);
     setActionError(null);
     const due = actionForm.due_date || null;
+    const note = actionForm.note.trim() || null;
     if (actionForm.id === null) {
       api.aiLead
-        .create({ text, status: actionForm.status, due_date: due })
+        .create({ text, status: actionForm.status, due_date: due, note })
         .then((created) => {
           setItems((list) => [...list, created]); // enriched row — append directly.
           setActionSaving(false);
@@ -197,13 +202,13 @@ export default function AiLeadPage() {
     } else {
       const id = actionForm.id;
       api.aiLead
-        .patch(id, { text, status: actionForm.status, due_date: due })
+        .patch(id, { text, status: actionForm.status, due_date: due, note })
         .then((updated) => {
           // Reconcile from the returned bare ActionItem (cross-team fields stay null).
           setItems((list) =>
             list.map((it) =>
               it.id === id
-                ? { ...it, text: updated.text, status: updated.status ?? it.status, due_date: updated.due_date }
+                ? { ...it, text: updated.text, status: updated.status ?? it.status, due_date: updated.due_date, note: updated.note }
                 : it,
             ),
           );
@@ -218,7 +223,7 @@ export default function AiLeadPage() {
   }
 
   function deleteAction(it: AILeadActionItem) {
-    if (!confirm(`Delete this standalone action item?\n\n"${it.text}"`)) return;
+    if (!confirm(`Delete this action item?\n\n"${it.text}"`)) return;
     const prev = items;
     setItems((list) => list.filter((x) => x.id !== it.id));
     setActionForm((f) => (f && f.id === it.id ? null : f));
@@ -369,7 +374,7 @@ export default function AiLeadPage() {
                   <div className="tk-form">
                     <div className="af-title">
                       {actionForm.id === null
-                        ? 'Add action item (personal — owner: AI Lead)'
+                        ? 'Add action item (AI Lead)'
                         : 'Edit action item'}
                     </div>
                     <div className="af-grid">
@@ -408,6 +413,17 @@ export default function AiLeadPage() {
                           className="tk-input"
                           value={actionForm.due_date}
                           onChange={(e) => setActionForm({ ...actionForm, due_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="af-field grow">
+                        <label className="af-label" htmlFor="af-note">Note</label>
+                        <input
+                          id="af-note"
+                          type="text"
+                          className="tk-input"
+                          placeholder="Optional note"
+                          value={actionForm.note}
+                          onChange={(e) => setActionForm({ ...actionForm, note: e.target.value })}
                         />
                       </div>
                     </div>
@@ -528,9 +544,13 @@ function ItemRow({
     <tr className={`item-row ${closed ? 'is-closed ' : ''}st-${it.status}`}>
       <td className="col-item">
         <div className="ai-text">{it.text}</div>
-        <span className={`kind-tag ${standalone ? 'kind-personal' : 'kind-meeting'}`}>
-          {standalone ? 'Personal' : 'From report'}
-        </span>
+        {it.note && <div className="ai-note">{it.note}</div>}
+        <div className="ai-item-tags">
+          <span className={`kind-tag ${standalone ? 'kind-personal' : 'kind-meeting'}`}>
+            {standalone ? 'Personal' : 'From report'}
+          </span>
+          {it.domain && <span className="domain-tag">{it.domain}</span>}
+        </div>
       </td>
       <td className="col-team">
         {standalone ? (
@@ -577,32 +597,25 @@ function ItemRow({
         {error && <div className="row-error">{error}</div>}
       </td>
       <td className="col-open">
-        {standalone ? (
-          <div className="row-acts">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
-              Edit
-            </button>
-            <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
-              Delete
-            </button>
-          </div>
-        ) : (
-          <div className="managed-cell">
+        {/* A1+A2: every item (report-derived AND standalone) is fully editable +
+            deletable here. Report-derived items also link back to their report. */}
+        <div className="row-acts">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
+            Edit
+          </button>
+          <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
+            Delete
+          </button>
+          {!standalone && (
             <Link
               to={`/reports/${it.report_id}/edit`}
               className="btn btn-secondary btn-sm"
-              title="Open the report this item lives on"
+              title="Open the report this item was folded from"
             >
               Open report ↗
             </Link>
-            <span
-              className="managed-hint"
-              title="Mined from its champion report. Edit its status and due date here; the wording and team are managed on the report."
-            >
-              <span className="qi">i</span>Report-managed
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </td>
     </tr>
   );

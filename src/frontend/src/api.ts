@@ -173,17 +173,17 @@ export const api = {
     // `GET /api/ai-lead/action-items` — every AI-Lead-owned action item (owner =
     // 'AI Lead') across ALL teams, of any status, newest first.
     actionItems: (): Promise<AILeadActionItem[]> => request('/ai-lead/action-items'),
-    // `PATCH /api/action-items/{id}` — partial edit (status, due_date and/or text;
-    // `text` is standalone-only). Returns the full updated bare ActionItem (no
-    // enriched team/meeting fields), so callers reconcile their list row from the
-    // returned status/due_date/text.
+    // `PATCH /api/action-items/{id}` — partial edit (status, due_date, text, note
+    // and/or domain_id). A1+A2: works on EVERY item (report-derived AND
+    // standalone) — no 409 on text edits. Returns the full updated bare
+    // ActionItem, so callers reconcile their list row from the returned fields.
     patch: (id: number, body: ActionItemPatchBody): Promise<ActionItem> =>
       request(`/action-items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
     // `POST /api/action-items` — create a standalone AI-Lead item (201 → enriched
     // row, with null team/champion/meeting_date/report_id). Append it directly.
     create: (body: ActionItemCreateBody): Promise<AILeadActionItem> =>
       request('/action-items', { method: 'POST', body: JSON.stringify(body) }),
-    // `DELETE /api/action-items/{id}` — standalone only (204; 409 if report-derived).
+    // `DELETE /api/action-items/{id}` — A1+A2: deletes ANY item (204; no 409).
     delete: (id: number): Promise<void> =>
       request(`/action-items/${id}`, { method: 'DELETE' }),
     // ---- Personal toolkit (standalone resource — `/api/ai-lead/items`) ----

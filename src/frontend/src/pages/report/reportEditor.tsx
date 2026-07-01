@@ -1083,19 +1083,23 @@ function RichMentionEditor({
 
 // ── Action items table ──────────────────────────────────────────────────────
 
+// Action items are the AI Lead's OWN to-dos (no owner). They are folded from the
+// report ONCE, on the initial save (create flow). Editing a saved report does
+// NOT re-fold them, so in the edit flow this section is rendered read-only with a
+// hint pointing to the AI-Lead board (`readOnly` = true from ReportEditPage).
 function ActionItemsCard({
   items,
   keys,
   entities,
   domains,
-  champion,
+  readOnly = false,
   onChange,
 }: {
   items: ReportActionItemLine[];
   keys: string[];
   entities: TeamEntities;
   domains: DomainOption[];
-  champion: string;
+  readOnly?: boolean;
   onChange: (next: ReportActionItemLine[], nextKeys: string[]) => void;
 }) {
   function patch(i: number, p: Partial<ReportActionItemLine>) {
@@ -1115,79 +1119,123 @@ function ActionItemsCard({
     <div className="card">
       <div className="card-head">
         <span className="card-title">
-          Action items <span className="count">{items.length}</span>
+          My action items (AI Lead) <span className="count">{items.length}</span>
         </span>
       </div>
+      {readOnly && (
+        <div className="hint-line" style={{ paddingTop: 10 }}>
+          Action items are folded once from the report and are managed on the{' '}
+          <strong>AI-Lead board</strong> after creation — this list is read-only here.
+        </div>
+      )}
       <div className="card-body flush">
         <table className="ai-table">
           <colgroup>
             <col className="ai-c-text" />
             <col className="ai-c-status" />
-            <col className="ai-c-owner" />
             <col className="ai-c-due" />
             <col className="ai-c-domain" />
-            <col className="ai-c-del" />
+            <col className="ai-c-note" />
+            {!readOnly && <col className="ai-c-del" />}
           </colgroup>
           <thead>
             <tr>
               <th>Action item (type @ task or # artifact)</th>
               <th>Status</th>
-              <th>Owner</th>
               <th>Due</th>
               <th>Domain</th>
-              <th />
+              <th>Note</th>
+              {!readOnly && <th />}
             </tr>
           </thead>
           <tbody>
-            {items.map((it, i) => (
-              <tr key={keys[i]}>
-                <td className="ai-text-td">
-                  <RichMentionEditor
-                    value={it.text}
-                    onChange={(v) => patch(i, { text: v })}
-                    entities={entities}
-                    placeholder="Action item…"
-                    singleLine
-                  />
-                </td>
-                <td>
-                  <StatusControl value={it.status ?? 'planned'} onChange={(s) => patch(i, { status: s })} />
-                </td>
-                <td>
-                  <OwnerControl
-                    value={it.owner ?? ''}
-                    champion={champion}
-                    onChange={(v) => patch(i, { owner: v })}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="cell-date"
-                    type="date"
-                    value={it.due_date ?? ''}
-                    onChange={(e) => patch(i, { due_date: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <DomainSelect domain={it.domain} domainId={it.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
-                </td>
-                <td>
-                  <button className="del-btn" title="Remove row" onClick={() => del(i)}>
-                    ×
-                  </button>
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={readOnly ? 5 : 6} className="text-muted text-sm" style={{ padding: 14 }}>
+                  No action items.
                 </td>
               </tr>
-            ))}
+            ) : (
+              items.map((it, i) => (
+                <tr key={keys[i]}>
+                  <td className="ai-text-td">
+                    {readOnly ? (
+                      <span className="ai-static-text">{it.text}</span>
+                    ) : (
+                      <RichMentionEditor
+                        value={it.text}
+                        onChange={(v) => patch(i, { text: v })}
+                        entities={entities}
+                        placeholder="Action item…"
+                        singleLine
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span className="status-wrap">
+                        <span className={`status-dot ${statusCls(it.status ?? 'planned')}`} />
+                        {STATUS_OPTS.find((s) => s.v === (it.status ?? 'planned'))?.l ?? (it.status ?? 'planned')}
+                      </span>
+                    ) : (
+                      <StatusControl value={it.status ?? 'planned'} onChange={(s) => patch(i, { status: s })} />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span className="text-muted text-sm">{it.due_date ?? '—'}</span>
+                    ) : (
+                      <input
+                        className="cell-date"
+                        type="date"
+                        value={it.due_date ?? ''}
+                        onChange={(e) => patch(i, { due_date: e.target.value })}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span className="text-muted text-sm">{it.domain ?? 'Unplaced / General'}</span>
+                    ) : (
+                      <DomainSelect domain={it.domain} domainId={it.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span className="text-muted text-sm">{it.note ?? '—'}</span>
+                    ) : (
+                      <input
+                        className="cell-input note-input"
+                        value={it.note ?? ''}
+                        placeholder="note"
+                        onChange={(e) => patch(i, { note: e.target.value })}
+                      />
+                    )}
+                  </td>
+                  {!readOnly && (
+                    <td>
+                      <button className="del-btn" title="Remove row" onClick={() => del(i)}>
+                        ×
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      <button className="add-row-btn" onClick={add}>
-        + Add action item
-      </button>
-      <div className="hint-line">
-        Type <strong>@</strong> for a task reference, <strong>#</strong> for an artifact — picks insert a subtle
-        icon-chip, not the raw character.
-      </div>
+      {!readOnly && (
+        <>
+          <button className="add-row-btn" onClick={add}>
+            + Add action item
+          </button>
+          <div className="hint-line">
+            These are the <strong>AI Lead&apos;s own</strong> to-dos (no owner). Type <strong>@</strong> for a
+            task reference, <strong>#</strong> for an artifact — picks insert a subtle icon-chip.
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1338,7 +1386,7 @@ export function stripReportForSave(report: ReportJson): ReportJson {
 
   out.action_items = (report.action_items ?? []).map((it) => {
     const line: ReportActionItemLine = { text: it.text };
-    if (it.owner) line.owner = it.owner;
+    if (it.note) line.note = it.note;
     if (it.due_date) line.due_date = it.due_date;
     if (it.status) line.status = it.status;
     if (it.domain_id != null) {
@@ -1456,6 +1504,7 @@ export function FlatReportEditor({
   keys,
   entities,
   domains,
+  actionItemsReadOnly = false,
   onReportChange,
   onKeysChange,
 }: {
@@ -1463,6 +1512,9 @@ export function FlatReportEditor({
   keys: EditorKeys;
   entities: TeamEntities;
   domains: DomainOption[];
+  // Action items are folded ONCE (create flow). In the edit flow they are managed
+  // on the AI-Lead board, so this section renders read-only when true.
+  actionItemsReadOnly?: boolean;
   onReportChange: (next: ReportJson) => void;
   onKeysChange: (next: EditorKeys) => void;
 }) {
@@ -1527,7 +1579,7 @@ export function FlatReportEditor({
         keys={keys.actionItems}
         entities={entities}
         domains={domains}
-        champion={report.champion}
+        readOnly={actionItemsReadOnly}
         onChange={(action_items, nextKeys) => {
           onReportChange({ ...report, action_items });
           onKeysChange({ ...keys, actionItems: nextKeys });

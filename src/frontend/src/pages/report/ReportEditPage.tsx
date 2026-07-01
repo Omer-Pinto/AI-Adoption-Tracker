@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import type { ReportJson, TeamEntities } from '@/types';
 import { ErrorState } from '@/components/EmptyState';
 import {
@@ -33,6 +33,9 @@ export default function ReportEditPage() {
   const [entities, setEntities] = useState<TeamEntities>(EMPTY_ENTITIES);
   const [domains, setDomains] = useState<DomainOption[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
+  // Only the LATEST report per team is editable. Older reports load read-only
+  // (Save hidden, inputs disabled) but stay viewable.
+  const [isLatest, setIsLatest] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,17 +53,27 @@ export default function ReportEditPage() {
         setTeamId(saved.team_id);
         setKeys(makeKeys(parsed));
 
-        // Team-keyed: team entities + team domains, plus the LIVE champion name.
-        const [ents, doms, teams] = await Promise.all([
+        // Team-keyed: team entities + team domains + the team page (for the
+        // report list, to know if THIS report is the latest), plus the LIVE
+        // champion name.
+        const [ents, doms, teams, teamPage] = await Promise.all([
           api.views.teamEntities(saved.team_id),
           api.domains.listByTeam(saved.team_id),
           api.teams.list(),
+          api.views.teamPage(saved.team_id),
         ]);
         if (cancelled) return;
         const team = teams.find((t) => t.id === saved.team_id);
         setReport(team ? { ...parsed, champion: team.champion_name } : parsed);
         setEntities(ents);
         setDomains(doms.map((d) => ({ id: d.id, name: d.name })));
+        // Latest = greatest meeting_date, tie-break greatest id.
+        const latest = [...teamPage.reports].sort((a, b) =>
+          a.meeting_date !== b.meeting_date
+            ? a.meeting_date.localeCompare(b.meeting_date)
+            : a.id - b.id,
+        ).slice(-1)[0];
+        setIsLatest(latest ? latest.id === saved.id : true);
       })
       .catch((e) => { console.error(e); setError('Failed to load report.'); })
       .finally(() => {
@@ -89,7 +102,14 @@ export default function ReportEditPage() {
       const { report: saved } = await api.reports.update(Number(reportId), payload);
       navigate(`/teams/${saved.team_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save report. Please try again.');
+      // 409 = the backend rejected the edit because this is no longer the latest
+      // report for its team. Flip to read-only and explain.
+      if (err instanceof ApiError && err.status === 409) {
+        setIsLatest(false);
+        setError('This report can no longer be edited — a newer report exists for this team.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to save report. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -137,10 +157,11 @@ export default function ReportEditPage() {
     <>
       <div className="top-bar">
         <div>
-          <span className="top-bar-title">Edit Report</span>
+          <span className="top-bar-title">{isLatest ? 'Edit Report' : 'View Report'}</span>
           <span className="top-bar-sub">
             {report.champion}
             {report.meeting_date ? ` — ${report.meeting_date}` : ''}
+            {!isLatest ? ' • read-only' : ''}
           </span>
         </div>
         <div className="top-bar-actions">
@@ -148,11 +169,13 @@ export default function ReportEditPage() {
             className="btn btn-secondary btn-sm"
             onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
           >
-            Cancel
+            {isLatest ? 'Cancel' : 'Back'}
           </button>
-          <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
+          {isLatest && (
+            <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -160,13 +183,20 @@ export default function ReportEditPage() {
         <div className="breadcrumb">
           <a href="/">Teams</a>
           <span className="breadcrumb-sep">/</span>
-          <span>Edit Report — {report.meeting_date}</span>
+          <span>{isLatest ? 'Edit' : 'View'} Report — {report.meeting_date}</span>
         </div>
 
-        <div className="info-banner" style={{ marginBottom: 20 }}>
-          <strong>Editing a saved report.</strong> You are editing the structured fields, not the original raw
-          notes. On save, task and artifact records will be recomputed from this report&apos;s data.
-        </div>
+        {isLatest ? (
+          <div className="info-banner" style={{ marginBottom: 20 }}>
+            <strong>Editing a saved report.</strong> You are editing the structured fields, not the original raw
+            notes. On save, task and artifact records will be recomputed from this report&apos;s data.
+          </div>
+        ) : (
+          <div className="warning-banner" style={{ marginBottom: 20 }}>
+            <strong>Read-only.</strong> Only the latest report for this team can be edited. This is an older
+            report — you can view it, but editing is disabled.
+          </div>
+        )}
 
         {error && (
           <div className="blocker-banner" style={{ marginBottom: 16 }}>
@@ -175,26 +205,31 @@ export default function ReportEditPage() {
           </div>
         )}
 
-        <FlatReportEditor
-          report={report}
-          keys={keys}
-          entities={entities}
-          domains={domains}
-          onReportChange={setReport}
-          onKeysChange={setKeys}
-        />
+        <fieldset className="ro-editor" disabled={!isLatest}>
+          <FlatReportEditor
+            report={report}
+            keys={keys}
+            entities={entities}
+            domains={domains}
+            actionItemsReadOnly
+            onReportChange={setReport}
+            onKeysChange={setKeys}
+          />
+        </fieldset>
 
-        <div className="form-actions-bottom" style={{ marginTop: 18 }}>
-          <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
-          >
-            Cancel
-          </button>
-        </div>
+        {isLatest && (
+          <div className="form-actions-bottom" style={{ marginTop: 18 }}>
+            <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => (teamId != null ? navigate(`/teams/${teamId}`) : navigate(-1))}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

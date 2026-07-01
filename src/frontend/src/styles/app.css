@@ -1044,10 +1044,20 @@
    instead. Column widths via the colgroup below; the text col takes the rest. */
 .report-editor table.ai-table { table-layout: fixed; }
 .report-editor .ai-c-status { width: 116px; }
-.report-editor .ai-c-owner  { width: 160px; }
 .report-editor .ai-c-due    { width: 120px; }
 .report-editor .ai-c-domain { width: 160px; }
+.report-editor .ai-c-note   { width: 180px; }
 .report-editor .ai-c-del    { width: 34px; }
+.report-editor .ai-static-text { font-size: 13px; color: var(--text); }
+
+/* Read-only report (non-latest): a disabled <fieldset> natively disables all
+   inputs/selects/buttons; the only gap is the contenteditable mention editors,
+   so pin those inert too and dim the whole editor slightly. */
+fieldset.ro-editor { border: none; margin: 0; padding: 0; min-width: 0; }
+fieldset.ro-editor:disabled { opacity: .85; }
+fieldset.ro-editor:disabled .rte { pointer-events: none; user-select: text; background: var(--surface-2); }
+fieldset.ro-editor:disabled .add-row-btn,
+fieldset.ro-editor:disabled .del-btn { display: none; }
 .report-editor table.flat th, .report-editor table.ai-table th {
   font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-faint);
   text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap;

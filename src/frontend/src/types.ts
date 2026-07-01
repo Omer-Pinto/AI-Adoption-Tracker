@@ -82,10 +82,13 @@ export interface Artifact {
 
 export interface ActionItem {
   id: number;
-  report_id: number;
+  // An action item is the AI Lead's own to-do. `report_id` is null for a
+  // standalone (self-managed) item, set when the item was folded from a report.
+  report_id: number | null;
   domain_id: number | null;
   text: string;
-  owner: string | null;
+  /** Free-text note the AI Lead keeps on the item (A1+A2). Null = none. */
+  note: string | null;
   due_date: string | null;
   status?: TaskStatus;
   /** Legacy current-state flag — still read by TeamPage; superseded by `status`. */
@@ -163,7 +166,9 @@ export interface ReportArtifactLine {
 
 export interface ReportActionItemLine {
   text: string;
-  owner?: string;
+  // An action item is the AI Lead's own to-do — it has no owner. `note` is a
+  // free-text annotation folded into the stored item (A1+A2).
+  note?: string;
   due_date?: string;
   status?: TaskStatus;
   domain_id?: number | null;
@@ -314,6 +319,8 @@ export interface TeamPageIndexEntry {
 export interface AILeadActionItem {
   id: number;
   text: string;
+  /** Free-text note the AI Lead keeps on the item (A1+A2). Null = none. */
+  note: string | null;
   team_name: string | null;
   champion_name: string | null;
   meeting_date: string | null;
@@ -325,23 +332,28 @@ export interface AILeadActionItem {
 }
 
 /** Body for `PATCH /api/action-items/{id}` — partial; send only the changed
- *  field (`{status}`, `{due_date}` — `due_date: null` clears it — or `{text}`).
- *  `text` is standalone-only; the backend 409s if the item is report-derived.
- *  Returns the full updated bare `ActionItem` (no enriched team/champion/meeting
- *  fields). Mirrors the `TaskPatchBody` partial-PATCH convention. */
+ *  field(s). A1+A2: EVERY action item (report-derived AND standalone) now
+ *  supports full in-place edits — `text`, `status`, `due_date` (null clears it),
+ *  `note` (null clears it) and `domain_id` (null = unplaced/General). No more 409
+ *  on report-derived text edits. Returns the full updated bare `ActionItem`. */
 export interface ActionItemPatchBody {
   status?: TaskStatus;
   due_date?: string | null;
   text?: string;
+  note?: string | null;
+  domain_id?: number | null;
 }
 
 /** Body for `POST /api/action-items` — create a standalone AI-Lead-owned item.
- *  `text` is required + non-blank; `status` defaults to 'planned'. Returns the
- *  enriched `AILeadActionItem` (with null team/champion/meeting_date/report_id). */
+ *  `text` is required + non-blank; `status` defaults to 'planned'. `note` and
+ *  `domain_id` are optional (A1+A2). Returns the enriched `AILeadActionItem`
+ *  (with null team/champion/meeting_date/report_id). */
 export interface ActionItemCreateBody {
   text: string;
   status?: TaskStatus;
   due_date?: string | null;
+  note?: string | null;
+  domain_id?: number | null;
 }
 
 // ---- AI-Lead toolkit (standalone resource — `/api/ai-lead/items`) ----

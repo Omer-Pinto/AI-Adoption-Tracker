@@ -2,7 +2,16 @@ import './team-page.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/api';
-import type { TeamPage, DomainPage, Artifact, ArtifactDetail, ActionItem, Task, TaskStatus } from '@/types';
+import type {
+  TeamPage,
+  DomainPage,
+  Artifact,
+  ArtifactDetail,
+  ActionItem,
+  ActionItemPatchBody,
+  Task,
+  TaskStatus,
+} from '@/types';
 import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import { ArtifactDetailModal } from '@/components/ArtifactDetailModal';
@@ -15,6 +24,18 @@ import { ErrorState } from '@/components/EmptyState';
 // Terminal statuses = "closed". An action item / task in one of these is done.
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
 const TODAY = new Date().toISOString().slice(0, 10);
+
+// Action-item status options (in-place editable on the team page). Every action
+// item is the AI Lead's own to-do — no owner.
+const AI_STATUS_OPTIONS: ReadonlyArray<readonly [TaskStatus, string]> = [
+  ['planned', 'Planned'],
+  ['in-progress', 'In progress'],
+  ['blocked', 'Blocked'],
+  ['finished_with_issues', 'Finished (issues)'],
+  ['finished_successfully', 'Finished'],
+  ['abandoned', 'Abandoned'],
+  ['wont_fix', "Won't fix"],
+];
 
 // System "constant" domains every champion has, matched by name suffix
 // (case-insensitive) — stored per-team as "{Team}'s General" / "{Team}'s Context Creation".
@@ -52,6 +73,11 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // Action items are in-place editable — hold them locally, seeded from the
+  // loaded page, so edits/deletes reflect immediately without a full reload.
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [aiRowErrors, setAiRowErrors] = useState<Record<number, string>>({});
+
   // Artifact detail modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetail, setModalDetail] = useState<ArtifactDetail | null>(null);
@@ -64,13 +90,45 @@ export default function TeamPage() {
     setError(false);
     api.views
       .teamPage(Number(teamId))
-      .then((d) => { if (!cancelled) setData(d); })
+      .then((d) => { if (!cancelled) { setData(d); setActionItems(d.action_items); setAiRowErrors({}); } })
       .catch((e) => { console.error(e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [teamId]);
 
   useEffect(() => load(), [load]);
+
+  // In-place PATCH (status / text / due / note): optimistic apply → reconcile
+  // from the returned bare ActionItem → roll back + inline error on failure.
+  const patchActionItem = useCallback((id: number, patch: ActionItemPatchBody) => {
+    setAiRowErrors((e) => { const n = { ...e }; delete n[id]; return n; });
+    setActionItems((prev) => {
+      const before = prev.find((a) => a.id === id);
+      if (!before) return prev;
+      api.aiLead
+        .patch(id, patch)
+        .then((updated) => {
+          setActionItems((list) => list.map((a) => (a.id === id ? updated : a)));
+        })
+        .catch(() => {
+          setActionItems((list) => list.map((a) => (a.id === id ? before : a)));
+          setAiRowErrors((e) => ({ ...e, [id]: "Couldn't save — try again." }));
+        });
+      return prev.map((a) => (a.id === id ? { ...a, ...patch } : a));
+    });
+  }, []);
+
+  const deleteActionItem = useCallback((item: ActionItem) => {
+    if (!confirm(`Delete this action item?\n\n"${item.text}"`)) return;
+    setActionItems((prev) => {
+      const before = prev;
+      api.aiLead.delete(item.id).catch(() => {
+        setActionItems(before); // roll back
+        setAiRowErrors((e) => ({ ...e, [item.id]: "Couldn't delete — try again." }));
+      });
+      return prev.filter((a) => a.id !== item.id);
+    });
+  }, []);
 
   // Fold refs — tiles deep-link by opening + scrolling + flashing the fold.
   const domainsRef = useRef<HTMLDetailsElement>(null);
@@ -135,7 +193,11 @@ export default function TeamPage() {
     );
   }
 
-  const { team, domains, all_team_artifacts, reports, action_items } = data;
+  const { team, domains, all_team_artifacts, reports } = data;
+  // Action items render from local state (in-place editable); recompute counts
+  // locally so tiles/folds stay in sync after an edit or delete.
+  const openActionCount = actionItems.filter((a) => !isClosedItem(a)).length;
+  const closedActionCount = actionItems.filter(isClosedItem).length;
 
   // Resolve domain_id → domain name client-side (tasks & action items).
   const domainNameById = new Map(domains.map((dp) => [dp.domain.id, dp.domain.name]));
@@ -156,7 +218,7 @@ export default function TeamPage() {
     (t) => t.status === 'abandoned' || t.status === 'wont_fix',
   ).length;
 
-  const overdueActions = action_items.filter(isOverdue).length;
+  const overdueActions = actionItems.filter(isOverdue).length;
 
   // Domains tile: big number = real domains only; sub-line = how many of the
   // system constants ("General", "Context creation") are actually present.
@@ -168,6 +230,16 @@ export default function TeamPage() {
 
   const lastMeeting = reports.length
     ? reports.map((r) => r.meeting_date).sort().slice(-1)[0]
+    : null;
+
+  // Only the LATEST report per team is editable (greatest meeting_date, tie-break
+  // greatest id). Older reports are view-only; their edit affordance is removed.
+  const latestReportId = reports.length
+    ? [...reports].sort((a, b) =>
+        a.meeting_date !== b.meeting_date
+          ? a.meeting_date.localeCompare(b.meeting_date)
+          : a.id - b.id,
+      ).slice(-1)[0]!.id
     : null;
 
   function jumpTo(ref: React.RefObject<HTMLDetailsElement>) {
@@ -248,10 +320,10 @@ export default function TeamPage() {
               <span className="tile-label">Open action items</span>
               <span className="tile-ico">☑</span>
             </div>
-            <div className="tile-value">{data.open_action_items}</div>
+            <div className="tile-value">{openActionCount}</div>
             <div className="tile-sub">
               {overdueActions > 0 && <><span className="warn">{overdueActions} overdue</span> &bull; </>}
-              {data.closed_action_items} closed
+              {closedActionCount} closed
             </div>
           </button>
 
@@ -410,7 +482,7 @@ export default function TeamPage() {
                     <div className="report-label">Champion meeting &bull; {team.champion_name}</div>
                   </div>
                   <Link to={`/reports/${r.id}/edit`} className="btn btn-secondary btn-sm">
-                    View / Edit
+                    {r.id === latestReportId ? 'View / Edit' : 'View'}
                   </Link>
                 </div>
               ))
@@ -423,19 +495,27 @@ export default function TeamPage() {
           <summary>
             <span className="chev">▶</span>
             <span className="fold-title">Action items</span>
-            <span className="fold-count">{action_items.length}</span>
+            <span className="fold-count">{actionItems.length}</span>
             <span className="fold-spacer" />
             <span className="fold-pills">
-              <span className="mini-pill">{data.open_action_items} open</span>
+              <span className="mini-pill">{openActionCount} open</span>
               {overdueActions > 0 && <span className="mini-pill">{overdueActions} overdue</span>}
             </span>
             <span className="fold-hint" />
           </summary>
           <div className="fold-body">
-            {action_items.length === 0 ? (
+            {actionItems.length === 0 ? (
               <div className="empty-note">No action items for {team.champion_name}.</div>
             ) : (
-              <ActionItemsList items={action_items} domainNameById={domainNameById} domainColorById={domainColorById} />
+              <ActionItemsList
+                items={actionItems}
+                domainNameById={domainNameById}
+                domainColorById={domainColorById}
+                latestReportId={latestReportId}
+                rowErrors={aiRowErrors}
+                onPatch={patchActionItem}
+                onDelete={deleteActionItem}
+              />
             )}
           </div>
         </details>
@@ -703,50 +783,170 @@ function ActionItemsList({
   items,
   domainNameById,
   domainColorById,
+  latestReportId,
+  rowErrors,
+  onPatch,
+  onDelete,
 }: {
   items: ActionItem[];
   domainNameById: Map<number, string>;
   domainColorById: Map<number, string>;
+  latestReportId: number | null;
+  rowErrors: Record<number, string>;
+  onPatch: (id: number, patch: ActionItemPatchBody) => void;
+  onDelete: (item: ActionItem) => void;
 }) {
   return (
     <div>
-      {items.map((item) => {
-        const closed = isClosedItem(item);
-        const overdue = isOverdue(item);
-        const domainName = item.domain_id !== null ? domainNameById.get(item.domain_id) : null;
-        const domainChipColor = item.domain_id !== null ? (domainColorById.get(item.domain_id) ?? '#9ca3af') : '#9ca3af';
-        return (
-          <div key={item.id} className={`ai-row${closed ? ' resolved' : ''}`}>
-            <div className="ai-main">
-              <div className="ai-text">{item.text}</div>
-              <div className="ai-meta">
-                {domainName && (
-                  <span className="task-domain-chip" style={domainChipStyle(domainChipColor)}>{domainName}</span>
-                )}
-                {item.owner && (
-                  <span className="ai-owner">
-                    <span className="dot">{item.owner.trim().charAt(0).toUpperCase()}</span>
-                    {item.owner}
-                  </span>
-                )}
-                {item.due_date && (
-                  <span className={`ai-due${overdue ? ' overdue' : ''}`}>
-                    Due {item.due_date}{overdue ? ' (overdue)' : ''}
-                  </span>
-                )}
-                {item.status && <StatusBadge status={item.status} />}
-              </div>
-            </div>
-            <Link
-              to={`/reports/${item.report_id}/edit`}
-              className="btn btn-secondary btn-sm"
-              title="Edit the report this action item came from"
-            >
-              Edit report
-            </Link>
+      {items.map((item) => (
+        <ActionItemRow
+          key={item.id}
+          item={item}
+          domainNameById={domainNameById}
+          domainColorById={domainColorById}
+          latestReportId={latestReportId}
+          error={rowErrors[item.id]}
+          onPatch={onPatch}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+}
+
+// One in-place editable action item (the AI Lead's own to-do — no owner).
+// Status + due are always-live controls; text + note edit via an Edit toggle.
+function ActionItemRow({
+  item,
+  domainNameById,
+  domainColorById,
+  latestReportId,
+  error,
+  onPatch,
+  onDelete,
+}: {
+  item: ActionItem;
+  domainNameById: Map<number, string>;
+  domainColorById: Map<number, string>;
+  latestReportId: number | null;
+  error?: string | undefined;
+  onPatch: (id: number, patch: ActionItemPatchBody) => void;
+  onDelete: (item: ActionItem) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(item.text);
+  const [note, setNote] = useState(item.note ?? '');
+
+  // Re-seed the edit buffers whenever the underlying item changes (e.g. after a
+  // reconcile from the server) and we are not mid-edit.
+  useEffect(() => {
+    if (!editing) {
+      setText(item.text);
+      setNote(item.note ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.text, item.note]);
+
+  const closed = isClosedItem(item);
+  const overdue = isOverdue(item);
+  const domainName = item.domain_id !== null ? domainNameById.get(item.domain_id) : null;
+  const domainChipColor = item.domain_id !== null ? (domainColorById.get(item.domain_id) ?? '#9ca3af') : '#9ca3af';
+  const canEditReport = item.report_id != null && item.report_id === latestReportId;
+
+  function saveEdit() {
+    const patch: ActionItemPatchBody = {};
+    const t = text.trim();
+    if (t && t !== item.text) patch.text = t;
+    const n = note.trim();
+    if (n !== (item.note ?? '')) patch.note = n || null;
+    if (Object.keys(patch).length > 0) onPatch(item.id, patch);
+    setEditing(false);
+  }
+  function cancelEdit() {
+    setText(item.text);
+    setNote(item.note ?? '');
+    setEditing(false);
+  }
+
+  return (
+    <div className={`ai-row${closed ? ' resolved' : ''}`}>
+      <div className="ai-main">
+        {editing ? (
+          <div className="ai-edit-fields">
+            <input
+              className="ai-edit-input"
+              value={text}
+              placeholder="Action item…"
+              autoFocus
+              onChange={(e) => setText(e.target.value)}
+            />
+            <input
+              className="ai-edit-input"
+              value={note}
+              placeholder="Note (optional)"
+              onChange={(e) => setNote(e.target.value)}
+            />
           </div>
-        );
-      })}
+        ) : (
+          <>
+            <div className="ai-text">{item.text}</div>
+            {item.note && <div className="ai-note">{item.note}</div>}
+          </>
+        )}
+        <div className="ai-meta">
+          {domainName && (
+            <span className="task-domain-chip" style={domainChipStyle(domainChipColor)}>{domainName}</span>
+          )}
+          <span className="ai-inline-field">
+            <span className="ai-inline-label">Status</span>
+            <select
+              className="ai-inline-select"
+              value={item.status ?? 'planned'}
+              aria-label="Status"
+              onChange={(e) => onPatch(item.id, { status: e.target.value as TaskStatus })}
+            >
+              {AI_STATUS_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </span>
+          <span className="ai-inline-field">
+            <span className="ai-inline-label">Due</span>
+            <input
+              type="date"
+              className={`ai-inline-date${overdue ? ' overdue' : ''}`}
+              value={item.due_date ?? ''}
+              aria-label="Due date"
+              onChange={(e) => onPatch(item.id, { due_date: e.target.value || null })}
+            />
+          </span>
+          {overdue && <span className="ai-due overdue">overdue</span>}
+          {item.status && <StatusBadge status={item.status} />}
+          {error && <span className="row-error">{error}</span>}
+        </div>
+      </div>
+      <div className="ai-row-actions">
+        {editing ? (
+          <>
+            <button className="btn btn-primary btn-sm" onClick={saveEdit}>Save</button>
+            <button className="btn btn-secondary btn-sm" onClick={cancelEdit}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>Edit</button>
+            <button className="btn btn-danger-outline btn-sm" onClick={() => onDelete(item)}>Delete</button>
+            {canEditReport && (
+              <Link
+                to={`/reports/${item.report_id}/edit`}
+                className="btn btn-secondary btn-sm"
+                title="Edit the report this action item came from"
+              >
+                Edit report
+              </Link>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
