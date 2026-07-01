@@ -241,6 +241,14 @@ def run_suite(c: TestClient) -> Results:
         _db_scalar("SELECT team_id FROM user_team WHERE user_id = ?", (noa_uid,)) == team_a,
     )
 
+    # A persistent AI-Lead toolkit item so non-admin PATCH/DELETE target a REAL id
+    # (survives the run: every non-admin write against it is rejected 403 = no-op).
+    tk = c.post("/api/ai-lead/items", headers=A,
+                json={"name": "Toolkit persistent", "category": "meta_skill"})
+    R.status("SETUP", "admin create toolkit item -> 201", tk, 201)
+    tk_id = tk.json().get("id")
+    R.check("SETUP", "captured tk_id", tk_id is not None, "tk_id is None")
+
     NONEXISTENT = 999_999
 
     # ══ SECTION 1 — auth basics ═════════════════════════════════════════════
@@ -342,6 +350,15 @@ def run_suite(c: TestClient) -> Results:
     R.status(S, "POST /users/{id}/reset-password", c.post(f"/api/users/{cu_id}/reset-password",
              headers=A, json={}), 200)
     R.status(S, "DELETE /users/{id}", c.delete(f"/api/users/{cu_id}", headers=A), 204)
+    # ai-lead/items toolkit — admin CAN run the full CRUD lifecycle
+    tk_tmp = c.post("/api/ai-lead/items", headers=A,
+                    json={"name": "Toolkit tmp", "category": "cc_enhancement"})
+    R.status(S, "POST /ai-lead/items -> 201", tk_tmp, 201)
+    tk_tmp_id = tk_tmp.json().get("id")
+    R.status(S, "PATCH /ai-lead/items/{tmp}", c.patch(f"/api/ai-lead/items/{tk_tmp_id}",
+             headers=A, json={"description": "updated"}), 200)
+    R.status(S, "DELETE /ai-lead/items/{tmp}", c.delete(f"/api/ai-lead/items/{tk_tmp_id}",
+             headers=A), 204)
 
     # ══ SECTION 3 — manager (read_all, zero writes) ═════════════════════════
     S = "3. Manager (read_all)"
@@ -380,6 +397,17 @@ def run_suite(c: TestClient) -> Results:
                                        json=_report_doc("Noa", dom_a, "DomA", "M"))),
         ("GET /users", c.get("/api/users", headers=M)),
         ("POST /users", c.post("/api/users", headers=M, json={"username": "z", "password": "zzzzzz"})),
+        # users portal — explicit non-admin 403 on every mutating route (not via GET proxy)
+        ("PATCH /users/{id}", c.patch(f"/api/users/{noa_uid}", headers=M, json={"is_active": False})),
+        ("DELETE /users/{id}", c.delete(f"/api/users/{noa_uid}", headers=M)),
+        ("POST /users/{id}/reset-password",
+         c.post(f"/api/users/{noa_uid}/reset-password", headers=M, json={})),
+        # ai-lead/items toolkit CRUD — read_all confers NO write
+        ("POST /ai-lead/items",
+         c.post("/api/ai-lead/items", headers=M, json={"name": "x", "category": "meta_skill"})),
+        ("PATCH /ai-lead/items/{tk}",
+         c.patch(f"/api/ai-lead/items/{tk_id}", headers=M, json={"description": "x"})),
+        ("DELETE /ai-lead/items/{tk}", c.delete(f"/api/ai-lead/items/{tk_id}", headers=M)),
     ]
     for name, resp in mgr_writes:
         R.status(S, f"{name} -> 403", resp, 403)
@@ -470,6 +498,17 @@ def run_suite(c: TestClient) -> Results:
                                                      json=_report_doc("Noa", dom_a, "DomA", "N"))),
         ("GET /users", c.get("/api/users", headers=N)),
         ("POST /users", c.post("/api/users", headers=N, json={"username": "z", "password": "zzzzzz"})),
+        # users portal — explicit non-admin 403 on every mutating route (not via GET proxy)
+        ("PATCH /users/{id}", c.patch(f"/api/users/{noa_uid}", headers=N, json={"is_active": False})),
+        ("DELETE /users/{id}", c.delete(f"/api/users/{noa_uid}", headers=N)),
+        ("POST /users/{id}/reset-password",
+         c.post(f"/api/users/{noa_uid}/reset-password", headers=N, json={})),
+        # ai-lead/items toolkit CRUD — a scoped champion has NO write
+        ("POST /ai-lead/items",
+         c.post("/api/ai-lead/items", headers=N, json={"name": "x", "category": "meta_skill"})),
+        ("PATCH /ai-lead/items/{tk}",
+         c.patch(f"/api/ai-lead/items/{tk_id}", headers=N, json={"description": "x"})),
+        ("DELETE /ai-lead/items/{tk}", c.delete(f"/api/ai-lead/items/{tk_id}", headers=N)),
     ]
     for name, resp in noa_writes:
         R.status(S, f"{name} -> 403", resp, 403)
@@ -489,6 +528,24 @@ def run_suite(c: TestClient) -> Results:
     _db_exec("UPDATE session SET created_at = ?, last_used_at = ? WHERE token = ?",
              (_iso(now - timedelta(hours=25)), _iso(now), t_abs))
     R.status(S, "absolute >24h (recent use) -> 401", c.get("/api/auth/me", headers=_bearer(t_abs)), 401)
+    R.check(S, "expired absolute session row deleted",
+            _db_scalar("SELECT COUNT(*) FROM session WHERE token = ?", (t_abs,)) == 0)
+
+    # ══ SECTION 9 — inactive user (deactivated token + login both die) ═══════
+    S = "9. Inactive user"
+    t_noa = _token(c, "noa", "noa_noa_123")
+    R.status(S, "noa authenticated before deactivation -> 200",
+             c.get("/api/auth/me", headers=_bearer(t_noa)), 200)
+    R.status(S, "admin deactivate noa (is_active=false) -> 200",
+             c.patch(f"/api/users/{noa_uid}", headers=A, json={"is_active": False}), 200)
+    R.status(S, "noa pre-existing token now -> 401",
+             c.get("/api/auth/me", headers=_bearer(t_noa)), 401)
+    R.status(S, "noa login while inactive -> 401", _login(c, "noa", "noa_noa_123"), 401)
+    R.status(S, "admin reactivate noa (is_active=true) -> 200",
+             c.patch(f"/api/users/{noa_uid}", headers=A, json={"is_active": True}), 200)
+    _db_exec("DELETE FROM login_attempt WHERE username = 'noa'")  # clear inactive-login failure
+    R.status(S, "noa can log in again after reactivation -> 200",
+             _login(c, "noa", "noa_noa_123"), 200)
 
     # ══ SECTION 7 — logout revocation (before lockout so noa login still open) ══
     S = "7. Logout revocation"
