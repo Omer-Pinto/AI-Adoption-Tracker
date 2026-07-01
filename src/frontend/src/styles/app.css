@@ -1049,7 +1049,6 @@
    text col (no width) takes the remainder for the @/#-mention editor. */
 .report-editor .ai-c-status { width: 198px; }
 .report-editor .ai-c-due    { width: 138px; }
-.report-editor .ai-c-domain { width: 156px; }
 .report-editor .ai-c-note   { width: 172px; }
 .report-editor .ai-c-del    { width: 36px; }
 

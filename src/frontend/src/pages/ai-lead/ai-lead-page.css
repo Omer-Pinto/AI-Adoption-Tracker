@@ -156,16 +156,12 @@
 .ai-lead-page .kind-personal { background: #ede9fe; color: #6d28d9; }
 .ai-lead-page .kind-meeting  { background: #e0f2fe; color: #0369a1; }
 
-/* Note line + tag row (kind tag + domain tag) under the action-item text */
+/* Note line + tag row (kind tag) under the action-item text */
 .ai-lead-page .ai-note { font-size: 12px; color: var(--text-secondary); margin-top: 3px; white-space: pre-wrap; }
 .ai-lead-page .ai-item-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
 .ai-lead-page .ai-item-tags .kind-tag { margin-top: 0; }
-.ai-lead-page .domain-tag {
-  display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
-  border-radius: 4px; padding: 1px 5px; background: var(--surface-3, #f1f5f9); color: var(--text-secondary);
-}
 
-/* standalone "Personal" team cell + "—" meeting-date placeholder */
+/* "General" (no-team) cell + "—" meeting-date placeholder */
 .ai-lead-page .team-personal { color: var(--text-muted); font-style: italic; font-size: 12px; }
 .ai-lead-page .date-dash { font-size: 13px; color: var(--text-faint); }
 

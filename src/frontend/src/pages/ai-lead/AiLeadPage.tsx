@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '@/api';
 import type {
   ActionItemPatchBody,
@@ -8,6 +7,7 @@ import type {
   AILeadItem,
   AILeadItemCategory,
   TaskStatus,
+  TeamPageIndexEntry,
 } from '@/types';
 import './ai-lead-page.css';
 
@@ -28,6 +28,7 @@ type ActionForm = {
   status: TaskStatus;
   due_date: string; // '' = no due date
   note: string; // '' = no note
+  team_id: number | null; // null = the "General" gutter (no team)
 };
 
 const STATUS_OPTIONS: ReadonlyArray<readonly [TaskStatus, string]> = [
@@ -92,6 +93,8 @@ function teamColor(name: string): string {
 
 export default function AiLeadPage() {
   const [items, setItems] = useState<AILeadActionItem[]>([]);
+  // Teams for the add/edit team dropdown (options: "General" + every team).
+  const [teams, setTeams] = useState<TeamPageIndexEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('actions');
@@ -124,8 +127,19 @@ export default function AiLeadPage() {
           setLoading(false);
         }
       });
+    // Teams for the dropdown — best-effort; a failure just leaves it "General"-only.
+    api.views
+      .teamsIndex()
+      .then((data) => { if (!cancelled) setTeams(data); })
+      .catch(() => { /* dropdown degrades to General-only */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Resolve a team_id to its name for local reconciliation (null → General).
+  function teamNameFor(teamId: number | null): string | null {
+    if (teamId == null) return null;
+    return teams.find((t) => t.team_id === teamId)?.team_name ?? null;
+  }
 
   // Persisted inline edit (status / due_date): optimistically apply the patch,
   // PATCH the backend, then reconcile the row from the returned bare ActionItem.
@@ -166,12 +180,20 @@ export default function AiLeadPage() {
   function openAdd() {
     setActionError(null);
     setTab('actions');
-    setActionForm({ id: null, text: '', status: 'planned', due_date: '', note: '' });
+    // Default team = null (the "General" gutter).
+    setActionForm({ id: null, text: '', status: 'planned', due_date: '', note: '', team_id: null });
   }
 
   function openEdit(it: AILeadActionItem) {
     setActionError(null);
-    setActionForm({ id: it.id, text: it.text, status: it.status, due_date: it.due_date ?? '', note: it.note ?? '' });
+    setActionForm({
+      id: it.id,
+      text: it.text,
+      status: it.status,
+      due_date: it.due_date ?? '',
+      note: it.note ?? '',
+      team_id: it.team_id,
+    });
   }
 
   function closeForm() {
@@ -187,9 +209,10 @@ export default function AiLeadPage() {
     setActionError(null);
     const due = actionForm.due_date || null;
     const note = actionForm.note.trim() || null;
+    const teamId = actionForm.team_id;
     if (actionForm.id === null) {
       api.aiLead
-        .create({ text, status: actionForm.status, due_date: due, note })
+        .create({ text, status: actionForm.status, due_date: due, note, team_id: teamId })
         .then((created) => {
           setItems((list) => [...list, created]); // enriched row — append directly.
           setActionSaving(false);
@@ -202,13 +225,22 @@ export default function AiLeadPage() {
     } else {
       const id = actionForm.id;
       api.aiLead
-        .patch(id, { text, status: actionForm.status, due_date: due, note })
+        .patch(id, { text, status: actionForm.status, due_date: due, note, team_id: teamId })
         .then((updated) => {
-          // Reconcile from the returned bare ActionItem (cross-team fields stay null).
+          // Reconcile from the returned bare ActionItem; derive team_name from
+          // the returned team_id via the loaded teams list (null → General).
           setItems((list) =>
             list.map((it) =>
               it.id === id
-                ? { ...it, text: updated.text, status: updated.status ?? it.status, due_date: updated.due_date, note: updated.note }
+                ? {
+                    ...it,
+                    text: updated.text,
+                    status: updated.status ?? it.status,
+                    due_date: updated.due_date,
+                    note: updated.note,
+                    team_id: updated.team_id,
+                    team_name: teamNameFor(updated.team_id),
+                  }
                 : it,
             ),
           );
@@ -254,8 +286,8 @@ export default function AiLeadPage() {
     });
   }, [items]);
 
-  // "By team": one section per team, open first. Standalone items (team_name null)
-  // group under "Personal", floated to the top.
+  // "By team": one section per team, open first. Items with no team (team_name
+  // null = the "General" gutter) group under "General", floated to the top.
   const byTeam = useMemo(() => {
     const teams = [...new Set(items.map((it) => it.team_name))];
     teams.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
@@ -406,6 +438,26 @@ export default function AiLeadPage() {
                         </select>
                       </div>
                       <div className="af-field">
+                        <label className="af-label" htmlFor="af-team">Team</label>
+                        <select
+                          id="af-team"
+                          className="tk-input"
+                          // '' = the "General" gutter (team_id null); else a team id.
+                          value={actionForm.team_id == null ? '' : String(actionForm.team_id)}
+                          onChange={(e) =>
+                            setActionForm({
+                              ...actionForm,
+                              team_id: e.target.value === '' ? null : Number(e.target.value),
+                            })
+                          }
+                        >
+                          <option value="">General</option>
+                          {teams.map((t) => (
+                            <option key={t.team_id} value={String(t.team_id)}>{t.team_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="af-field">
                         <label className="af-label" htmlFor="af-due">Due date</label>
                         <input
                           id="af-due"
@@ -476,7 +528,7 @@ export default function AiLeadPage() {
                       ))
                     ) : (
                       byTeam.map(({ team, group, open }) => (
-                        <Fragment key={team ?? '__personal'}>
+                        <Fragment key={team ?? '__general'}>
                           <tr className="group-row">
                             <td colSpan={6}>
                               <span className="gh">
@@ -484,7 +536,7 @@ export default function AiLeadPage() {
                                   className="gdot"
                                   style={{ '--tc': team ? teamColor(team) : '#94a3b8' } as CSSProperties}
                                 />
-                                {team ?? 'Personal'}
+                                {team ?? 'General'}
                                 <span className="gcount">
                                   {group.length} item{group.length === 1 ? '' : 's'} · {open} open
                                 </span>
@@ -549,17 +601,16 @@ function ItemRow({
           <span className={`kind-tag ${standalone ? 'kind-personal' : 'kind-meeting'}`}>
             {standalone ? 'Personal' : 'From report'}
           </span>
-          {it.domain && <span className="domain-tag">{it.domain}</span>}
         </div>
       </td>
       <td className="col-team">
-        {standalone ? (
-          <span className="team-personal">Personal</span>
-        ) : (
-          <span className="team-chip" style={{ '--tc': teamColor(it.team_name ?? '') } as CSSProperties}>
+        {it.team_name ? (
+          <span className="team-chip" style={{ '--tc': teamColor(it.team_name) } as CSSProperties}>
             <span className="tdot" />
             {it.team_name}
           </span>
+        ) : (
+          <span className="team-personal">General</span>
         )}
       </td>
       <td className="col-date">
@@ -598,7 +649,7 @@ function ItemRow({
       </td>
       <td className="col-open">
         {/* A1+A2: every item (report-derived AND standalone) is fully editable +
-            deletable here. Report-derived items also link back to their report. */}
+            deletable here. */}
         <div className="row-acts">
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(it)}>
             Edit
@@ -606,15 +657,6 @@ function ItemRow({
           <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onDelete(it)}>
             Delete
           </button>
-          {!standalone && (
-            <Link
-              to={`/reports/${it.report_id}/edit`}
-              className="btn btn-secondary btn-sm"
-              title="Open the report this item was folded from"
-            >
-              Open report ↗
-            </Link>
-          )}
         </div>
       </td>
     </tr>

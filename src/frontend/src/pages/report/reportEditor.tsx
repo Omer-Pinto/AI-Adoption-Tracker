@@ -1090,26 +1090,21 @@ function ActionItemsCard({
   items,
   keys,
   entities,
-  domains,
   onChange,
 }: {
   items: ReportActionItemLine[];
   keys: string[];
   entities: TeamEntities;
-  domains: DomainOption[];
   onChange: (next: ReportActionItemLine[], nextKeys: string[]) => void;
 }) {
   function patch(i: number, p: Partial<ReportActionItemLine>) {
     onChange(items.map((it, idx) => (idx === i ? { ...it, ...p } : it)), keys);
   }
-  function setDomain(i: number, picked: DomainOption | null) {
-    patch(i, picked ? { domain_id: picked.id, domain: picked.name } : { domain_id: null, domain: null });
-  }
   function del(i: number) {
     onChange(items.filter((_, idx) => idx !== i), keys.filter((_, idx) => idx !== i));
   }
   function add() {
-    onChange([...items, { text: '', domain_id: null, domain: null }], [...keys, nextKey()]);
+    onChange([...items, { text: '' }], [...keys, nextKey()]);
   }
 
   return (
@@ -1125,7 +1120,6 @@ function ActionItemsCard({
             <col className="ai-c-text" />
             <col className="ai-c-status" />
             <col className="ai-c-due" />
-            <col className="ai-c-domain" />
             <col className="ai-c-note" />
             <col className="ai-c-del" />
           </colgroup>
@@ -1134,7 +1128,6 @@ function ActionItemsCard({
               <th>Action item (type @ task or # artifact)</th>
               <th>Status</th>
               <th>Due</th>
-              <th>Domain</th>
               <th>Note</th>
               <th />
             </tr>
@@ -1142,7 +1135,7 @@ function ActionItemsCard({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-muted text-sm" style={{ padding: 14 }}>
+                <td colSpan={5} className="text-muted text-sm" style={{ padding: 14 }}>
                   No action items.
                 </td>
               </tr>
@@ -1168,9 +1161,6 @@ function ActionItemsCard({
                       value={it.due_date ?? ''}
                       onChange={(e) => patch(i, { due_date: e.target.value })}
                     />
-                  </td>
-                  <td>
-                    <DomainSelect domain={it.domain} domainId={it.domain_id} domains={domains} onChange={(d) => setDomain(i, d)} />
                   </td>
                   <td>
                     <input
@@ -1351,10 +1341,6 @@ export function stripReportForSave(report: ReportJson): ReportJson {
     if (it.note) line.note = it.note;
     if (it.due_date) line.due_date = it.due_date;
     if (it.status) line.status = it.status;
-    if (it.domain_id != null) {
-      line.domain_id = it.domain_id;
-      if (it.domain) line.domain = it.domain;
-    }
     return line;
   });
 
@@ -1541,7 +1527,6 @@ export function FlatReportEditor({
           items={report.action_items ?? []}
           keys={keys.actionItems}
           entities={entities}
-          domains={domains}
           onChange={(action_items, nextKeys) => {
             onReportChange({ ...report, action_items });
             onKeysChange({ ...keys, actionItems: nextKeys });

@@ -85,7 +85,10 @@ export interface ActionItem {
   // An action item is the AI Lead's own to-do. `report_id` is null for a
   // standalone (self-managed) item, set when the item was folded from a report.
   report_id: number | null;
-  domain_id: number | null;
+  // The item's team (nullable). Report-derived → the report's team; manual →
+  // the team the AI Lead picked, or null (the "General" gutter). Replaces the
+  // former per-item domain — an action item carries a TEAM, not a domain.
+  team_id: number | null;
   text: string;
   /** Free-text note the AI Lead keeps on the item (A1+A2). Null = none. */
   note: string | null;
@@ -164,13 +167,12 @@ export interface ReportArtifactLine {
 
 export interface ReportActionItemLine {
   text: string;
-  // An action item is the AI Lead's own to-do — it has no owner. `note` is a
-  // free-text annotation folded into the stored item (A1+A2).
+  // An action item is the AI Lead's own to-do — it has no owner and NO domain.
+  // Its team is implicit (the report's team), so nothing is carried on the line.
+  // `note` is a free-text annotation folded into the stored item (A1+A2).
   note?: string;
   due_date?: string;
   status?: TaskStatus;
-  domain_id?: number | null;
-  domain?: string | null;
 }
 
 export interface ReportJson {
@@ -306,24 +308,27 @@ export interface TeamPageIndexEntry {
 /** One AI-Lead action item, flattened across ALL teams —
  *  `GET /api/ai-lead/action-items` (backend routes/views.py `AILeadActionItem`).
  *  Every action item is the AI Lead's (there is no owner), resolved against its
- *  report/champion/team and (optional) domain. `domain` is null when the item is
- *  unplaced/team-wide.
+ *  report/champion and its own team. An action item carries a TEAM, not a
+ *  domain: `team_id` is null (the "General" gutter) when unassigned, and
+ *  `team_name` is derived from it (null → "General").
  *
  *  Two flavours, discriminated by `report_id` (equivalently `meeting_date`):
- *    * report-derived (`report_id` set) — mined from a champion report; team /
- *      champion / meeting_date are all set; status + due are editable here.
+ *    * report-derived (`report_id` set) — mined from a champion report; team
+ *      (from the report) / champion / meeting_date are set; fully editable here.
  *    * standalone (`report_id` null) — a self-managed item owned by the AI Lead;
- *      team_name / champion_name / meeting_date are null; fully editable here. */
+ *      champion_name / meeting_date are null; team is picked here (or General). */
 export interface AILeadActionItem {
   id: number;
   text: string;
   /** Free-text note the AI Lead keeps on the item (A1+A2). Null = none. */
   note: string | null;
+  /** The item's team; null = the "General" gutter (unassigned). */
+  team_id: number | null;
+  /** Derived from `team_id` — the team's name, or null when General. */
   team_name: string | null;
   champion_name: string | null;
   meeting_date: string | null;
   status: TaskStatus;
-  domain: string | null;
   report_id: number | null;
   /** Target date the item is due; null = no due date set (never overdue). */
   due_date?: string | null;
@@ -332,26 +337,26 @@ export interface AILeadActionItem {
 /** Body for `PATCH /api/action-items/{id}` — partial; send only the changed
  *  field(s). A1+A2: EVERY action item (report-derived AND standalone) now
  *  supports full in-place edits — `text`, `status`, `due_date` (null clears it),
- *  `note` (null clears it) and `domain_id` (null = unplaced/General). No more 409
- *  on report-derived text edits. Returns the full updated bare `ActionItem`. */
+ *  `note` (null clears it) and `team_id` (null = the "General" gutter). No more
+ *  409 on report-derived text edits. Returns the full updated bare `ActionItem`. */
 export interface ActionItemPatchBody {
   status?: TaskStatus;
   due_date?: string | null;
   text?: string;
   note?: string | null;
-  domain_id?: number | null;
+  team_id?: number | null;
 }
 
 /** Body for `POST /api/action-items` — create a standalone AI-Lead-owned item.
  *  `text` is required + non-blank; `status` defaults to 'planned'. `note` and
- *  `domain_id` are optional (A1+A2). Returns the enriched `AILeadActionItem`
- *  (with null team/champion/meeting_date/report_id). */
+ *  `team_id` are optional (A1+A2); `team_id` null = the "General" gutter. Returns
+ *  the enriched `AILeadActionItem` (with null champion/meeting_date/report_id). */
 export interface ActionItemCreateBody {
   text: string;
   status?: TaskStatus;
   due_date?: string | null;
   note?: string | null;
-  domain_id?: number | null;
+  team_id?: number | null;
 }
 
 // ---- AI-Lead toolkit (standalone resource — `/api/ai-lead/items`) ----
