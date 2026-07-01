@@ -250,6 +250,7 @@ class AILeadActionItem(BaseModel):
     """
     id: int
     text: str
+    team_id: int | None = None
     team_name: str | None = None
     champion_name: str | None = None
     meeting_date: str | None = None
@@ -823,6 +824,7 @@ def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
         return AILeadActionItem(
             id=cur.lastrowid,
             text=body.text,
+            team_id=body.team_id,
             team_name=team_name,
             champion_name=champion_name,
             meeting_date=None,
@@ -939,6 +941,7 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
             SELECT
                 ai.id             AS id,
                 ai.text           AS text,
+                ai.team_id        AS team_id,
                 t.name            AS team_name,
                 t.champion_name   AS champion_name,
                 r.meeting_date    AS meeting_date,
