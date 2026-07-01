@@ -11,6 +11,9 @@ __pycache__/
 *.db-wal
 *.db-shm
 *.db.bak
+# db backups with any suffix (e.g. tracker.db.bak-loginfix-YYYYMMDD) — never commit the DB
+tracker.db*
+*.bak-*
 .venv/
 # node / frontend
 node_modules/

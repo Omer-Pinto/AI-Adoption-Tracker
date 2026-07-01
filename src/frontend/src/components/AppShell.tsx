@@ -119,14 +119,17 @@ export function AppShell() {
           {version && <span className="nav-logo-version">v{version}</span>}
         </div>
         {scoped ? (
-          // Scoped viewer: only their own team page(s).
+          // Scoped viewer (champion): only their own team, on the id-less
+          // /ai_adoption route (no team id ever exposed in the URL).
           <div className="nav-section">
-            <div className="nav-section-label">My teams</div>
-            {scopedTeams.length === 0 ? (
-              <NavLink to="/" end className={navClass}>
-                <NavIcon><PeopleIconPaths /></NavIcon> My team
+            <div className="nav-section-label">My team</div>
+            {scopedTeams.length === 1 || scopedTeams.length === 0 ? (
+              <NavLink to="/ai_adoption" className={navClass}>
+                <NavIcon><PeopleIconPaths /></NavIcon> {scopedTeams[0]?.team_name ?? 'My team'}
               </NavLink>
             ) : (
+              // Defensive: a scoped viewer with >1 team isn't a champion; keep
+              // per-team id links so each is still reachable.
               scopedTeams.map((t) => (
                 <NavLink key={t.team_id} to={`/teams/${t.team_id}`} className={navClass}>
                   <NavIcon><PeopleIconPaths /></NavIcon> {t.team_name}

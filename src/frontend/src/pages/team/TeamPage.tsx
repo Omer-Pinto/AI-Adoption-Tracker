@@ -17,8 +17,11 @@ import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
 import { ErrorState } from '@/components/EmptyState';
 import { useAuth } from '@/auth/AuthContext';
+import { isScopedChampion } from '@/auth/ProtectedRoute';
 
-// Route: "/teams/:teamId" — one team's portfolio (champion folded in). Wave-13 redesign (13B).
+// Routes: "/teams/:teamId" (admin/manager, id in the URL) AND "/ai_adoption"
+// (scoped champion, id sourced from auth so the URL stays id-less). One
+// component serves both. Wave-13 redesign (13B).
 
 // Terminal statuses = "closed". A task in one of these is done.
 const TERMINAL: TaskStatus[] = ['finished_successfully', 'finished_with_issues', 'abandoned', 'wont_fix'];
@@ -45,9 +48,16 @@ function domainChipStyle(color: string): React.CSSProperties {
 }
 
 export default function TeamPage() {
-  const { teamId } = useParams<{ teamId: string }>();
+  const { teamId: paramId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // The team id is sourced from the URL param on /teams/:teamId, but from auth
+  // on the id-less /ai_adoption route (no :teamId param). A scoped champion is a
+  // non-admin, non-read_all user bound to exactly one team.
+  const scopedTeamId = user && isScopedChampion(user) ? user.teams[0]! : null;
+  const fromAuth = paramId === undefined;
+  const effectiveTeamId = fromAuth ? scopedTeamId : Number(paramId);
 
   const [data, setData] = useState<TeamPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,13 +72,13 @@ export default function TeamPage() {
   const [modalError, setModalError] = useState(false);
 
   const load = useCallback(() => {
-    if (!teamId) return;
+    if (effectiveTeamId == null || Number.isNaN(effectiveTeamId)) return;
     let cancelled = false;
     setLoading(true);
     setError(false);
     setForbidden(false);
     api.views
-      .teamPage(Number(teamId))
+      .teamPage(effectiveTeamId)
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => {
         if (cancelled) return;
@@ -79,7 +89,7 @@ export default function TeamPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [teamId]);
+  }, [effectiveTeamId]);
 
   useEffect(() => load(), [load]);
 
@@ -107,6 +117,18 @@ export default function TeamPage() {
     setModalOpen(false);
     setModalDetail(null);
     setModalError(false);
+  }
+
+  // Guard rail: /ai_adoption reached without a resolvable single scoped team
+  // (an admin/manager typed it, or a scoped user without exactly one team) →
+  // fall back to the index gracefully instead of crashing.
+  if (fromAuth && scopedTeamId == null) return <Navigate to="/" replace />;
+
+  // A champion who hits their OWN team via the id-bearing /teams/:ownId collapses
+  // to the clean id-less URL so the id never shows. A different team id falls
+  // through to the normal load (→ backend 403 → the Forbidden surface below).
+  if (!fromAuth && scopedTeamId != null && Number(paramId) === scopedTeamId) {
+    return <Navigate to="/ai_adoption" replace />;
   }
 
   if (loading) {

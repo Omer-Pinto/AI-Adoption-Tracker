@@ -41,6 +41,9 @@ export const router = createBrowserRouter([
           { index: true, element: <TeamsIndexPage /> },
           { path: 'manage', element: <ManagePage /> },
           { path: 'teams/:teamId', element: <TeamPage /> },
+          // Scoped-champion home: the SAME TeamPage, but the team id is sourced
+          // from auth (user.teams[0]), so the address bar stays id-less.
+          { path: 'ai_adoption', element: <TeamPage /> },
           { path: 'domains/extract', element: <DomainSetupPage /> },
           { path: 'domains/:domainId', element: <DomainPage /> },
           { path: 'artifacts', element: <ArtifactsPage /> },
