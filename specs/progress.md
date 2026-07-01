@@ -1,18 +1,18 @@
 # AI Adoption Tracker — Progress Tracker
 
-> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **Wave 17 (auth core + FE foundation) DONE** — built by 2 parallel agents, consultant-audited, contract-reconciled, reviewed (session-FK rename bug fixed), simplified, verified (47 routes, FE build green, tracker.db untouched). **▶ NEXT: Wave 18** (read-scope guards + admin-only writes + FE surfaces), then 19 (RBAC verify), 20 (go-live), 21 (search).
+> **Last updated:** 2026-07-01 | **Branch:** `auth-based-access` | Waves 11–16 DONE. **Waves 17 + 18 (auth core, FE foundation, guards, Users portal, edit-hiding) DONE** — 5 parallel agents across 2 waves, consultant-audited, all FIX-NOWs closed, session TTL + login lockout added, verified (47 routes, FE build green, tracker.db untouched). **1 open product decision: non-admin report viewing.** **▶ NEXT: Wave 19** (RBAC verify + adversarial security audit), then 20 (go-live), 21 (search).
 
 ## Summary
 
 ```
-Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜⬜] 90% (181/200)
+Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢⬜] 96% (192/200)
 ```
 
 | Status | Count | % |
 |--------|-------|---|
-| 🟢 Done | 181 / 200 | 90% |
+| 🟢 Done | 192 / 200 | 96% |
 | 🔵 In Progress | 0 | 0% |
-| ⬜ Pending | 19 (RBAC 18: 11 · 19: 3 · go-live 20: 2 · search 21: 3) | 10% |
+| ⬜ Pending | 8 (RBAC 19: 3 · go-live 20: 2 · search 21: 3) | 4% |
 
 > Post-Wave-13 extras shipped outside the wave count (UI/deploy/QA): air-gap bundle + Rocky targeting, release skill, version-in-UI, dark mode, logo, AI-Lead toolkit, QA dataset. See git log + the Wave-13 follow-up note.
 
@@ -40,8 +40,8 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 | 15 | **Done** | 2/2 | 2/2 | 0/8 | **Built + verified.** api-designer gate froze the CRUD contract → 15A/15B cherry-picked clean (`e731dfe`..`f939cb5`, disjoint backend/FE). Uncertainty gate → 0 FIX-NOW (all FINE/DEFER); review → clean; simplified (dead CSS swept, shared `_require_non_blank_text`, docstrings). 45/45 journal scenarios + 16/16 live TestClient smoke (standalone CRUD, 409 delete/text guards on meeting-derived, 404, standalone-first ordering, migration row-preserving), FE build green (69 mods), `import app` OK (43 routes). Live migration applied to real empty DB (`report_id` now nullable, 0 rows). tracker.db untouched. **Live UI walk = Omer.** |
 | 16 | **Done** | 6/6 | 6/6 | 0/24 | **One champion per team (1:1 refactor) — built + verified.** 6 disjoint agents (16A–16F) cherry-picked clean (`1122bf9`..`df569bb`, 0 conflicts); champion folded into team (`team.champion_name NOT NULL` + `champion_start_date`; `champion` table dropped), all keyed by `team_id`, report champion-picker gone, `cc_baseline`/`baseline_date` nuked. code-reviewer + ai-engineer audits both PASS (0 FIX-NOW); post-merge nav fix + simplification (`5dc699d`,`03f489f`). DB expunged+recreated clean (backed up first); qa dataset folded to one champion **Noa** (`415d698`); live API verify 19/19. **Live UI walk + LLM draft = Omer (.env).** |
 | **17** | **Done** | 2/2 | 2/2 | 0/13 | **Auth core + admin user-portal API (17A) + FE auth foundation (17B).** Cherry-picked clean; contract reconciled; session-FK rename bug fixed; import OK (47 routes) + FE build green; tracker.db untouched. Live login walk = Omer |
-| **18** | **Not Started ▶ NEXT** | 0/3 | 0/3 | 0/11 | Read-scope guards + admin-only writes (18A) + FE surfaces (18B) + hide edits (18C) — depend on W17 |
-| **19** | Not Started | — | — | 0/3 | RBAC verify + adversarial security audit (gate) |
+| **18** | **Done** | 3/3 | 3/3 | 0/11 | Read-scope guards (18A) + FE surfaces/Users-portal (18B) + hide-edits (18C). Consultant-audited (2 FE FIX-NOW fixed); import+build green. **Open: non-admin report viewing (Omer)** |
+| **19** | **Not Started ▶ NEXT** | — | — | 0/3 | RBAC verify + adversarial security audit (gate) |
 | 20 | Not Started | — | — | 0/2 | Go-live walkthrough (was 17) — README_HUMAN + `backup_db.sh` |
 | 21 | Not Started | 0/1 | 0/1 | 0/3 | Search bar + DSL (was 18) — 21A design, then 21B+ |
 
@@ -536,30 +536,33 @@ Progress: [🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢�
 
 ---
 
-## Wave 18 — Read-scope guards + admin-only writes + FE surfaces
+## Wave 18 — Read-scope guards + admin-only writes + FE surfaces — 🟢 DONE (1 product decision open)
 
-### Agent 18A: Enforce read-access matrix on all routes (`security-engineer`)
+> **Built + verified.** 18A/18B/18C cherry-picked clean (`6f1123e`,`a336872`,`d843672`, disjoint). 2 same-type consultants: **18A backend no FIX-NOW** (every mutation admin-gated, every by-id read team-scoped, list-filtering correct, 404-before-403, provision-on-team-create wired). **FE 2 FIX-NOW fixed** (`aff3afe`): gated the shared `ArtifactDetailModal` "Edit report" link; guarded the ungated `/domains/extract` create page. Simplified (`dc9c960`). `import app` OK (47 routes), FE build green (80 mods), tracker.db untouched. **OPEN (Omer): non-admins currently can't VIEW reports** (report editor is the only report surface) — decide read-only viewer vs admin-only reports. **Live UI walk = Omer.**
+> **Deferred (consultant-blessed):** `task_detail` scope check is conditional (unreachable — domain_id NOT NULL); `/search/values` autocomplete can reveal out-of-scope names (fix in `search/autocomplete.py`); `TeamsIndexPage` "Manage" link shown to all (read-only for them).
+
+### Agent 18A: Enforce read-access matrix on all routes (`security-engineer`) — 🟢 DONE (`6f1123e`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Own-team by-id reads → can_read_team else 403 | ⬜ Pending | 404 missing / 403 out-of-scope |
-| 2 | Cross-team lists → filter to user's teams | ⬜ Pending | no leak |
-| 3 | All writes → require_admin | ⬜ Pending | non-admin 403 |
-| 4 | LLM draft + create report → require_admin | ⬜ Pending | |
-| 5 | POST /teams → provision_team_user | ⬜ Pending | forward-only |
+| 1 | Own-team by-id reads → can_read_team else 403 | 🟢 Done | 404 missing / 403 out-of-scope, verified |
+| 2 | Cross-team lists → filter to user's teams | 🟢 Done | tasks via domain→team; artifacts/ai-lead/team-pages by team_id |
+| 3 | All writes → require_admin | 🟢 Done | every POST/PATCH/DELETE gated |
+| 4 | LLM draft + create report → require_admin | 🟢 Done | draft + save + edit all admin-only |
+| 5 | POST /teams → provision_team_user | 🟢 Done | champion login auto-created on same txn |
 
-### Agent 18B: FE auth/admin surfaces (`frontend-developer`)
+### Agent 18B: FE auth/admin surfaces (`frontend-developer`) — 🟢 DONE (`a336872`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Settings gear (logout + change-pw) on all pages | ⬜ Pending | requirement |
-| 2 | Admin Users portal page (CRUD, reset-pw, read-scope matrix) | ⬜ Pending | decision 2d |
-| 3 | Curated Forbidden + Not Found pages | ⬜ Pending | agents design them |
-| 4 | Scoped nav + /users route; hide edit/create for non-admin | ⬜ Pending | |
+| 1 | Settings gear (logout + change-pw) on all pages | 🟢 Done | in AppShell footer; wrong-old-pw 403 handled |
+| 2 | Admin Users portal page (CRUD, reset-pw, read-scope matrix) | 🟢 Done | All-teams toggle + per-team checkboxes (grow with teams) |
+| 3 | Curated Forbidden + Not Found pages | 🟢 Done | /403 public route + catch-all |
+| 4 | Scoped nav + /users route; hide edit/create for non-admin | 🟢 Done | scoped=own team only; read_all=read views, no create/edit/Users |
 
-### Agent 18C: Hide edit affordances for non-admin (`frontend-developer`)
+### Agent 18C: Hide edit affordances for non-admin (`frontend-developer`) — 🟢 DONE (`d843672`)
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | No edit/add/delete controls for non-admin anywhere | ⬜ Pending | hidden |
-| 2 | Report create/edit pages guard → Forbidden for non-admin | ⬜ Pending | |
+| 1 | No edit/add/delete controls for non-admin anywhere | 🟢 Done | manage/team/tasks/artifacts/ai-lead gated on isAdmin; + ArtifactDetailModal + /domains/extract (post-review) |
+| 2 | Report create/edit pages guard → Forbidden for non-admin | 🟢 Done | Navigate to /403 (see open product decision re: read-only viewing) |
 
 ---
 
