@@ -197,15 +197,15 @@ class ActionItemCreate(BaseModel):
 
     An action item is EXCLUSIVELY the AI Lead's own to-do, so there is NO owner.
     The server applies report_id=NULL; the caller supplies text/status/due_date/
-    note and an optional ``domain_id`` (a standalone item may be placed in a
-    domain). A blank/whitespace-only text is rejected (422); text is stored
-    stripped.
+    note and an optional ``team_id`` — an action item is tagged to a TEAM (NULL =
+    the General/gutter; any team otherwise). A blank/whitespace-only text is
+    rejected (422); text is stored stripped.
     """
     text: str
     status: TaskStatus = TaskStatus.planned
     due_date: str | None = None
     note: str | None = None
-    domain_id: int | None = None
+    team_id: int | None = None
 
     @field_validator("text")
     @classmethod
@@ -217,15 +217,16 @@ class ActionItemPatch(BaseModel):
     """In-place edit for ANY action item (A1+A2 full CRUD).
 
     Every field is editable on EVERY item (report-derived and standalone alike):
-    ``text``, ``status``, ``due_date``, ``note`` and ``domain_id``. An omitted
+    ``text``, ``status``, ``due_date``, ``note`` and ``team_id``. An omitted
     field is untouched; an explicit ``null`` clears a nullable field
-    (``model_dump(exclude_unset=True)``).
+    (``model_dump(exclude_unset=True)``) — a ``null`` ``team_id`` moves the item
+    to the General/gutter.
     """
     text: str | None = None
     status: TaskStatus | None = None
     due_date: str | None = None
     note: str | None = None
-    domain_id: int | None = None
+    team_id: int | None = None
 
     @field_validator("text")
     @classmethod
@@ -238,12 +239,14 @@ class AILeadActionItem(BaseModel):
     """One AI-Lead action item, flattened across ALL teams (A1+A2).
 
     The AI-Lead worklist: EVERY action item (all are the AI Lead's — there is no
-    owner), resolved against its report/champion/team and (optional) domain.
-    `domain` is null when the item is unplaced/team-wide. `note` is the item's
-    free-text annotation.
+    owner). Each item is tagged to a TEAM (`team_id`, nullable); `team_name` and
+    `champion_name` are resolved from that team (both null when the item is in
+    the General/gutter). `note` is the item's free-text annotation.
 
-    Two flavours: a report-derived item has team/champion/meeting_date/report_id
-    all set; a standalone (self-managed) item has them all null.
+    `meeting_date` / `report_id` are set for a report-derived item (via its
+    report) and null for a standalone one. The TEAM is independent of the report:
+    a standalone item may still carry a team, and a report-derived item's team is
+    the report's team stamped onto `team_id` at fan-out.
     """
     id: int
     text: str
@@ -253,7 +256,6 @@ class AILeadActionItem(BaseModel):
     status: str
     due_date: str | None = None
     note: str | None = None
-    domain: str | None = None
     report_id: int | None = None
 
 
@@ -301,7 +303,7 @@ def _artifact_history(row: sqlite3.Row) -> models.ArtifactHistory:
 
 
 def _action_item(row: sqlite3.Row) -> models.ActionItem:
-    # A1+A2: no owner; the row carries `note` (free-text), `domain_id`, `status`
+    # A1+A2: no owner; the row carries `note` (free-text), `team_id`, `status`
     # (plain TEXT), text, due_date — all map straight onto ActionItem.
     return models.ActionItem(**dict(row))
 
@@ -316,6 +318,24 @@ def _domain_name(conn: sqlite3.Connection, domain_id: int | None) -> str | None:
         "SELECT name FROM domain WHERE id = ?", (domain_id,)
     ).fetchone()
     return row["name"] if row is not None else None
+
+
+def _team_name_and_champion(
+    conn: sqlite3.Connection, team_id: int | None
+) -> tuple[str | None, str | None]:
+    """Resolve (team_name, champion_name) for an action item's `team_id`.
+
+    Returns (None, None) for a null team_id (the General/gutter) or an unknown
+    team. Used to enrich an `AILeadActionItem` response from `action_item.team_id`.
+    """
+    if team_id is None:
+        return None, None
+    row = conn.execute(
+        "SELECT name, champion_name FROM team WHERE id = ?", (team_id,)
+    ).fetchone()
+    if row is None:
+        return None, None
+    return row["name"], row["champion_name"]
 
 
 # ── per-domain history fetchers (reached via task/artifact; no domain_id) ─────
@@ -777,31 +797,38 @@ def create_action_item(body: ActionItemCreate) -> AILeadActionItem:
     """Create a STANDALONE AI-Lead action item (A1+A2).
 
     An action item is EXCLUSIVELY the AI Lead's own to-do, so there is NO owner.
-    Server-applied: report_id=NULL. The caller may place it in a domain
-    (`domain_id`, else NULL = unplaced/team-wide) and supply a `note`. Text is
-    stored stripped (validator already rejected blank as 422). Returns the
-    enriched `AILeadActionItem` (201) for the new row — a standalone row has
-    team_name/champion_name/meeting_date/report_id all null; `domain` is resolved
-    from the supplied `domain_id`.
+    Server-applied: report_id=NULL. The caller tags it to a TEAM (`team_id`, else
+    NULL = the General/gutter) and may supply a `note`. A non-null `team_id` must
+    reference an existing team (else 422). Text is stored stripped (validator
+    already rejected blank as 422). Returns the enriched `AILeadActionItem` (201)
+    for the new row — meeting_date/report_id are null (standalone), and
+    team_name/champion_name are resolved from `team_id` (null → null).
     """
     conn = get_connection()
     try:
+        if body.team_id is not None:
+            if conn.execute(
+                "SELECT 1 FROM team WHERE id = ?", (body.team_id,)
+            ).fetchone() is None:
+                raise HTTPException(
+                    status_code=422, detail=f"Unknown team id {body.team_id}"
+                )
         cur = conn.execute(
-            "INSERT INTO action_item (report_id, domain_id, text, note, due_date, status) "
+            "INSERT INTO action_item (report_id, team_id, text, note, due_date, status) "
             "VALUES (NULL, ?, ?, ?, ?, ?)",
-            (body.domain_id, body.text, body.note, body.due_date, body.status.value),
+            (body.team_id, body.text, body.note, body.due_date, body.status.value),
         )
         conn.commit()
+        team_name, champion_name = _team_name_and_champion(conn, body.team_id)
         return AILeadActionItem(
             id=cur.lastrowid,
             text=body.text,
-            team_name=None,
-            champion_name=None,
+            team_name=team_name,
+            champion_name=champion_name,
             meeting_date=None,
             status=body.status.value,
             due_date=body.due_date,
             note=body.note,
-            domain=_domain_name(conn, body.domain_id),
             report_id=None,
         )
     finally:
@@ -835,9 +862,10 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
 
     Full in-place CRUD: EVERY field is editable on EVERY item (report-derived and
     standalone alike). Accepts `text`, `status` (validated against `TaskStatus`),
-    `due_date`, `note` and `domain_id` (partial PATCH). Action items are
-    create-once and are NOT touched by report replay/edit, so an edit here is
-    durable (no journal, no re-fold).
+    `due_date`, `note` and `team_id` (partial PATCH). `team_id` is settable and
+    clearable (null = the General/gutter); a non-null `team_id` must reference an
+    existing team (else 422). Action items are create-once and are NOT touched by
+    report replay/edit, so an edit here is durable (no journal, no re-fold).
 
     Precedence: blank text → 422 (validator); row missing → 404; null status →
     422 (the column is NOT NULL).
@@ -864,6 +892,16 @@ def patch_action_item(id: int, body: ActionItemPatch) -> models.ActionItem:
                 raise HTTPException(status_code=422, detail="status cannot be null")
             changes["status"] = changes["status"].value
 
+        # `team_id` is settable/clearable (null = gutter); a non-null value must
+        # reference an existing team.
+        if changes.get("team_id") is not None:
+            if conn.execute(
+                "SELECT 1 FROM team WHERE id = ?", (changes["team_id"],)
+            ).fetchone() is None:
+                raise HTTPException(
+                    status_code=422, detail=f"Unknown team id {changes['team_id']}"
+                )
+
         if changes:
             cols = ", ".join(f"{k} = ?" for k in changes)
             conn.execute(
@@ -887,14 +925,13 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
     """EVERY action item — report-derived AND standalone (A1+A2).
 
     All action items are the AI Lead's (there is no owner), so the worklist
-    returns every row. LEFT-JOINs each `action_item` against its report
-    (meeting_date, report_id) and team (name + champion_name); a standalone item
-    (report_id NULL) leaves those null. `champion_name` is the team's single
-    champion (`team.champion_name`). `note` is the item's free-text annotation.
-    `domain` is resolved via the nullable `action_item.domain_id` (null =
-    unplaced/team-wide). Ordered with standalone/NULL-meeting-date items first,
-    then meeting items newest-first (meeting_date DESC, id DESC for same-date
-    ties)."""
+    returns every row. `team_name` + `champion_name` are resolved from the item's
+    own `action_item.team_id` (null = the General/gutter → both null); the report
+    LEFT JOIN supplies only `meeting_date` + `report_id` (null for a standalone
+    item). `champion_name` is the team's single champion (`team.champion_name`).
+    `note` is the item's free-text annotation. Ordered with standalone/NULL-
+    meeting-date items first, then meeting items newest-first (meeting_date DESC,
+    id DESC for same-date ties)."""
     conn = get_connection()
     try:
         rows = conn.execute(
@@ -908,12 +945,10 @@ def ai_lead_action_items() -> list[AILeadActionItem]:
                 ai.status         AS status,
                 ai.due_date       AS due_date,
                 ai.note           AS note,
-                d.name            AS domain,
                 r.id              AS report_id
             FROM action_item ai
             LEFT JOIN report r ON r.id = ai.report_id
-            LEFT JOIN team t   ON t.id = r.team_id
-            LEFT JOIN domain d ON d.id = ai.domain_id
+            LEFT JOIN team t   ON t.id = ai.team_id
             ORDER BY (r.meeting_date IS NULL) DESC, r.meeting_date DESC, ai.id DESC
             """
         ).fetchall()

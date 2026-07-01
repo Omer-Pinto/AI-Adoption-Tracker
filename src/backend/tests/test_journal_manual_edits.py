@@ -525,12 +525,11 @@ def scenario_9(db_dir: pathlib.Path) -> None:
                                 domain="signal-processing"),
             ],
             action_items=[
-                # A1+A2: action items are the AI Lead's own to-dos — NO owner.
-                ReportActionItem(text="default-status item",
-                                 domain_id=domain_id, domain="signal-processing"),
+                # A1+A2: action items are the AI Lead's own to-dos — NO owner,
+                # NO domain; they inherit the report's team implicitly.
+                ReportActionItem(text="default-status item"),
                 ReportActionItem(text="wont-fix item",
-                                 status=TaskStatus.wont_fix,
-                                 domain_id=domain_id, domain="signal-processing"),
+                                 status=TaskStatus.wont_fix),
             ],
         ))
 
@@ -549,7 +548,7 @@ def scenario_9(db_dir: pathlib.Path) -> None:
               f"got {dropped['status']}")
 
         items = conn.execute(
-            "SELECT text, status FROM action_item ORDER BY id"
+            "SELECT text, status, team_id FROM action_item ORDER BY id"
         ).fetchall()
         by_text = {r["text"]: r["status"] for r in items}
         check("action item default status = planned",
@@ -558,6 +557,10 @@ def scenario_9(db_dir: pathlib.Path) -> None:
         check("action item explicit status = wont_fix",
               by_text.get("wont-fix item") == "wont_fix",
               f"got {by_text.get('wont-fix item')!r}")
+        # A report-derived action item is tagged with the report's TEAM (no domain).
+        check("fanned-out action items carry team_id = the report's team",
+              all(r["team_id"] == team_id for r in items),
+              f"got {[r['team_id'] for r in items]}")
     finally:
         conn.close()
 

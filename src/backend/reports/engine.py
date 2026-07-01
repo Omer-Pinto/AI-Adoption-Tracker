@@ -423,12 +423,8 @@ def fan_out_report(
             _apply_artifact_entry(conn, report_id, doc.meeting_date, team_id, entry)
 
         for item in doc.action_items:
-            item_domain_id = _resolve_entry_domain_id(
-                conn, team_id, item.domain_id, item.domain, needs_domain=False
-            )
-            item.domain_id = item_domain_id
-            item.domain = _domain_name_for_id(conn, item_domain_id)
-            _insert_action_item(conn, report_id, item_domain_id, item)
+            # An action item carries no domain: it inherits the report's TEAM.
+            _insert_action_item(conn, report_id, team_id, item)
 
         # BACK-FILL: persist the id-complete document so replay is purely id-based.
         conn.execute(
@@ -795,16 +791,17 @@ def _infer_artifact_change_kind(
 def _insert_action_item(
     conn: sqlite3.Connection,
     report_id: int,
-    domain_id: int | None,
+    team_id: int | None,
     item,
 ) -> None:
     # An action item is EXCLUSIVELY the AI Lead's own to-do (A1+A2): there is NO
-    # owner column — the owner is always, implicitly, the AI Lead. We persist the
+    # owner column — the owner is always, implicitly, the AI Lead. It is tagged to
+    # a TEAM (report-derived → the report's team), never a domain. We persist the
     # item's optional free-text ``note`` instead.
     conn.execute(
-        "INSERT INTO action_item (report_id, domain_id, text, note, due_date, status) "
+        "INSERT INTO action_item (report_id, team_id, text, note, due_date, status) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        (report_id, domain_id, item.text, item.note, item.due_date, item.status.value),
+        (report_id, team_id, item.text, item.note, item.due_date, item.status.value),
     )
 
 

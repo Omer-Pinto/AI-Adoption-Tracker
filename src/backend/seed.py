@@ -16,8 +16,9 @@ FLAT, id-based world (Wave 9)
 -----------------------------
 Reports reference EXISTING domains, which are created manually BEFORE the
 reports (here via direct inserts). Reports are FLAT: ``tasks`` / ``artifacts`` /
-``action_items`` are top-level lists, each entry carrying its own ``domain`` /
-``domain_id`` placement and an optional entity ``id``.
+``action_items`` are top-level lists. Task/artifact entries carry their own
+``domain`` / ``domain_id`` placement and an optional entity ``id``; action items
+carry NO domain — they inherit the report's team implicitly.
 
 A first-mention task/artifact has ``id=None`` (engine creates it and BACK-FILLS
 the PK into the saved report_json). A later report that references the SAME
@@ -231,8 +232,6 @@ def seed_radar(conn) -> None:
         action_items=[
             ReportActionItem(
                 text="find a context-usage tool",
-                domain_id=domain_id,
-                domain="signal-processing",
             ),
         ],
         discussion=["demoed a meta-skill"],
@@ -312,8 +311,6 @@ def seed_platform(conn) -> None:
         action_items=[
             ReportActionItem(
                 text="share deploy-gate-hook design with Radar team",
-                domain_id=domain_id,
-                domain="ci-cd",
             ),
         ],
     )

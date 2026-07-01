@@ -365,10 +365,6 @@ def delete_domain(domain_id: int) -> None:
             "UPDATE artifact SET domain_id = ? WHERE domain_id = ?",
             (general_id, domain_id),
         )
-        conn.execute(
-            "UPDATE action_item SET domain_id = ? WHERE domain_id = ?",
-            (general_id, domain_id),
-        )
         conn.execute("DELETE FROM domain WHERE id = ?", (domain_id,))
         conn.commit()
     finally:

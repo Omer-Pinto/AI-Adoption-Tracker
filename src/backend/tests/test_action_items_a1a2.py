@@ -85,8 +85,7 @@ def _make_report(team_id, domain_id, meeting_date, action_texts):
                 meeting_date=meeting_date,
                 raw_notes="n",
                 action_items=[
-                    ReportActionItem(text=t, domain_id=domain_id, domain="signal")
-                    for t in action_texts
+                    ReportActionItem(text=t) for t in action_texts
                 ],
             ),
         )
@@ -99,7 +98,8 @@ def _action_item_rows():
     conn = db.get_connection()
     try:
         return conn.execute(
-            "SELECT id, report_id, text, note, status FROM action_item ORDER BY id"
+            "SELECT id, report_id, team_id, text, note, status "
+            "FROM action_item ORDER BY id"
         ).fetchall()
     finally:
         conn.close()
@@ -120,20 +120,48 @@ def test_patch_text_on_report_derived_item_succeeds(client, seeded):
     assert _action_item_rows()[0]["text"] == "AI Lead to write TWO skills"
 
 
-def test_patch_note_and_domain_on_report_derived_item(client, seeded):
+def test_patch_note_and_team_on_report_derived_item(client, seeded):
     team_id, domain_id = seeded
     _make_report(team_id, domain_id, "2026-06-08", ["AI Lead follow-up"])
     item_id = _action_item_rows()[0]["id"]
 
+    # (c) PATCH clears team_id to null (moves the item to the General/gutter).
     resp = client.patch(
         f"/api/action-items/{item_id}",
-        json={"note": "context added", "domain_id": None, "status": "in-progress"},
+        json={"note": "context added", "team_id": None, "status": "in-progress"},
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["note"] == "context added"
-    assert body["domain_id"] is None
+    assert body["team_id"] is None
     assert body["status"] == "in-progress"
+
+    # (c) PATCH sets team_id back to a real team.
+    resp2 = client.patch(
+        f"/api/action-items/{item_id}", json={"team_id": team_id}
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert resp2.json()["team_id"] == team_id
+    assert _action_item_rows()[0]["team_id"] == team_id
+
+
+def test_patch_team_id_unknown_team_422(client, seeded):
+    team_id, domain_id = seeded
+    _make_report(team_id, domain_id, "2026-06-08", ["AI Lead follow-up"])
+    item_id = _action_item_rows()[0]["id"]
+    resp = client.patch(
+        f"/api/action-items/{item_id}", json={"team_id": 9999}
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_report_fanout_sets_team_id(client, seeded):
+    # (a) a report-derived action item is tagged with the report's team.
+    team_id, domain_id = seeded
+    _make_report(team_id, domain_id, "2026-06-08", ["AI Lead to write a skill"])
+    row = _action_item_rows()[0]
+    assert row["team_id"] == team_id
+    assert row["report_id"] is not None
 
 
 # ── (b) DELETE a report-derived item SUCCEEDS ──────────────────────────────────
@@ -154,19 +182,43 @@ def test_delete_missing_item_404(client):
 
 # ── standalone create: no owner, optional note + domain ─────────────────────────
 
-def test_create_standalone_item_with_note_and_domain(client, seeded):
-    _team_id, domain_id = seeded
+def test_create_standalone_item_null_team_is_gutter(client, seeded):
+    # (b) standalone create with team_id omitted → NULL (the General/gutter).
+    _team_id, _domain_id = seeded
     resp = client.post(
         "/api/action-items",
-        json={"text": "AI Lead standalone", "note": "n1", "domain_id": domain_id},
+        json={"text": "AI Lead standalone", "note": "n1"},
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["note"] == "n1"
-    assert body["domain"] == "signal"
+    assert body["team_name"] is None
+    assert body["champion_name"] is None
     assert body["report_id"] is None
+    assert _action_item_rows()[0]["team_id"] is None
     # No owner concept exists in the response contract.
     assert "owner" not in body
+
+
+def test_create_standalone_item_with_team(client, seeded):
+    # (b) standalone create with a real team_id → team_name/champion resolved.
+    team_id, _domain_id = seeded
+    resp = client.post(
+        "/api/action-items",
+        json={"text": "AI Lead standalone", "team_id": team_id},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["team_name"] == "Radar"
+    assert body["champion_name"] == "Dana"
+    assert body["report_id"] is None
+    assert _action_item_rows()[0]["team_id"] == team_id
+
+
+def test_create_standalone_item_unknown_team_422(client, seeded):
+    assert client.post(
+        "/api/action-items", json={"text": "x", "team_id": 9999}
+    ).status_code == 422
 
 
 def test_create_blank_text_rejected_422(client):
@@ -187,12 +239,32 @@ def test_worklist_returns_all_items_no_owner_filter(client, seeded):
     # Both the report-derived item (which historically would NOT have owner='AI
     # Lead') and the standalone item are returned.
     assert texts == {"from report", "standalone"}
+    # (d) standalone with a NULL team_id → team_name/champion_name null.
     standalone = next(i for i in items if i["text"] == "standalone")
     assert standalone["note"] == "hi"
     assert standalone["report_id"] is None
+    assert standalone["team_name"] is None
+    assert standalone["champion_name"] is None
+    # (a) a report-derived item resolves team_name/champion from its team_id.
     report_derived = next(i for i in items if i["text"] == "from report")
     assert report_derived["team_name"] == "Radar"
     assert report_derived["champion_name"] == "Dana"
+
+
+def test_worklist_standalone_with_team_shows_that_team(client, seeded):
+    # (d) a standalone item that carries a real team_id surfaces that team's
+    # name + champion in the worklist (resolved from action_item.team_id, not a
+    # report).
+    team_id, _domain_id = seeded
+    client.post(
+        "/api/action-items", json={"text": "standalone-teamed", "team_id": team_id}
+    )
+    items = client.get("/api/ai-lead/action-items").json()
+    teamed = next(i for i in items if i["text"] == "standalone-teamed")
+    assert teamed["team_name"] == "Radar"
+    assert teamed["champion_name"] == "Dana"
+    assert teamed["report_id"] is None
+    assert teamed["meeting_date"] is None
 
 
 # ── (c) editing a NON-LATEST report → 409; the latest one → editable ───────────
@@ -253,8 +325,7 @@ def test_replay_does_not_touch_action_items_create_once(seeded):
                                     domain_id=domain_id, domain="signal")
                 ],
                 action_items=[
-                    ReportActionItem(text="AI Lead to-do", domain_id=domain_id,
-                                     domain="signal")
+                    ReportActionItem(text="AI Lead to-do")
                 ],
             ),
         )
@@ -312,8 +383,7 @@ def test_replay_does_not_duplicate_action_items(seeded):
                 meeting_date="2026-06-15",
                 raw_notes="n",
                 action_items=[
-                    ReportActionItem(text="AI Lead to-do", domain_id=domain_id,
-                                     domain="signal")
+                    ReportActionItem(text="AI Lead to-do")
                 ],
             ),
         )
@@ -330,8 +400,7 @@ def test_replay_does_not_duplicate_action_items(seeded):
                 meeting_date="2026-06-15",
                 raw_notes="n",
                 action_items=[
-                    ReportActionItem(text="AI Lead to-do", domain_id=domain_id,
-                                     domain="signal")
+                    ReportActionItem(text="AI Lead to-do")
                 ],
             ),
         )
@@ -354,14 +423,14 @@ def test_report_action_item_note_persisted(seeded):
                 meeting_date="2026-06-15",
                 raw_notes="n",
                 action_items=[
-                    ReportActionItem(text="AI Lead to-do", note="remember X",
-                                     domain_id=domain_id, domain="signal")
+                    ReportActionItem(text="AI Lead to-do", note="remember X")
                 ],
             ),
         )
         row = conn.execute(
-            "SELECT note FROM action_item WHERE text = 'AI Lead to-do'"
+            "SELECT note, team_id FROM action_item WHERE text = 'AI Lead to-do'"
         ).fetchone()
         assert row["note"] == "remember X"
+        assert row["team_id"] == team_id
     finally:
         conn.close()

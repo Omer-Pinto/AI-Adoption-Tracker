@@ -211,8 +211,9 @@ best-fit "type" (required for a new artifact), and any of "tags" / "summary" / \
 a …", "started a new …") ALWAYS means NEW — omit "id" even if a similarly named \
 entity exists in the context.
 
-DOMAIN MATCH — place each task/artifact/action_item in an EXISTING domain (the \
-`domain_id` field is the link signal):
+DOMAIN MATCH — place each task/artifact in an EXISTING domain (the `domain_id` \
+field is the link signal). Action items are NEVER placed in a domain — they \
+belong to the report's team implicitly and carry no domain_id/domain:
 - The context ALSO passes this team's existing domains, each as { id, name, \
 description }. These are the team's tech/stack work areas (e.g. Backend, Web, \
 Deployment, Monitor & Debug). TWO constant domains are ALWAYS present:
@@ -273,7 +274,8 @@ lead (the person running the adoption, NOT the team's champion). Action items \
 have NO owner field — the owner is always, implicitly, the AI Lead.
 - Only put a line in "action_items" when it is the AI Lead's OWN follow-up (e.g. \
 "AI Lead to write a skill for the team", "I'll set up a hook for them"). Set \
-"text", plus "status" / "due_date" / "note" / domain_id+domain when stated.
+"text", plus "status" / "due_date" / "note" when stated. An action item carries \
+NO domain — it belongs to the report's team implicitly.
 - A follow-up or to-do that belongs to the CHAMPION or another TEAM MEMBER is a \
 TASK, NOT an action item — file it in "tasks" with its best-fit domain_id (or \
 null = the General/unplaced bucket). Never route a champion/team-member to-do to \

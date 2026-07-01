@@ -155,11 +155,13 @@ class ActionItem(BaseModel):
     """The AI Lead's OWN to-do (A1+A2) — no owner (always the AI Lead).
 
     Report-derived (``report_id`` set) or standalone (``report_id`` None); both
-    support full in-place CRUD. ``note`` is a free-text annotation.
+    support full in-place CRUD. An action item is tagged to a TEAM (``team_id``,
+    nullable — NULL = the General/gutter), NOT a domain. ``note`` is a free-text
+    annotation.
     """
     id: int
     report_id: int | None = None    # nullable: standalone AI-Lead item = NULL
-    domain_id: int | None = None
+    team_id: int | None = None      # nullable: NULL = the General/gutter
     text: str
     note: str | None = None
     due_date: str | None = None
@@ -293,10 +295,9 @@ class ReportActionItem(BaseModel):
     team-member follow-up is a TASK, never an action item. ``note`` is an
     optional free-text annotation.
 
-    DOMAIN id-match — ``domain_id`` is the matched EXISTING domain's PK and
-    ``domain`` its exact name (replacing the old free-text ``domain`` string).
-    ``domain_id = None`` does NOT create a domain: it means unplaced/team-wide,
-    reassigned via the UI picker. The report never invents domains.
+    An action item carries NO domain in the report: it inherits the report's
+    TEAM implicitly at fan-out time (``action_item.team_id`` = the report's
+    team). It is never placed in a domain.
     """
     model_config = _doc_config
 
@@ -304,8 +305,6 @@ class ReportActionItem(BaseModel):
     note: str | None = None
     due_date: str | None = None
     status: TaskStatus = TaskStatus.planned
-    domain_id: int | None = None
-    domain: str | None = None
 
 
 class ReportDocument(BaseModel):
