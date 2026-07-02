@@ -73,7 +73,7 @@ export function TeamForm({ open, editing, onClose, onSaved }: TeamFormProps) {
       }
     >
       {submitError && (
-        <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px', marginTop: '0' }}>
+        <p className="form-error" style={{ marginTop: 0, marginBottom: 'var(--sp-3)' }}>
           {submitError}
         </p>
       )}

@@ -19,19 +19,7 @@ import { useAuth } from '@/auth/AuthContext';
 function HistorySourceTag({ source }: { source: ArtifactHistoryEntry['source'] }) {
   if (source !== 'manual') return null;
   return (
-    <span
-      style={{
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-        color: '#6b7280',
-        background: '#f1f2f4',
-        borderRadius: 4,
-        padding: '1px 6px',
-      }}
-      title="Recorded by a manual edit (not from a report)"
-    >
+    <span className="detail-manual-tag" title="Recorded by a manual edit (not from a report)">
       manual
     </span>
   );
@@ -123,9 +111,41 @@ export default function ArtifactDetailPage() {
 
   if (loading) {
     return (
-      <div className="page-body">
-        <div className="text-muted text-sm">Loading artifact…</div>
-      </div>
+      <>
+        <div className="top-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
+              ← Back
+            </button>
+          </div>
+        </div>
+        <div className="page-body" style={{ maxWidth: 860 }}>
+          <div className="panel detail-hero">
+            <div className="panel-body-padded">
+              <div className="skeleton skeleton-text w-40" style={{ marginBottom: 12 }} />
+              <div className="skeleton detail-skel-title" />
+              <div className="detail-skel-facts">
+                {[0, 1, 2].map((i) => (
+                  <div className="detail-skel-fact" key={i}>
+                    <div className="skeleton skeleton-text" style={{ width: 52 }} />
+                    <div className="skeleton skeleton-text" style={{ width: 80 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">History</span>
+            </div>
+            <div className="panel-body-padded">
+              {[0, 1, 2].map((i) => (
+                <div className="skeleton skeleton-row" key={i} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -171,29 +191,27 @@ export default function ArtifactDetailPage() {
           </button>
           <span className="top-bar-sub">Artifact #{artifact.id}</span>
         </div>
-        <div className="top-bar-actions">
-          <Link to="/artifacts" className="btn btn-outline btn-sm">
-            All artifacts
-          </Link>
-        </div>
       </div>
 
-      <div className="page-body" style={{ maxWidth: 860 }}>
+      <div className="page-body anim-enter" style={{ maxWidth: 860 }}>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <div className="panel" style={{ marginBottom: 18 }}>
+        <div className="panel detail-hero">
           <div className="panel-body-padded">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 16,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <div className="detail-eyebrow">Artifact</div>
-                <h2 className="detail-title">{artifact.name}</h2>
+            <div className="detail-hero-top">
+              <div className="detail-hero-ident">
+                <span className="detail-hero-avatar detail-hero-avatar--icon" aria-hidden="true">
+                  <span className="detail-hero-avatar-inner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                      <line x1="12" y1="22.08" x2="12" y2="12" />
+                    </svg>
+                  </span>
+                </span>
+                <div>
+                  <div className="detail-eyebrow">Artifact</div>
+                  <h2 className="detail-title">{artifact.name}</h2>
+                </div>
               </div>
               {isAdmin && !editing && (
                 <button
@@ -215,23 +233,22 @@ export default function ArtifactDetailPage() {
               />
             ) : (
               <>
-                <div
-                  className="case-header-meta"
-                  style={{ borderTop: '1px solid #f1f2f4', paddingTop: 16 }}
-                >
-                  <div className="case-meta-item">
-                    <div className="case-meta-label">Type</div>
-                    <div className="case-meta-value">
+                <div className="detail-facts">
+                  <div className="detail-fact">
+                    <div className="detail-fact-label">Type</div>
+                    <div className="detail-fact-value">
                       <ArtifactTypeBadge type={artifact.type} />
                     </div>
                   </div>
-                  <div className="case-meta-item">
-                    <div className="case-meta-label">Domain</div>
-                    <div className="case-meta-value">{domain}</div>
+                  <div className="detail-fact">
+                    <div className="detail-fact-label">Domain</div>
+                    <div className="detail-fact-value">
+                      {domain || <span className="text-muted">General</span>}
+                    </div>
                   </div>
-                  <div className="case-meta-item">
-                    <div className="case-meta-label">Tags</div>
-                    <div className="case-meta-value">
+                  <div className="detail-fact">
+                    <div className="detail-fact-label">Tags</div>
+                    <div className="detail-fact-value">
                       {artifact.tags.length > 0 ? (
                         <TagList tags={artifact.tags} />
                       ) : (
@@ -240,9 +257,9 @@ export default function ArtifactDetailPage() {
                     </div>
                   </div>
                 </div>
-                <div className="form-row" style={{ marginTop: 14 }}>
-                  <div className="case-meta-label">Summary</div>
-                  <div className="narrative-text" style={{ marginTop: 4 }}>
+                <div className="detail-summary">
+                  <div className="detail-summary-label">Summary</div>
+                  <div className="detail-summary-text">
                     {artifact.summary || <span className="text-muted">No summary.</span>}
                   </div>
                 </div>
@@ -261,9 +278,12 @@ export default function ArtifactDetailPage() {
               <div className="text-muted text-sm">No recorded changes.</div>
             ) : (
               <div className="detail-timeline">
-                {history.map((h) => (
+                {history.map((h, i) => (
                   <div className="detail-tl-row" key={h.id}>
-                    <span className="detail-tl-dot" />
+                    <div className="detail-tl-rail">
+                      <span className={`detail-tl-dot dot-${h.change_kind}`} />
+                      {i < history.length - 1 && <span className="detail-tl-line" />}
+                    </div>
                     <div className="detail-tl-content">
                       <div className="detail-tl-head">
                         <span className="detail-tl-date">{h.meeting_date}</span>
@@ -358,9 +378,9 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
   }
 
   return (
-    <div style={{ borderTop: '1px solid #f1f2f4', paddingTop: 16 }}>
+    <div className="detail-edit">
       {err && (
-        <div className="warning-banner" style={{ marginBottom: 12 }}>
+        <div className="warning-banner" style={{ marginBottom: 'var(--sp-4)' }}>
           {err}
         </div>
       )}
@@ -420,7 +440,7 @@ function ArtifactEditForm({ artifact, domains, onCancel, onSaved }: ArtifactEdit
           rows={3}
         />
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="detail-edit-actions">
         <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>
           {saving ? 'Saving…' : 'Save'}
         </button>

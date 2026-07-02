@@ -54,12 +54,34 @@ export default function DomainPage() {
     return (
       <>
         <div className="top-bar">
-          <div>
-            <span className="top-bar-title">Domain</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
+              ← Back
+            </button>
           </div>
         </div>
         <div className="page-body">
-          <div className="text-muted text-sm">Loading…</div>
+          <div className="panel detail-hero" style={{ marginBottom: 20 }}>
+            <div className="panel-body-padded">
+              <div className="detail-hero-top">
+                <div className="detail-hero-ident">
+                  <span className="skeleton detail-hero-avatar-skel" />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text w-40" style={{ marginBottom: 12 }} />
+                    <div className="skeleton domain-skel-title" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="data-table-skeleton">
+              <div className="skeleton skeleton-row" />
+              <div className="skeleton skeleton-row" />
+              <div className="skeleton skeleton-row" />
+              <div className="skeleton skeleton-row" />
+            </div>
+          </div>
         </div>
       </>
     );
@@ -72,8 +94,10 @@ export default function DomainPage() {
     return (
       <>
         <div className="top-bar">
-          <div>
-            <span className="top-bar-title">Domain</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
+              ← Back
+            </button>
           </div>
         </div>
         <div className="page-body">
@@ -93,12 +117,11 @@ export default function DomainPage() {
 
   return (
     <>
+      {/* Slim top bar — a single back affordance to the parent team page,
+          replacing the old body breadcrumb (matches Task/Artifact which carry
+          no breadcrumb). Identity + meta live in the body hero below. */}
       <div className="top-bar">
-        <div>
-          <span className="top-bar-title">{domain.name}</span>
-          <span className="top-bar-sub">Current state + week-by-week history</span>
-        </div>
-        <div className="top-bar-actions">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link
             to={`/teams/${domain.team_id}`}
             className="btn btn-secondary btn-sm"
@@ -108,30 +131,32 @@ export default function DomainPage() {
         </div>
       </div>
 
-      <div className="page-body">
-        {/* Breadcrumb */}
-        <div className="breadcrumb" style={{ marginBottom: 16 }}>
-          <Link to="/">Teams</Link>
-          <span className="breadcrumb-sep">/</span>
-          <Link to={`/teams/${domain.team_id}`}>Team</Link>
-          <span className="breadcrumb-sep">/</span>
-          <span>{domain.name}</span>
-        </div>
-
-        {/* Domain header */}
-        <div className="panel" style={{ marginBottom: 20 }}>
+      <div className="page-body stagger-children">
+        {/* Domain identity hero — shared .detail-hero (icon avatar + eyebrow +
+            title), with description + meta below, unified with Task/Artifact. */}
+        <div className="panel detail-hero" style={{ marginBottom: 20 }}>
           <div className="panel-body-padded">
-            <div
-              style={{ fontSize: 22, fontWeight: 800, color: '#1a1d23', marginBottom: 6 }}
-            >
-              {domain.name}
+            <div className="detail-hero-top">
+              <div className="detail-hero-ident">
+                <span className="detail-hero-avatar detail-hero-avatar--icon" aria-hidden="true">
+                  <span className="detail-hero-avatar-inner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                      <polyline points="2 17 12 22 22 17" />
+                      <polyline points="2 12 12 17 22 12" />
+                    </svg>
+                  </span>
+                </span>
+                <div>
+                  <div className="detail-eyebrow">Domain</div>
+                  <h2 className="detail-title">{domain.name}</h2>
+                </div>
+              </div>
             </div>
             {domain.description && (
-              <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-                {domain.description}
-              </div>
+              <p className="domain-hero-desc">{domain.description}</p>
             )}
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            <div className="domain-hero-meta">
               {domain.priority !== null && (
                 <div className="case-meta-item">
                   <div className="case-meta-label">Priority</div>
@@ -144,21 +169,12 @@ export default function DomainPage() {
                   {domain.cross_domains.length === 0 ? (
                     <span className="text-muted">none</span>
                   ) : (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                    <div className="domain-cross-links">
                       {domain.cross_domains.map((cd) => (
                         <Link
                           key={cd.id}
                           to={`/domains/${cd.id}`}
-                          style={{
-                            display: 'inline-block',
-                            padding: '2px 10px',
-                            borderRadius: 20,
-                            background: '#ede9fe',
-                            color: '#5b21b6',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            textDecoration: 'none',
-                          }}
+                          className="domain-cross-chip"
                         >
                           {cd.team_name}: {cd.name}
                         </Link>
@@ -268,7 +284,7 @@ function ArtifactsTable({
       header: 'Artifact',
       render: (a) => (
         <span
-          style={{ color: '#4361ee', cursor: 'pointer' }}
+          className="cell-link"
           onClick={(e) => { e.stopPropagation(); onArtifactClick(a.id); }}
           role="button"
           tabIndex={0}

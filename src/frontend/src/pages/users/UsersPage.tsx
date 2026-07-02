@@ -150,7 +150,7 @@ export default function UsersPage() {
             {u.is_active ? 'Deactivate' : 'Activate'}
           </button>
           <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-danger-outline btn-sm"
             onClick={() => void handleDelete(u)}
           >
             Delete
@@ -167,14 +167,6 @@ export default function UsersPage() {
           <span className="top-bar-title">Users</span>
           <span className="top-bar-sub">Viewer accounts &amp; read scope</span>
         </div>
-        <div className="top-bar-actions">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setModal({ kind: 'edit', editing: null })}
-          >
-            + Add User
-          </button>
-        </div>
       </div>
 
       <div className="page-body">
@@ -187,6 +179,19 @@ export default function UsersPage() {
             />
           </div>
         ) : (
+          <>
+          <div className="table-toolbar">
+            <span className="table-toolbar-label">
+              {users.length} {users.length === 1 ? 'user' : 'users'}
+            </span>
+            <span className="table-toolbar-spacer" />
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setModal({ kind: 'edit', editing: null })}
+            >
+              + Add User
+            </button>
+          </div>
           <div className="panel">
             <DataTable
               columns={columns}
@@ -195,6 +200,7 @@ export default function UsersPage() {
               empty="No users yet. Click + Add User to create one."
             />
           </div>
+          </>
         )}
       </div>
 

@@ -1,0 +1,148 @@
+/* ============================================================
+   AI Adoption Tracker — Aurora motion & utility layer
+   ------------------------------------------------------------
+   Foundation-only (Step 1): keyframes, entrance/stagger/hover-lift
+   utilities, shimmer skeletons, the ambient aurora background glow,
+   and the global reduced-motion guard. No component/page is
+   restyled here — later steps opt in by adding these class names.
+   All tokens (--ease-out, --dur-*, --glow-*, --grad-aurora, --r-*)
+   come from design-system.css and are theme-aware.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Ambient aurora background glow
+   A fixed, very-low-opacity radial layer painted into the body
+   background IMAGE (background-color stays var(--bg), so the theme
+   flip still animates). background-attachment: fixed anchors it to
+   the viewport so it reads as ambient light, not a scrolling wash.
+   Kept subtle in both themes via the theme-tuned --glow-* tokens.
+   ------------------------------------------------------------ */
+body {
+  background-image:
+    radial-gradient(58% 48% at 8% -6%, var(--glow-indigo), transparent 70%),
+    radial-gradient(52% 44% at 100% 2%, var(--glow-cyan), transparent 66%),
+    radial-gradient(48% 40% at 88% 108%, var(--glow-violet), transparent 72%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* ------------------------------------------------------------
+   Keyframes
+   ------------------------------------------------------------ */
+@keyframes aurora-fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aurora-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes aurora-shimmer {
+  from { background-position: -160% 0; }
+  to   { background-position: 160% 0; }
+}
+
+/* ------------------------------------------------------------
+   Content entrance (fade + rise)
+   Add .anim-enter to a route/section root on mount.
+   ------------------------------------------------------------ */
+.anim-enter {
+  animation: aurora-fade-rise var(--dur-base) var(--ease-out) both;
+}
+
+.anim-fade {
+  animation: aurora-fade-in var(--dur-base) var(--ease-out) both;
+}
+
+/* ------------------------------------------------------------
+   Staggered reveal
+   Put .stagger-children on a container; its direct children fade+rise
+   in sequence. Delays cover the first ~12 rows, then hold steady.
+   ------------------------------------------------------------ */
+.stagger-children > * {
+  animation: aurora-fade-rise var(--dur-base) var(--ease-out) both;
+}
+.stagger-children > *:nth-child(1)  { animation-delay: 20ms; }
+.stagger-children > *:nth-child(2)  { animation-delay: 55ms; }
+.stagger-children > *:nth-child(3)  { animation-delay: 90ms; }
+.stagger-children > *:nth-child(4)  { animation-delay: 125ms; }
+.stagger-children > *:nth-child(5)  { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6)  { animation-delay: 195ms; }
+.stagger-children > *:nth-child(7)  { animation-delay: 230ms; }
+.stagger-children > *:nth-child(8)  { animation-delay: 265ms; }
+.stagger-children > *:nth-child(9)  { animation-delay: 300ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 335ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 370ms; }
+.stagger-children > *:nth-child(n+12) { animation-delay: 400ms; }
+
+/* ------------------------------------------------------------
+   Hover-lift
+   Add .hover-lift to a card/row for a soft rise + shadow on hover.
+   Later steps can layer a border-accent on top of this.
+   ------------------------------------------------------------ */
+.hover-lift {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+  will-change: transform;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ------------------------------------------------------------
+   Shimmer skeletons
+   .skeleton      — generic shimmering block (set your own size/radius)
+   .skeleton-text — single text line
+   .skeleton-row  — a table-ish row of shimmer
+   ------------------------------------------------------------ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--text) 7%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: -160% 0;
+  animation: aurora-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  height: 0.72em;
+  border-radius: var(--r-pill);
+  margin: 0.28em 0;
+}
+.skeleton-text.w-40 { width: 40%; }
+.skeleton-text.w-60 { width: 60%; }
+.skeleton-text.w-80 { width: 80%; }
+.skeleton-text.w-full { width: 100%; }
+
+.skeleton-row {
+  height: 44px;
+  width: 100%;
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------
+   Global reduced-motion guard
+   Honour the user's OS setting: neutralise all non-essential motion.
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

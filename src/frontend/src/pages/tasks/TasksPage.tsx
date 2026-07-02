@@ -184,19 +184,22 @@ function TaskRows({ task, expanded, history, onToggle }: TaskRowsProps) {
           </button>
         </td>
         <td>
-          <span className={isAbandoned ? 'task-name-abandoned' : ''} style={{ fontWeight: 600, color: '#1a1d23' }}>
+          <Link
+            to={`/tasks/${task.id}`}
+            className={isAbandoned ? 'cell-link task-name-abandoned' : 'cell-link'}
+          >
             {task.name}
-          </span>
+          </Link>
         </td>
         <td>
           <StatusBadge status={task.status} />
         </td>
-        <td style={{ color: '#374151' }}>{task.owner ?? <span className="text-muted">—</span>}</td>
-        <td className="text-sm" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-          {task.started_on ?? <span style={{ color: '#d1d5db' }}>—</span>}
+        <td style={{ color: 'var(--text-secondary)' }}>{task.owner ?? <span className="text-muted">—</span>}</td>
+        <td className="text-sm tabular" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {task.started_on ?? <span style={{ color: 'var(--text-disabled)' }}>—</span>}
         </td>
-        <td className="text-sm" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-          {task.due_date ?? <span style={{ color: '#d1d5db' }}>—</span>}
+        <td className="text-sm tabular" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {task.due_date ?? <span style={{ color: 'var(--text-disabled)' }}>—</span>}
         </td>
       </tr>
 

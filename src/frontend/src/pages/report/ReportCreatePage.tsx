@@ -96,11 +96,6 @@ export default function ReportCreatePage() {
             </span>
           )}
         </div>
-        <div className="top-bar-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
-            Cancel
-          </button>
-        </div>
       </div>
 
       <div className="page-body">

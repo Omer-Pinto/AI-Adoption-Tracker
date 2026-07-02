@@ -5,14 +5,14 @@ import { landingPath } from '@/auth/ProtectedRoute';
 
 // Curated 403 surface. Rendered both as the public `/403` route (when the api
 // layer throws ForbiddenError) and inline by the admin-only Users portal for a
-// non-admin. Centered, calm, theme-aware — fills whatever container it's in.
+// non-admin. Centered, calm, on-brand, theme-aware — fills its container.
 
 const wrapStyle: CSSProperties = {
   minHeight: '60vh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 24,
+  padding: 'var(--sp-6)',
   background: 'var(--bg)',
   flex: 1,
 };
@@ -22,20 +22,47 @@ const cardStyle: CSSProperties = {
   flexDirection: 'column',
   alignItems: 'center',
   textAlign: 'center',
-  gap: 8,
-  maxWidth: 400,
+  gap: 'var(--sp-3)',
+  maxWidth: 420,
 };
 
 const iconStyle: CSSProperties = {
-  width: 56,
-  height: 56,
-  borderRadius: '50%',
+  width: 64,
+  height: 64,
+  borderRadius: 'var(--r-lg)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--surface-3)',
+  background: 'var(--grad-aurora-soft)',
+  border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)',
+  color: 'var(--accent)',
+  marginBottom: 'var(--sp-2)',
+};
+
+const eyebrowStyle: CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: 'var(--tracking-eyebrow)',
   color: 'var(--text-faint)',
-  marginBottom: 8,
+};
+
+const titleStyle: CSSProperties = {
+  fontFamily: 'var(--font-display)',
+  fontSize: 'var(--text-2xl)',
+  fontWeight: 600,
+  letterSpacing: 'var(--tracking-tight)',
+  lineHeight: 'var(--lh-tight)',
+  color: 'var(--text)',
+  margin: 0,
+};
+
+const bodyStyle: CSSProperties = {
+  fontSize: 'var(--text-base)',
+  color: 'var(--text-muted)',
+  margin: 0,
+  lineHeight: 'var(--lh-base)',
+  maxWidth: '42ch',
 };
 
 export default function ForbiddenPage() {
@@ -45,24 +72,23 @@ export default function ForbiddenPage() {
 
   return (
     <div style={wrapStyle}>
-      <div style={cardStyle}>
+      <div className="anim-enter" style={cardStyle}>
         <div style={iconStyle} aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-          You don't have access to this
-        </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+        <span style={eyebrowStyle}>403 · Forbidden</span>
+        <h1 style={titleStyle}>You don't have access to this</h1>
+        <p style={bodyStyle}>
           This area is restricted. If you think you should be able to see it, ask your
           administrator to adjust your access.
         </p>
         <button
           type="button"
           className="btn btn-primary"
-          style={{ marginTop: 12 }}
+          style={{ marginTop: 'var(--sp-3)' }}
           onClick={() => navigate(home, { replace: true })}
         >
           Back to home

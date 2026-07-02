@@ -13,22 +13,18 @@ import { useAuth } from '@/auth/AuthContext';
 function HistorySourceTag({ source }: { source: TaskHistoryEntry['source'] }) {
   if (source !== 'manual') return null;
   return (
-    <span
-      style={{
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-        color: '#6b7280',
-        background: '#f1f2f4',
-        borderRadius: 4,
-        padding: '1px 6px',
-      }}
-      title="Recorded by a manual edit (not from a report)"
-    >
+    <span className="detail-manual-tag" title="Recorded by a manual edit (not from a report)">
       manual
     </span>
   );
+}
+
+// Up to two initials from an owner name, for the gradient avatar chip.
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
 // Route: "/tasks/:id" — full task detail page (link target for matched-entity
@@ -138,9 +134,41 @@ export default function TaskDetailPage() {
 
   if (loading) {
     return (
-      <div className="page-body">
-        <div className="text-muted text-sm">Loading task…</div>
-      </div>
+      <>
+        <div className="top-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>
+              ← Back
+            </button>
+          </div>
+        </div>
+        <div className="page-body" style={{ maxWidth: 860 }}>
+          <div className="panel detail-hero">
+            <div className="panel-body-padded">
+              <div className="skeleton skeleton-text w-40" style={{ marginBottom: 12 }} />
+              <div className="skeleton detail-skel-title" />
+              <div className="detail-skel-facts">
+                {[0, 1, 2, 3].map((i) => (
+                  <div className="detail-skel-fact" key={i}>
+                    <div className="skeleton skeleton-text" style={{ width: 52 }} />
+                    <div className="skeleton skeleton-text" style={{ width: 80 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">History</span>
+            </div>
+            <div className="panel-body-padded">
+              {[0, 1, 2].map((i) => (
+                <div className="skeleton skeleton-row" key={i} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -186,29 +214,26 @@ export default function TaskDetailPage() {
           </button>
           <span className="top-bar-sub">Task #{task.id}</span>
         </div>
-        <div className="top-bar-actions">
-          <Link to="/tasks" className="btn btn-outline btn-sm">
-            All tasks
-          </Link>
-        </div>
       </div>
 
-      <div className="page-body" style={{ maxWidth: 860 }}>
+      <div className="page-body anim-enter" style={{ maxWidth: 860 }}>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <div className="panel" style={{ marginBottom: 18 }}>
+        <div className="panel detail-hero">
           <div className="panel-body-padded">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 16,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <div className="detail-eyebrow">Task</div>
-                <h2 className="detail-title">{task.name}</h2>
+            <div className="detail-hero-top">
+              <div className="detail-hero-ident">
+                <span className="detail-hero-avatar detail-hero-avatar--icon" aria-hidden="true">
+                  <span className="detail-hero-avatar-inner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 11l3 3L22 4" />
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
+                  </span>
+                </span>
+                <div>
+                  <div className="detail-eyebrow">Task</div>
+                  <h2 className="detail-title">{task.name}</h2>
+                </div>
               </div>
               {isAdmin && !editing && (
                 <button
@@ -229,34 +254,41 @@ export default function TaskDetailPage() {
                 onSaved={() => void handleSaved()}
               />
             ) : (
-              <div className="case-header-meta" style={{ borderTop: '1px solid #f1f2f4', paddingTop: 16 }}>
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Status</div>
-                  <div className="case-meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="detail-facts">
+                <div className="detail-fact">
+                  <div className="detail-fact-label">Status</div>
+                  <div className="detail-fact-value">
                     <StatusBadge status={task.status} />
                   </div>
                 </div>
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Owner</div>
-                  <div className="case-meta-value">
-                    {task.owner || <span className="text-muted">—</span>}
+                <div className="detail-fact">
+                  <div className="detail-fact-label">Owner</div>
+                  <div className="detail-fact-value">
+                    {task.owner ? (
+                      <>
+                        <span className="detail-avatar">{initials(task.owner)}</span>
+                        {task.owner}
+                      </>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </div>
                 </div>
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Domain</div>
-                  <div className="case-meta-value">
+                <div className="detail-fact">
+                  <div className="detail-fact-label">Domain</div>
+                  <div className="detail-fact-value">
                     {domain || <span className="text-muted">General</span>}
                   </div>
                 </div>
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Started</div>
-                  <div className="case-meta-value">
+                <div className="detail-fact">
+                  <div className="detail-fact-label">Started</div>
+                  <div className="detail-fact-value tabular">
                     {task.started_on || <span className="text-muted">—</span>}
                   </div>
                 </div>
-                <div className="case-meta-item">
-                  <div className="case-meta-label">Due on</div>
-                  <div className="case-meta-value">
+                <div className="detail-fact">
+                  <div className="detail-fact-label">Due on</div>
+                  <div className="detail-fact-value tabular">
                     {task.due_date || <span className="text-muted">—</span>}
                   </div>
                 </div>
@@ -275,9 +307,12 @@ export default function TaskDetailPage() {
               <div className="text-muted text-sm">No history recorded yet.</div>
             ) : (
               <div className="detail-timeline">
-                {history.map((h) => (
+                {history.map((h, i) => (
                   <div className="detail-tl-row" key={h.id}>
-                    <span className={`detail-tl-dot dot-${h.status_at_meeting}`} />
+                    <div className="detail-tl-rail">
+                      <span className={`detail-tl-dot dot-${h.status_at_meeting}`} />
+                      {i < history.length - 1 && <span className="detail-tl-line" />}
+                    </div>
                     <div className="detail-tl-content">
                       <div className="detail-tl-head">
                         <span className="detail-tl-date">{h.meeting_date}</span>
@@ -358,9 +393,9 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
   }
 
   return (
-    <div style={{ borderTop: '1px solid #f1f2f4', paddingTop: 16 }}>
+    <div className="detail-edit">
       {err && (
-        <div className="warning-banner" style={{ marginBottom: 12 }}>
+        <div className="warning-banner" style={{ marginBottom: 'var(--sp-4)' }}>
           {err}
         </div>
       )}
@@ -423,10 +458,10 @@ function TaskEditForm({ task, domains, onCancel, onSaved }: TaskEditFormProps) {
           onChange={(e) => setDueDate(e.target.value)}
         />
       </div>
-      <div className="text-muted text-sm" style={{ marginBottom: 12 }}>
+      <div className="detail-edit-note">
         Manual edits are recorded in the history below (marked “manual”).
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="detail-edit-actions">
         <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>
           {saving ? 'Saving…' : 'Save'}
         </button>

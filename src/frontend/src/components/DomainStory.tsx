@@ -97,11 +97,11 @@ export function DomainStory({
   }
 
   return (
-    <div>
+    <div className="story-timeline">
       {sortedDates.map((date) => {
         const dayEntries = byDate.get(date)!;
         return (
-          <div key={date} className="story-date-group" style={{ marginBottom: 28 }}>
+          <div key={date} className="story-date-group stagger-children">
             <div className="story-date-heading">
               <span className="story-date-label">{date}</span>
               <div className="story-date-line" />
@@ -140,7 +140,7 @@ export function DomainStory({
                         <div className="story-what">
                           <span className="story-entity-type type-artifact">artifact</span>
                           <span
-                            style={{ color: '#4361ee', cursor: 'pointer' }}
+                            className="story-artifact-link"
                             onClick={() => onArtifactClick(entry.artifactId)}
                             role="button"
                             tabIndex={0}

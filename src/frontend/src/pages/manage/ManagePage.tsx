@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Team, Domain } from '@/types';
 import { api } from '@/api';
@@ -9,6 +9,7 @@ import { TeamForm } from './TeamForm';
 import { DomainForm } from './DomainForm';
 import { ErrorState } from '@/components/EmptyState';
 import { useAuth } from '@/auth/AuthContext';
+import './manage-page.css';
 
 // Route: "/manage" — Teams, Domains lists with Add/Edit.
 
@@ -18,6 +19,19 @@ type ModalState =
   | { kind: 'none' }
   | { kind: 'team'; editing: Team | null }
   | { kind: 'domain'; editing: Domain | null };
+
+// Translucent indigo "Team: Domain" chip (tokenized — theme-correct in both modes).
+const crossPillStyle: CSSProperties = {
+  display: 'inline-block',
+  padding: '2px 8px',
+  borderRadius: 'var(--r-pill)',
+  background: 'var(--accent-weak)',
+  color: 'var(--accent)',
+  border: '1px solid var(--accent-weak-border)',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+};
 
 export default function ManagePage() {
   const navigate = useNavigate();
@@ -144,19 +158,7 @@ export default function ManagePage() {
         ) : (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {row.cross_domains.map((cd) => (
-              <span
-                key={cd.id}
-                style={{
-                  display: 'inline-block',
-                  padding: '2px 8px',
-                  borderRadius: 20,
-                  background: '#ede9fe',
-                  color: '#5b21b6',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <span key={cd.id} style={crossPillStyle}>
                 {cd.team_name}: {cd.name}
               </span>
             ))}
@@ -182,7 +184,7 @@ export default function ManagePage() {
                   Edit
                 </button>
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-danger-outline btn-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     void handleDeleteDomain(row);
@@ -252,24 +254,6 @@ export default function ManagePage() {
           <span className="top-bar-title">Manage</span>
           <span className="top-bar-sub">Teams, domains</span>
         </div>
-        <div className="top-bar-actions">
-          {isAdmin && tab === 'teams' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setModal({ kind: 'team', editing: null })}
-            >
-              + Add Team
-            </button>
-          )}
-          {isAdmin && tab === 'domains' && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate('/domains/extract')}
-            >
-              + Add Domains
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Tab bar */}
@@ -279,24 +263,9 @@ export default function ManagePage() {
             key={id}
             className={`tab${tab === id ? ' active' : ''}`}
             onClick={() => setTab(id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
           >
             {label}
-            {count > 0 && (
-              <span
-                style={{
-                  marginLeft: 6,
-                  fontSize: 11,
-                  background: '#f3f4f6',
-                  color: '#4b5563',
-                  borderRadius: 10,
-                  padding: '1px 7px',
-                  fontWeight: 600,
-                }}
-              >
-                {count}
-              </span>
-            )}
+            {count > 0 && <span className="tab-count">{count}</span>}
           </button>
         ))}
       </div>
@@ -313,6 +282,21 @@ export default function ManagePage() {
           </div>
         )}
         {!loadError && tab === 'teams' && (
+          <>
+          <div className="table-toolbar">
+            <span className="table-toolbar-label">
+              {teams.length} {teams.length === 1 ? 'team' : 'teams'}
+            </span>
+            <span className="table-toolbar-spacer" />
+            {isAdmin && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setModal({ kind: 'team', editing: null })}
+              >
+                + Add Team
+              </button>
+            )}
+          </div>
           <div className="panel">
             <DataTable
               columns={teamColumns}
@@ -321,12 +305,29 @@ export default function ManagePage() {
               empty="No teams yet. Click + Add Team to create one."
             />
           </div>
+          </>
         )}
-        {!loadError && tab === 'domains' &&
-          (domains.length === 0 ? (
+        {!loadError && tab === 'domains' && (
+          <>
+          <div className="table-toolbar">
+            <span className="table-toolbar-label">
+              {domains.length} {domains.length === 1 ? 'domain' : 'domains'}
+            </span>
+            <span className="table-toolbar-spacer" />
+            {isAdmin && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => navigate('/domains/extract')}
+                title="Opens the guided domain-extraction flow"
+              >
+                + Add domains
+              </button>
+            )}
+          </div>
+          {domains.length === 0 ? (
             <div className="panel">
               <div className="page-body text-muted text-sm">
-                No domains yet. Click + Add Domains to create one.
+                No domains yet. Click Add domains to create one.
               </div>
             </div>
           ) : (
@@ -344,7 +345,9 @@ export default function ManagePage() {
                 />
               </TeamGroupCard>
             ))
-          ))}
+          )}
+          </>
+        )}
       </div>
 
       {/* Isolated edit modals — only one open at a time */}

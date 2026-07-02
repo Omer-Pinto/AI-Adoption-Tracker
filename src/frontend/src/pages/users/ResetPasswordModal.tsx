@@ -57,7 +57,9 @@ export function ResetPasswordModal({ open, user, onClose, onDone }: ResetPasswor
       }
     >
       {error && (
-        <p style={{ color: '#ef4444', fontSize: 13, margin: '0 0 12px' }}>{error}</p>
+        <p className="form-error" style={{ marginTop: 0, marginBottom: 'var(--sp-3)' }}>
+          {error}
+        </p>
       )}
       <div className="form-row">
         <label className="form-label" htmlFor="rp-new">

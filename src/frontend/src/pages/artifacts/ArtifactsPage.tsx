@@ -53,7 +53,7 @@ export default function ArtifactsPage() {
     {
       key: 'name',
       header: 'Name',
-      render: (row) => <span style={{ fontWeight: 600, color: '#1a1d23' }}>{row.name}</span>,
+      render: (row) => <span style={{ fontWeight: 600, color: 'var(--text)' }}>{row.name}</span>,
     },
     {
       key: 'type',
@@ -76,7 +76,7 @@ export default function ArtifactsPage() {
       header: 'Summary',
       render: (row) =>
         row.summary ? (
-          <span className="text-sm" style={{ color: '#374151' }}>{row.summary}</span>
+          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{row.summary}</span>
         ) : (
           <span className="text-muted text-xs">—</span>
         ),

@@ -1,3 +1,4 @@
+import './domain-page.css';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import type { Team, Domain } from '@/types';
@@ -42,24 +43,11 @@ function ProposalCard({
 }: ProposalCardProps) {
   if (alreadySaved) {
     return (
-      <div
-        style={{
-          background: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: 10,
-          padding: '14px 18px',
-          marginBottom: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        <span style={{ fontSize: 18, color: '#16a34a' }}>&#10003;</span>
+      <div className="proposal-saved">
+        <span className="proposal-saved-check" aria-hidden>&#10003;</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>
-            {fields.name}
-          </div>
-          <div style={{ fontSize: 11, color: '#15803d' }}>Saved successfully</div>
+          <div className="proposal-saved-name">{fields.name}</div>
+          <div className="proposal-saved-sub">Saved successfully</div>
         </div>
       </div>
     );
@@ -69,41 +57,15 @@ function ProposalCard({
   // the next one without scrolling. Default collapsed → the list stays compact;
   // the summary always shows the proposal number + (editable) name.
   return (
-    <details
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 10,
-        padding: '16px 18px',
-        marginBottom: 12,
-      }}
-    >
-      <summary
-        style={{
-          cursor: 'pointer',
-          fontSize: 13,
-          fontWeight: 700,
-          color: '#374151',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            color: '#9ca3af',
-            marginRight: 8,
-          }}
-        >
-          Proposal {index + 1}
-        </span>
+    <details className="proposal-card">
+      <summary>
+        <span className="proposal-index">Proposal {index + 1}</span>
         {fields.name || 'Untitled domain'}
       </summary>
 
-      <div style={{ marginTop: 14 }}>
+      <div className="proposal-body">
         {error && (
-          <div className="blocker-banner" style={{ marginBottom: 12 }}>
+          <div className="form-error" style={{ marginBottom: 12 }}>
             {error}
           </div>
         )}
@@ -115,7 +77,7 @@ function ProposalCard({
           autoFocusName={false}
         />
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <div className="proposal-actions">
           <button
             className="btn btn-primary btn-sm"
             onClick={() => onApprove(index)}
@@ -295,6 +257,9 @@ export default function DomainSetupPage() {
   const allApproved = proposals.length > 0 && savedIds.size === proposals.length;
   const canExtract = Boolean(selectedTeamId && text.trim());
 
+  // Drives the progress stepper: 1 = pick team, 2 = paste/extract, 3 = review.
+  const currentStep = proposals.length > 0 || hasExtracted ? 3 : selectedTeamId ? 2 : 1;
+
   // Once every proposal is approved (batch or one-by-one), leave the extract page
   // and open the team page — the work is done here.
   useEffect(() => {
@@ -314,11 +279,6 @@ export default function DomainSetupPage() {
           <span className="top-bar-title">Add Domains</span>
           <span className="top-bar-sub">Extract and approve domain proposals from text</span>
         </div>
-        <div className="top-bar-actions">
-          <Link to="/manage" className="btn btn-secondary btn-sm">
-            &#8592; Manage
-          </Link>
-        </div>
       </div>
 
       <div className="page-body">
@@ -330,7 +290,24 @@ export default function DomainSetupPage() {
           <span>Add Domains</span>
         </div>
 
-        <div style={{ maxWidth: 760 }}>
+        <div className="anim-enter" style={{ maxWidth: 760 }}>
+          {/* Progress stepper */}
+          <div className="step-row">
+            {['Select team', 'Paste & extract', 'Review & approve'].map((label, i) => {
+              const n = i + 1;
+              const state = n < currentStep ? 'done' : n === currentStep ? 'active' : '';
+              return (
+                <div key={label} style={{ display: 'contents' }}>
+                  {i > 0 && <span className="step-arrow" />}
+                  <div className={`step-item ${state}`.trim()}>
+                    <span className="step-num">{n}</span>
+                    {label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Step 1 — Team */}
           <div className="form-section" style={{ marginBottom: 16 }}>
             <div className="form-section-title">Step 1 — Select team</div>
@@ -441,6 +418,7 @@ export default function DomainSetupPage() {
                 </div>
               )}
 
+              <div className="stagger-children">
               {proposals.map((p, i) => {
                 const fields = fieldValues[i] ?? proposalToFields(p);
                 return (
@@ -457,6 +435,7 @@ export default function DomainSetupPage() {
                   />
                 );
               })}
+              </div>
             </div>
           )}
         </div>

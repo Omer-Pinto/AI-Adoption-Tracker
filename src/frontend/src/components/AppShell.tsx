@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { api } from '@/api';
 import type { TeamPageIndexEntry } from '@/types';
 import { useAuth } from '@/auth/AuthContext';
-import { ThemeToggle } from './ThemeToggle';
-import { SettingsMenu } from './SettingsMenu';
+import { landingPath } from '@/auth/ProtectedRoute';
+import { SettingsMenu, ThemeToggle } from './SettingsMenu';
 
 // Sidebar + main-content shell, reusing the mvp/ look (.app-shell, .nav-sidebar).
 // Nav is RBAC-aware (Wave 18):
@@ -57,7 +57,7 @@ function PeopleIconPaths() {
 }
 
 export function AppShell() {
-  const { isAdmin, readAll } = useAuth();
+  const { user, isAdmin, readAll } = useAuth();
   const [version, setVersion] = useState('');
   // A scoped viewer (not admin, not all-team) sees only their own team links;
   // everyone else (admin or all-team viewer) gets the cross-team read views.
@@ -90,38 +90,42 @@ export function AppShell() {
     <div className="app-shell">
       <nav className="nav-sidebar">
         <div className="nav-logo">
-          <div className="nav-logo-head">
-          <span className="nav-logo-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="28" height="28" role="presentation" focusable="false">
-              <defs>
-                <linearGradient id="navLogoMark" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#5b73f0" />
-                  <stop offset="1" stopColor="#3a4fd0" />
-                </linearGradient>
-              </defs>
-              <rect width="32" height="32" rx="8" fill="url(#navLogoMark)" />
-              <path
-                d="M7 22 L13 15.5 L18.5 18.5 L25 9.5"
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="7" cy="22" r="2.2" fill="#ffffff" />
-              <circle cx="13" cy="15.5" r="2.2" fill="#ffffff" />
-              <circle cx="18.5" cy="18.5" r="2.2" fill="#ffffff" />
-              <circle cx="25" cy="9.5" r="2.7" fill="#ffffff" />
-            </svg>
-          </span>
-            <span className="nav-logo-title">Adoption Tracker</span>
-          </div>
-          {version && <span className="nav-logo-version">v{version}</span>}
+          <Link
+            to={user ? landingPath(user) : '/'}
+            className="nav-logo-head"
+            aria-label="Go to home"
+          >
+            <span className="nav-logo-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="27" height="27" role="presentation" focusable="false">
+                <defs>
+                  <linearGradient id="navLogoMark" x1="2" y1="22" x2="22" y2="2" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stopColor="#4f46e5" />
+                    <stop offset="0.52" stopColor="#7c3aed" />
+                    <stop offset="1" stopColor="#22d3ee" />
+                  </linearGradient>
+                </defs>
+                {/* AI "spark" mark in the aurora gradient — on-theme, crisp, no flat box. */}
+                <path
+                  fill="url(#navLogoMark)"
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"
+                />
+                <path
+                  fill="url(#navLogoMark)"
+                  opacity="0.9"
+                  d="M20 3l.63 1.9L22.5 5.5l-1.87.6L20 8l-.63-1.9L17.5 5.5l1.87-.6z"
+                />
+              </svg>
+            </span>
+            <span className="nav-logo-words">
+              <span className="nav-logo-title">Adoption Tracker</span>
+              {version && <span className="nav-logo-version">v{version}</span>}
+            </span>
+          </Link>
         </div>
         {scoped ? (
           // Scoped viewer (champion): only their own team, on the id-less
           // /ai_adoption route (no team id ever exposed in the URL).
-          <div className="nav-section">
+          <div className="nav-section stagger-children">
             <div className="nav-section-label">My team</div>
             {scopedTeams.length === 1 || scopedTeams.length === 0 ? (
               <NavLink to="/ai_adoption" className={navClass}>
@@ -139,7 +143,7 @@ export function AppShell() {
           </div>
         ) : (
           <>
-            <div className="nav-section">
+            <div className="nav-section stagger-children">
               <div className="nav-section-label">Main</div>
               {/* New Report is admin-only (report creation is not a viewer action). */}
               {isAdmin && (
@@ -183,7 +187,7 @@ export function AppShell() {
             {isAdmin && (
               <>
                 <hr className="nav-divider" />
-                <div className="nav-section">
+                <div className="nav-section stagger-children">
                   <NavLink to="/manage" className={navClass}>
                     <NavIcon>
                       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
@@ -198,13 +202,17 @@ export function AppShell() {
             )}
           </>
         )}
-        <div className="nav-foot">
-          <SettingsMenu />
-          <ThemeToggle />
-        </div>
       </nav>
 
-      <div className="main-content">
+      {/* Top-right shell cluster, pinned above every page's sticky .top-bar:
+          [ theme toggle ] [ gap ] [ account avatar + menu ]. The reserved
+          right-padding on .top-bar (--topbar-cluster) keeps page actions clear. */}
+      <div className="account-cluster">
+        <ThemeToggle />
+        <SettingsMenu />
+      </div>
+
+      <div className="main-content anim-fade">
         <Outlet />
       </div>
     </div>

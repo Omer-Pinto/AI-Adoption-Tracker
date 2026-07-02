@@ -27,7 +27,7 @@ export function DataTable<Row>({
   empty = 'Nothing here yet.',
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
-    return <div className="page-body text-muted text-sm">{empty}</div>;
+    return <div className="data-table-empty">{empty}</div>;
   }
   return (
     <table className="data-table">
@@ -44,8 +44,8 @@ export function DataTable<Row>({
         {rows.map((row) => (
           <tr
             key={rowKey(row)}
+            className={onRowClick ? 'row-clickable' : undefined}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
-            style={onRowClick ? { cursor: 'pointer' } : undefined}
           >
             {columns.map((c) => (
               <td key={c.key}>{c.render(row)}</td>

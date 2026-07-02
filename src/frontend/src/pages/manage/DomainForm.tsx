@@ -90,11 +90,11 @@ export function DomainFormFields({
         ) : (
           <div
             style={{
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--r-md)',
               maxHeight: 180,
               overflowY: 'auto',
-              background: '#fff',
+              background: 'var(--surface)',
             }}
           >
             {options.map((d) => {
@@ -108,20 +108,20 @@ export function DomainFormFields({
                     gap: 8,
                     padding: '7px 10px',
                     cursor: 'pointer',
-                    borderBottom: '1px solid #f3f4f6',
-                    background: checked ? '#eff2ff' : undefined,
+                    borderBottom: '1px solid var(--border-subtle)',
+                    background: checked ? 'var(--accent-weak)' : undefined,
                     fontSize: 13,
-                    color: '#374151',
+                    color: 'var(--text-secondary)',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleCrossDomain(d.id)}
-                    style={{ accentColor: '#4361ee', width: 15, height: 15, flexShrink: 0 }}
+                    style={{ accentColor: 'var(--accent)', width: 15, height: 15, flexShrink: 0 }}
                   />
                   <span>
-                    <span style={{ fontWeight: 600, color: '#6b7280', fontSize: 11 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: 11 }}>
                       {d.team_name}:
                     </span>{' '}
                     {d.name}
@@ -144,9 +144,10 @@ export function DomainFormFields({
                     alignItems: 'center',
                     gap: 4,
                     padding: '2px 8px',
-                    borderRadius: 20,
-                    background: '#ede9fe',
-                    color: '#5b21b6',
+                    borderRadius: 'var(--r-pill)',
+                    background: 'var(--accent-weak)',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--accent-weak-border)',
                     fontSize: 11,
                     fontWeight: 600,
                   }}
@@ -159,7 +160,7 @@ export function DomainFormFields({
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#7c3aed',
+                      color: 'var(--accent)',
                       fontSize: 13,
                       lineHeight: 1,
                       padding: '0 0 0 2px',
@@ -268,7 +269,7 @@ export function DomainForm({
       }
     >
       {submitError && (
-        <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px', marginTop: '0' }}>
+        <p className="form-error" style={{ marginTop: 0, marginBottom: 'var(--sp-3)' }}>
           {submitError}
         </p>
       )}

@@ -92,7 +92,9 @@ export function UserForm({ open, editing, teams, onClose, onSaved }: UserFormPro
       }
     >
       {error && (
-        <p style={{ color: '#ef4444', fontSize: 13, margin: '0 0 12px' }}>{error}</p>
+        <p className="form-error" style={{ marginTop: 0, marginBottom: 'var(--sp-3)' }}>
+          {error}
+        </p>
       )}
 
       <div className="form-row">
@@ -141,7 +143,7 @@ export function UserForm({ open, editing, teams, onClose, onSaved }: UserFormPro
             type="checkbox"
             checked={readAll}
             onChange={(e) => setReadAll(e.target.checked)}
-            style={{ accentColor: '#4361ee', width: 15, height: 15 }}
+            style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
           />
           All teams
         </label>
@@ -185,7 +187,7 @@ export function UserForm({ open, editing, teams, onClose, onSaved }: UserFormPro
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleTeam(t.id)}
-                        style={{ accentColor: '#4361ee', width: 15, height: 15, flexShrink: 0 }}
+                        style={{ accentColor: 'var(--accent)', width: 15, height: 15, flexShrink: 0 }}
                       />
                       {t.name}
                     </label>
@@ -214,7 +216,7 @@ export function UserForm({ open, editing, teams, onClose, onSaved }: UserFormPro
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            style={{ accentColor: '#4361ee', width: 15, height: 15 }}
+            style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
           />
           Active (can sign in)
         </label>

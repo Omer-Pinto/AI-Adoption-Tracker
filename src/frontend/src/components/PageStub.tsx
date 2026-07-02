@@ -7,15 +7,18 @@ import type { ReactNode } from 'react';
 export interface PageStubProps {
   title: string;
   subtitle?: string;
+  /** Optional uppercase micro-label above the title (editorial page-header). */
+  eyebrow?: string;
   actions?: ReactNode;
   children?: ReactNode;
 }
 
-export function PageStub({ title, subtitle, actions, children }: PageStubProps) {
+export function PageStub({ title, subtitle, eyebrow, actions, children }: PageStubProps) {
   return (
     <>
       <div className="top-bar">
-        <div>
+        <div className="top-bar-head">
+          {eyebrow && <span className="top-bar-eyebrow">{eyebrow}</span>}
           <span className="top-bar-title">{title}</span>
           {subtitle && <span className="top-bar-sub">{subtitle}</span>}
         </div>

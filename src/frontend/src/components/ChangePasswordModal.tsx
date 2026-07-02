@@ -95,7 +95,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
       ) : (
         <>
           {error && (
-            <p role="alert" style={{ color: '#ef4444', fontSize: 13, margin: '0 0 12px' }}>
+            <p role="alert" className="form-error" style={{ marginTop: 0, marginBottom: 'var(--sp-3)' }}>
               {error}
             </p>
           )}

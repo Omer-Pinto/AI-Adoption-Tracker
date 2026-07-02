@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 // Shared, dependency-free calm states for list / viewer pages.
 //
@@ -8,48 +8,51 @@ import type { ReactNode } from 'react';
 //               `ApiError: GET … → 500` string) with an optional Retry that
 //               simply re-runs the page's existing loader.
 //
-// Both render a centered, muted column. They intentionally carry no red/scary
-// chrome — a fresh install and a transient blip should both feel calm.
+// Both render a centered, muted column that reads correctly in light AND dark
+// (token-based — no hard-coded hex). A fresh install and a transient blip should
+// both feel calm: no red/scary chrome.
 
-const wrap = (compact?: boolean): React.CSSProperties => ({
+const wrap = (compact?: boolean): CSSProperties => ({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   textAlign: 'center',
-  gap: 6,
-  padding: compact ? '28px 18px' : '56px 24px',
-  color: '#6b7280',
+  gap: 'var(--sp-2)',
+  padding: compact ? 'var(--sp-6) var(--sp-5)' : 'var(--sp-8) var(--sp-6)',
+  color: 'var(--text-muted)',
 });
 
-const iconStyle: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: '50%',
+const iconStyle: CSSProperties = {
+  width: 48,
+  height: 48,
+  borderRadius: 'var(--r-lg)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#f3f4f6',
-  color: '#9ca3af',
+  background: 'var(--surface-3)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-faint)',
   fontSize: 20,
   lineHeight: 1,
-  marginBottom: 4,
+  marginBottom: 'var(--sp-1)',
 };
 
-const titleStyle: React.CSSProperties = {
-  fontSize: 14,
+const titleStyle: CSSProperties = {
+  fontSize: 'var(--text-md)',
   fontWeight: 600,
-  color: '#374151',
+  color: 'var(--text)',
+  letterSpacing: 'var(--tracking-snug)',
 };
 
-const hintStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: '#9ca3af',
+const hintStyle: CSSProperties = {
+  fontSize: 'var(--text-base)',
+  color: 'var(--text-muted)',
   maxWidth: 360,
-  lineHeight: 1.5,
+  lineHeight: 'var(--lh-base)',
 };
 
 interface EmptyStateProps {
-  /** Small glyph or node shown in the muted circle. Defaults to a calm dot. */
+  /** Small glyph or node shown in the muted badge. Defaults to a calm dot. */
   icon?: ReactNode;
   title: string;
   hint?: ReactNode;
@@ -90,7 +93,7 @@ export function ErrorState({
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          style={{ marginTop: 10 }}
+          style={{ marginTop: 'var(--sp-2)' }}
           onClick={onRetry}
         >
           Try again

@@ -13,6 +13,7 @@ import { StatusBadge, ArtifactTypeBadge, TagList } from '@/components/Badge';
 import { DataTable } from '@/components/DataTable';
 import type { Column } from '@/components/DataTable';
 import { DomainStory } from '@/components/DomainStory';
+import { CountUp } from '@/components/CountUp';
 import { ErrorState } from '@/components/EmptyState';
 import { useAuth } from '@/auth/AuthContext';
 import { isScopedChampion } from '@/auth/ProtectedRoute';
@@ -115,12 +116,34 @@ export default function TeamPage() {
     return (
       <>
         <div className="top-bar">
-          <div>
-            <span className="top-bar-title">Team</span>
-          </div>
+          {!fromAuth && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Link to="/" className="btn btn-secondary btn-sm">← Teams</Link>
+            </div>
+          )}
         </div>
-        <div className="page-body">
-          <div className="text-muted text-sm">Loading…</div>
+        <div className="page-body team-page">
+          <div className="panel detail-hero">
+            <div className="panel-body-padded">
+              <div className="detail-hero-top">
+                <div className="detail-hero-ident">
+                  <span className="skeleton detail-hero-avatar-skel" />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text w-40" style={{ marginBottom: 12 }} />
+                    <div className="skeleton detail-skel-title" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="tile-grid">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div className="skeleton" key={i} style={{ height: 92, borderRadius: 'var(--r-lg)' }} />
+            ))}
+          </div>
+          {[0, 1, 2].map((i) => (
+            <div className="skeleton" key={i} style={{ height: 52, borderRadius: 12, marginBottom: 14 }} />
+          ))}
         </div>
       </>
     );
@@ -133,9 +156,11 @@ export default function TeamPage() {
     return (
       <>
         <div className="top-bar">
-          <div>
-            <span className="top-bar-title">Team</span>
-          </div>
+          {!fromAuth && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Link to="/" className="btn btn-secondary btn-sm">← Teams</Link>
+            </div>
+          )}
         </div>
         <div className="page-body">
           <div className="panel">
@@ -204,43 +229,57 @@ export default function TeamPage() {
     el.classList.add('flash');
   }
 
-  const avatarLetter = (team.champion_name || team.name || '?').trim().charAt(0).toUpperCase();
-
   return (
     <>
+      {/* Slim top bar — holds only a back affordance (omitted on the id-less
+          /ai_adoption scoped-champion variant, which has nowhere to go back to).
+          The team identity + primary action live in the body hero below, unified
+          with the Task/Artifact/Domain detail-page family. */}
       <div className="top-bar">
-        <div>
-          <span className="top-bar-title">Team {team.name}</span>
-          <span className="top-bar-sub">
-            Champion portfolio &bull; {team.champion_name}
-            {team.champion_start_date ? ` • since ${team.champion_start_date}` : ''}
-          </span>
-        </div>
-        <div className="top-bar-actions">
-          {isAdmin && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate(`/reports/new?team=${team.id}`)}
-            >
-              + Create report
-            </button>
-          )}
-        </div>
+        {!fromAuth && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link to="/" className="btn btn-secondary btn-sm">← Teams</Link>
+          </div>
+        )}
       </div>
 
-      <div className="page-body team-page">
-        {/* ── Identity strip ──────────────────────────────────────────── */}
-        <div className="identity">
-          <div className="id-avatar">{avatarLetter}</div>
-          <div>
-            <div className="id-name">{team.name}</div>
-            <div className="id-meta">
-              Champion <b>{team.champion_name}</b>
-              {team.champion_start_date && <> &bull; since <b>{team.champion_start_date}</b></>}
-              {' '}&bull; <b>{data.domain_count}</b> domains
+      <div className="page-body team-page stagger-children">
+        {/* ── Identity hero (avatar + name + champion meta + primary action) ── */}
+        <div className="panel detail-hero">
+          <div className="panel-body-padded">
+            <div className="detail-hero-top">
+              <div className="detail-hero-ident">
+                <span className="detail-hero-avatar detail-hero-avatar--icon" aria-hidden="true">
+                  <span className="detail-hero-avatar-inner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </span>
+                </span>
+                <div>
+                  <div className="detail-eyebrow">Team</div>
+                  <h2 className="detail-title">{team.name}</h2>
+                  <div className="detail-hero-meta">
+                    Champion <strong>{team.champion_name}</strong>
+                    {team.champion_start_date && (
+                      <> &bull; since <span className="detail-hero-since">{team.champion_start_date}</span></>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => navigate(`/reports/new?team=${team.id}`)}
+                >
+                  + Create report
+                </button>
+              )}
             </div>
           </div>
-          <div className="id-spacer" />
         </div>
 
         {/* ── Tile dashboard ──────────────────────────────────────────── */}
@@ -250,7 +289,7 @@ export default function TeamPage() {
               <span className="tile-label">Open tasks</span>
               <span className="tile-ico">▣</span>
             </div>
-            <div className="tile-value">{data.open_tasks}</div>
+            <div className="tile-value"><CountUp value={data.open_tasks} /></div>
             <div className="tile-sub">
               {blockedTasks > 0 && <><span className="bad">{blockedTasks} blocked</span> &bull; </>}
               {activeOpenTasks} active
@@ -262,7 +301,7 @@ export default function TeamPage() {
               <span className="tile-label">Closed tasks</span>
               <span className="tile-ico">✓</span>
             </div>
-            <div className="tile-value">{data.closed_tasks}</div>
+            <div className="tile-value"><CountUp value={data.closed_tasks} /></div>
             <div className="tile-sub">
               <span className="pos">{finishedTasks} finished</span>
               {abandonedTasks > 0 && <> &bull; {abandonedTasks} abandoned</>}
@@ -274,7 +313,7 @@ export default function TeamPage() {
               <span className="tile-label">Meetings</span>
               <span className="tile-ico">✎</span>
             </div>
-            <div className="tile-value">{data.meeting_count}</div>
+            <div className="tile-value"><CountUp value={data.meeting_count} /></div>
             <div className="tile-sub">{lastMeeting ? `last: ${lastMeeting}` : 'none yet'}</div>
           </button>
 
@@ -286,11 +325,11 @@ export default function TeamPage() {
             <div className="tile-value">
               {constantDomainCount > 0 ? (
                 <>
-                  {realDomainCount} + {constantDomainCount}
+                  <CountUp value={realDomainCount} /> + {constantDomainCount}
                   <span className="tile-unit"> constants</span>
                 </>
               ) : (
-                realDomainCount
+                <CountUp value={realDomainCount} />
               )}
             </div>
             <div className="tile-sub">{constantDomainCount > 0 ? ' ' : '—'}</div>
@@ -301,7 +340,7 @@ export default function TeamPage() {
               <span className="tile-label">Artifacts</span>
               <span className="tile-ico">◈</span>
             </div>
-            <div className="tile-value">{data.artifact_count}</div>
+            <div className="tile-value"><CountUp value={data.artifact_count} /></div>
             <div className="tile-sub">{artifactTypes.length ? artifactTypes.join(' · ') : '—'}</div>
           </button>
         </div>
@@ -477,8 +516,6 @@ function DomainCard({
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.4px',
-                background: '#fee2e2',
-                color: '#991b1b',
               }}
             >
               Priority {domain.priority}
@@ -505,7 +542,7 @@ function DomainCard({
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
                       <StatusBadge status={t.status} />
-                      <span style={{ fontSize: 12, color: '#374151' }}>{t.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t.name}</span>
                     </span>
                   </div>
                 ))}
@@ -545,19 +582,8 @@ function DomainCard({
 
         {/* Week-by-week story for this domain */}
         {(dp.task_history.length > 0 || dp.artifact_history.length > 0) && (
-          <div style={{ marginTop: 16, borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
-            <div
-              style={{
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.6px',
-                color: '#9ca3af',
-                marginBottom: 10,
-              }}
-            >
-              History — week by week
-            </div>
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--border-subtle)', paddingTop: 14 }}>
+            <div className="domain-story-label">History — week by week</div>
             <DomainStory
               tasks={dp.tasks}
               artifacts={dp.artifacts}
@@ -587,7 +613,7 @@ function ArtifactsTable({
       header: 'Artifact',
       render: (a) => (
         <span
-          style={{ color: '#4361ee', cursor: 'pointer' }}
+          style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
           onClick={(e) => { e.stopPropagation(); onArtifactClick(a.id); }}
           role="button"
           tabIndex={0}
@@ -643,7 +669,7 @@ function TasksTable({
       key: 'name',
       header: 'Task',
       render: (t) => (
-        <Link to={`/tasks/${t.id}`} style={{ color: '#4361ee' }}>
+        <Link to={`/tasks/${t.id}`}>
           {t.name}
         </Link>
       ),

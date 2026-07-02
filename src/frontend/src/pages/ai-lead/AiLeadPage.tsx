@@ -6,6 +6,7 @@ import { SearchBar } from '@/search/SearchBar';
 import { useSearchQuery } from '@/search/useSearchQuery';
 import { parseDslToChips, type Chip } from '@/search/filter-builder';
 import { EmptyState } from '@/components/EmptyState';
+import { CountUp } from '@/components/CountUp';
 import type {
   ActionItemPatchBody,
   AILeadActionItem,
@@ -127,6 +128,80 @@ function teamColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return TEAM_PALETTE[h % TEAM_PALETTE.length] ?? '#94a3b8';
+}
+
+// Minimal line icons for the summary tiles (stroke = currentColor, tinted to the
+// tile's accent hue in CSS). Kept inline + tiny so no icon dep is pulled in.
+function TileIcon({ name }: { name: 'open' | 'overdue' | 'blocked' | 'done' }) {
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+  if (name === 'open') {
+    return (
+      <svg {...common}>
+        <line x1="8" y1="7" x2="20" y2="7" />
+        <line x1="8" y1="12" x2="20" y2="12" />
+        <line x1="8" y1="17" x2="20" y2="17" />
+        <circle cx="4" cy="7" r="1" />
+        <circle cx="4" cy="12" r="1" />
+        <circle cx="4" cy="17" r="1" />
+      </svg>
+    );
+  }
+  if (name === 'overdue') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+  if (name === 'blocked') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.5 2.5 5-5.5" />
+    </svg>
+  );
+}
+
+// Shimmer placeholder shown while the action items load (matches the tile + table
+// surfaces). Reuses the shared `.skeleton*` utilities; reduced-motion safe.
+function ActionsSkeleton() {
+  return (
+    <div className="ail-skeleton" aria-hidden="true">
+      <div className="tile-grid">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="tile skeleton-tile">
+            <div className="skeleton skeleton-text w-40" />
+            <div className="skeleton sk-value" />
+            <div className="skeleton skeleton-text w-60" />
+          </div>
+        ))}
+      </div>
+      <div className="skeleton sk-search" />
+      <div className="list-card">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="skeleton-row sk-listrow" />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function AiLeadPage() {
@@ -355,15 +430,17 @@ export default function AiLeadPage() {
   return (
     <>
       <div className="top-bar">
-        <span className="top-bar-title">AI Lead</span>
+        <div className="top-bar-head ail-head">
+          <span className="id-avatar" aria-hidden="true">AL</span>
+          <div className="ail-head-text">
+            <span className="top-bar-eyebrow">Command center</span>
+            <span className="top-bar-title">AI Lead</span>
+            <span className="top-bar-sub">Cross-team action items &amp; personal toolkit</span>
+          </div>
+        </div>
       </div>
 
-      <div className="page-body ai-lead-page">
-        <div className="identity">
-          <div className="id-avatar">AL</div>
-          <div className="id-name">AI Lead</div>
-        </div>
-
+      <div className="page-body ai-lead-page anim-enter">
         <div className="tabs" role="tablist">
           <button
             type="button"
@@ -396,30 +473,34 @@ export default function AiLeadPage() {
           hidden={tab !== 'actions'}
         >
           {loading ? (
-            <div className="text-muted text-sm">Loading action items…</div>
+            <ActionsSkeleton />
           ) : error ? (
             <div className="ail-load-error">{error}</div>
           ) : (
             <>
-              <div className="tile-grid">
+              <div className="tile-grid stagger-children">
                 <div className="tile acc-blue">
+                  <span className="tile-ic"><TileIcon name="open" /></span>
                   <div className="tile-label">Open</div>
-                  <div className="tile-value">{counts.open}</div>
+                  <div className="tile-value"><CountUp value={counts.open} /></div>
                   <div className="tile-sub">planned · in&nbsp;progress · blocked</div>
                 </div>
                 <div className="tile acc-red">
+                  <span className="tile-ic"><TileIcon name="overdue" /></span>
                   <div className="tile-label">Overdue</div>
-                  <div className="tile-value">{counts.overdue}</div>
+                  <div className="tile-value"><CountUp value={counts.overdue} /></div>
                   <div className="tile-sub">past due date</div>
                 </div>
                 <div className="tile acc-amber">
+                  <span className="tile-ic"><TileIcon name="blocked" /></span>
                   <div className="tile-label">Blocked</div>
-                  <div className="tile-value">{counts.blocked}</div>
+                  <div className="tile-value"><CountUp value={counts.blocked} /></div>
                   <div className="tile-sub">needs unblocking</div>
                 </div>
                 <div className="tile acc-green">
+                  <span className="tile-ic"><TileIcon name="done" /></span>
                   <div className="tile-label">Done</div>
-                  <div className="tile-value">{counts.done}</div>
+                  <div className="tile-value"><CountUp value={counts.done} /></div>
                   <div className="tile-sub">finished / closed</div>
                 </div>
               </div>
@@ -966,7 +1047,11 @@ function Toolkit({
 
       <div className="tk-body">
         {loading ? (
-          <div className="text-muted text-sm tk-pad">Loading toolkit…</div>
+          <div className="tk-skeleton" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton-row sk-tkrow" />
+            ))}
+          </div>
         ) : loadError ? (
           <div className="ail-load-error">{loadError}</div>
         ) : items.length === 0 ? (
